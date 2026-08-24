@@ -1,5 +1,16 @@
 # CareIL Project Context
 
+## v35 email verification enforcement
+
+- Therapist accounts are created with `email_verified = 0`.
+- Registration does not sign the therapist in before email verification.
+- `/enter_email` keeps the user on the registration verification-code form.
+- `/login` redirects unverified accounts to the email verification flow.
+- `/verify` marks the account verified, consumes the one-time code, and signs the therapist in.
+- Existing databases are migrated automatically by adding the `email_verified` column with a default value of `0`.
+- Verification codes expire after five minutes and are deleted after successful use.
+- `tests/test_registration_flow.py` covers early-login prevention, unverified-login blocking, code-form rendering, and activation after a valid code.
+
 Last consolidated: 2026-08-23
 
 This file is the project handoff and continuity record for future CareIL work. It summarizes the useful decisions and implementation history from earlier conversations. It is not a verbatim chat transcript and contains no credentials or client records.

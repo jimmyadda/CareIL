@@ -158,7 +158,7 @@ def load_user(userid):  #or client patid
         # browser cookie pointing at a database that no longer exists.
         session.pop('client_key', None)
         return None
-    if len(users)==1:        
+    if len(users)==1 and bool(users[0].get('email_verified')):
         user = User(users[0]['userid'],users[0]['email'],users[0]['name'],users[0]['client_key'])
     if len(client)==1:
         user = ClientUser(client[0]['pat_id'],client[0]['pat_email'],client[0]['pat_first_name'],client[0]['client_key'])
@@ -308,14 +308,10 @@ def registration_request():
         session['formData'] = form
         print('ok:' ,ok)
         if ok == 1: 
-            user = load_user(form['userid'])
-            print("user",user)
-            logger.info("New User Created: "+ user.name)  
-            #Get User/Therapist
-            # User is authenticated, now move to phone number entry step
+            logger.info("New User Created: "+ form['name'])
+            session['pending_verification_userid'] = form['userid']
             session['verification_step'] = 0
             session['email_step'] = 1               
-            logged = flask_login.login_user(user) 
             return render_template('register.html',alert="", verification_step=session['verification_step'], email_step=session['email_step'])          
         else:
             return redirect(f"/error") 
@@ -339,7 +335,18 @@ def login_request():
             saved_key = users[0]['password']
             generated_key = hashlib.pbkdf2_hmac('sha256',form['password'].encode('utf-8'),salt.encode('utf-8'),10000).hex()            
             if saved_key == generated_key: #password match
-                session['client_key'] = client_key 
+                session['client_key'] = client_key
+                if not bool(users[0].get('email_verified')):
+                    flask_login.logout_user()
+                    session['pending_verification_userid'] = formid
+                    session['email_step'] = 1
+                    session['verification_step'] = 0
+                    return render_template(
+                        'register.html',
+                        alert="Please verify your email before signing in.",
+                        verification_step=0,
+                        email_step=1,
+                    )
                 user = load_user(formid)                 
                 logger.info(f"Login successfull - '{formid}'  date: {str(datetime.datetime.now())}")
                 # Store client_key in the session
@@ -358,7 +365,8 @@ def login_request():
 @app.route('/enter_email', methods=['POST'])
 def enter_email():
     client_key = session.get('client_key')
-    if not client_key:
+    pending_userid = session.get('pending_verification_userid')
+    if not client_key or not pending_userid:
         flash("Your session expired. Please log in and try again.", "warning")
         return redirect(url_for('login_page'))
 
@@ -367,12 +375,16 @@ def enter_email():
         flash("Please enter a valid email address.", "danger")
         return redirect(url_for('registration_page'))
     session['email'] = email
+    database_write(
+        "UPDATE accounts SET email=? WHERE userid=?",
+        (email, pending_userid),
+    )
     
     # Generate a random verification code
     verification_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
     # Store the verification code in the database with an expiration time (e.g., 10 minutes from now)
-    expiration_time = datetime.datetime.now() + datetime.timedelta(minutes=10)
+    expiration_time = datetime.datetime.now() + datetime.timedelta(minutes=5)
     store_verification_code(client_key, verification_code, expiration_time)
 
     # Send the verification code email
@@ -390,30 +402,59 @@ def enter_email():
     session['verification_code'] = verification_code
     session['email_step'] = 0
     session['verification_step'] = 1
-    return render_template('login.html', alert="", verification_step=session['verification_step'], email_step=session['email_step'])
+    return render_template(
+        'register.html',
+        alert="",
+        email=email,
+        verification_step=1,
+        email_step=0,
+    )
 
 # Route for 2FA verification (User enters verification code)
 @app.route('/verify', methods=['POST'])
 def verify():
     client_key = session.get('client_key')
-    if not client_key:
+    pending_userid = session.get('pending_verification_userid')
+    if not client_key or not pending_userid:
         flash("Your verification session expired. Please log in again.", "warning")
         return redirect(url_for('login_page'))
 
     entered_code = request.form.get('verification_code', '').strip()
     if not entered_code:
-        flash("Please enter the verification code.", "danger")
-        return redirect(url_for('login_page'))
+        return render_template(
+            'register.html',
+            alert="Please enter the verification code.",
+            email=session.get('email', ''),
+            verification_step=1,
+            email_step=0,
+        )
 
     # Verify the entered code
     print("entered_code",entered_code)
     if verify_code(client_key, entered_code):
-        session['verification_step'] = False  # Reset after successful verification
+        database_write(
+            "UPDATE accounts SET email_verified=1 WHERE userid=?",
+            (pending_userid,),
+        )
+        user = load_user(pending_userid)
+        if not user:
+            flash("The account could not be loaded after verification. Please sign in.", "warning")
+            return redirect(url_for('login_page'))
+        flask_login.login_user(user)
+        session.pop('pending_verification_userid', None)
+        session.pop('verification_code', None)
+        session['verification_step'] = 0
+        session['email_step'] = 0
         flash("Email verified successfully!", "success")
-        return redirect('/') # Redirect to home page after login
+        return redirect('/')
     else:
-        flash("Incorrect code or expired. Please try again.", "danger")
-        return redirect(url_for('login_page'))
+        return render_template(
+            'register.html',
+            alert="Incorrect or expired code. Please try again.",
+            email=session.get('email', ''),
+            verification_step=1,
+            email_step=0,
+        )
 
 @app.route("/logout")
 @flask_login.login_required

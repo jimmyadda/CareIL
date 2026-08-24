@@ -39,8 +39,6 @@ def verify_code(client_key, entered_code):
     """, (client_key,))
     
     result = cursor.fetchone()
-    conn.close()
-
     print("verify_code: ", result)
     if result:
         stored_code = result['code']
@@ -50,11 +48,9 @@ def verify_code(client_key, entered_code):
         # Get the current time
         current_time = datetime.datetime.now()
 
-        # Calculate the difference in seconds
-        time_difference = (current_time - code_timestamp).total_seconds()        
-        # Check if the code has expired (5 minutes expiration)
-        if time_difference > 300:  # 5 minutes = 300 seconds
+        if current_time > code_timestamp:
             print("Verification code has expired.")
+            conn.close()
             return False
         else:
             print("Verification code is still valid.")
@@ -62,11 +58,19 @@ def verify_code(client_key, entered_code):
         # Compare the stored code with the entered code
         if entered_code == stored_code:
             print("Verification successful.")
+            cursor.execute(
+                "DELETE FROM verification_codes WHERE user_id = ?",
+                (client_key,),
+            )
+            conn.commit()
+            conn.close()
             return True
         else:
             print("Incorrect code.")
+            conn.close()
             return False
     else:
         print("No verification code found for this email.")
+        conn.close()
         return False
     

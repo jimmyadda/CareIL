@@ -57,11 +57,24 @@ class DatabaseManager:
             raise FileNotFoundError(f"Database file '{db_path}' does not exist.")
 
         conn = sqlite3.connect(db_path)
+        self.ensure_account_verification_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_account_verification_schema(conn):
+        """Add persistent email-verification state to existing account databases."""
+        account_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(accounts)").fetchall()
+        }
+        if account_columns and 'email_verified' not in account_columns:
+            conn.execute(
+                "ALTER TABLE accounts ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.commit()
 
     @staticmethod
     def ensure_google_calendar_schema(conn):
@@ -144,7 +157,8 @@ class DatabaseManager:
             phone_number TEXT,
             email TEXT,
             name TEXT,
-            client_key TEXT
+            client_key TEXT,
+            email_verified INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS users (
             userid TEXT PRIMARY KEY,
