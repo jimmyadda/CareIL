@@ -7,11 +7,11 @@
         "MAIL_PASSWORD": ""
     },
     "Global":{
-        "database": "TherapyManager.db",
+        "database": "CareIL.db",
         "port": 5000,
         "host": "127.0.0.1",
         "DEFAULT_CLIENT_KEY" : "default_client",
-        "DEFAULT_DB_PATH" : "./databases/default_client.db",
+        "DEFAULT_DB_PATH" : "./databases/CareIL_default_client.db",
         "BASE_DB_PATH" :"./databases/"
     },    
     "database":{
