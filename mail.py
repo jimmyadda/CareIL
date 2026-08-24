@@ -14,6 +14,11 @@ import smtplib
 import logging
 
 from package.database import DatabaseManager
+from package.email_service import (
+    careil_logo_attachment,
+    resend_is_configured,
+    send_resend_email,
+)
 SECRET_KEY = os.environ.get('THERAPY_SECRET_KEY', 'change-this-development-key')
 
 def email_brand_header():
@@ -150,6 +155,15 @@ def send_mail(notification='',PclineKey=None):
         }
     email_content = email_brand_header() + email_body.format(**email_data)
     email_content += f"<br><p><a href={task_url}>Go to Task</a></p>"
+    if resend_is_configured():
+        send_resend_email(
+            receiver_email,
+            subject,
+            email_content,
+            attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+        )
+        print('Email sent through Resend!')
+        return redirect(f"/main?folderid={form['folderid']}&id={form['id']}")
     # Create MIME message
     message = MIMEMultipart('related')
     message['From'] = sender_email
@@ -280,6 +294,15 @@ def send_notification(data):
             } 
     email_content = email_brand_header() + email_body.format(**email_data)
     email_content += f"<br><p><a href={patient_url}>Go to patient page</a></p>"
+    if resend_is_configured():
+        send_resend_email(
+            receiver_email,
+            subject,
+            email_content,
+            attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+        )
+        print('Email sent through Resend!')
+        return "ok"
     # Create MIME message
     message = MIMEMultipart('related')
     message['From'] = sender_email

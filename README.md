@@ -48,3 +48,7 @@ Before public production use, add CSRF protection, rate limiting, encrypted back
 Confirmed appointments are created in the connected primary calendar. Updates and deletions are synchronized too. Client-requested appointments are not synchronized until the therapist approves them. Refresh tokens are encrypted with `THERAPY_SECRET_KEY`; changing that key requires reconnecting Google Calendar.
 
 Google Calendar and appointment-email end times use the session duration saved under **Clinic settings → Booking availability**. It is not duplicated in `.env`.
+
+## Transactional email on Railway
+
+Railway deployments send verification, appointment, portal-link, and welcome emails through Resend's HTTPS API. Configure `RESEND_API_KEY` and `CAREIL_FROM_EMAIL` as Railway service variables. Gmail SMTP remains available only as a local fallback when the Resend variables are absent.

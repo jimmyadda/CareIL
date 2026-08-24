@@ -47,6 +47,13 @@ from package.google_calendar import (
     save_connection as save_google_calendar_connection,
     sync_all_upcoming as sync_all_google_appointments,
 )
+from package.email_service import (
+    careil_logo_attachment,
+    encoded_attachment,
+    resend_is_configured,
+    resend_sender_address,
+    send_resend_email,
+)
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -353,7 +360,15 @@ def enter_email():
     store_verification_code(session['client_key'], verification_code, expiration_time)
 
     # Send the verification code email
-    send_verification_code(email, verification_code)
+    if not send_verification_code(email, verification_code):
+        session['email_step'] = 1
+        session['verification_step'] = 0
+        return render_template(
+            'register.html',
+            alert="The verification email could not be sent. Please try again.",
+            verification_step=0,
+            email_step=1,
+        )
 
     # Store the code in the session to verify later
     session['verification_code'] = verification_code
@@ -431,7 +446,7 @@ def send_appointment(notification=''):
         subject = "CareIL | פגישת טיפול עם: " + doc_fullname
     else:
         subject = "CareIL | Appointment with: " + doc_fullname
-    sender_email= str(mail_settings['MAIL_USERNAME'])
+    sender_email = resend_sender_address() if resend_is_configured() else str(mail_settings['MAIL_USERNAME'])
     receiver_email = pat_email
     
     #Build Msg
@@ -503,6 +518,19 @@ def send_appointment(notification=''):
             admin=sender_email,
             admin_mail=sender_email
         )
+    if resend_is_configured():
+        send_resend_email(
+            receiver_email,
+            subject,
+            email_content,
+            attachments=[
+                careil_logo_attachment(os.path.dirname(__file__)),
+                encoded_attachment(ics, "calendar.ics", "text/calendar"),
+            ],
+        )
+        print('Email sent through Resend!')
+        return redirect(f"/appointment")
+
     message = MIMEMultipart('related')    
     message['From'] = sender_email
     message['To'] = receiver_email    
@@ -1339,7 +1367,7 @@ def create_portal_invitation(pat_id):
         if not patient.get('pat_email'):
             return jsonify({'error': 'This patient does not have an email address'}), 400
         settings = get_Mail_settings(client_key)
-        if not str(settings.get('MAIL_USERNAME') or ''):
+        if not resend_is_configured() and not str(settings.get('MAIL_USERNAME') or ''):
             return jsonify({'error': 'Mail settings are not configured'}), 400
     token, expires_at = _create_portal_invitation(
         pat_id, client_key, flask_login.current_user.get_id()
@@ -1348,13 +1376,30 @@ def create_portal_invitation(pat_id):
     if action == 'send':
         sender = str(settings.get('MAIL_USERNAME') or '')
         name = ' '.join(filter(None, [patient.get('pat_first_name'), patient.get('pat_last_name')]))
-        message = MIMEMultipart('related')
-        message['From'] = sender
-        message['To'] = patient['pat_email']
-        message['Subject'] = 'CareIL | Your secure client portal link'
+        subject = 'CareIL | Your secure client portal link'
         body = (email_brand_header() + f'<p>Hello {name},</p><p>Use the secure link below to open your client portal. '
                 f'The link expires in 30 minutes and can be used once.</p>'
                 f'<p><a href="{portal_url}">Open client portal</a></p>')
+        if resend_is_configured():
+            try:
+                send_resend_email(
+                    patient['pat_email'],
+                    subject,
+                    body,
+                    attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+                )
+                return jsonify({'url': portal_url, 'expires_at': expires_at, 'sent': True})
+            except Exception:
+                current_app.logger.exception('Failed to send portal invitation through Resend')
+                database_write(
+                    "UPDATE portal_invitations SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?",
+                    (_portal_token_hash(token),)
+                )
+                return jsonify({'error': 'The portal email could not be sent. Check the Resend settings.'}), 502
+        message = MIMEMultipart('related')
+        message['From'] = sender
+        message['To'] = patient['pat_email']
+        message['Subject'] = subject
         message.attach(MIMEText(body, 'html', _charset='utf-8'))
         attach_email_logo(message)
         try:
@@ -1570,7 +1615,7 @@ def postmsg():
 
 def send_verification_code(email, verification_code):
     
-    sender_email = app.config['MAIL_USERNAME']
+    sender_email = resend_sender_address() if resend_is_configured() else app.config['MAIL_USERNAME']
     print(sender_email)
     """ Send the verification code to the user's email """
     msg = Message('CareIL | Your Verification Code', 
@@ -1589,10 +1634,21 @@ def send_verification_code(email, verification_code):
   
     
     try:
-        mail.send(msg)
+        if resend_is_configured():
+            send_resend_email(
+                email,
+                'CareIL | Your Verification Code',
+                msg.html,
+                text=msg.body,
+                attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+            )
+        else:
+            mail.send(msg)
         print(f"Verification email sent to {email}")
+        return True
     except Exception as e:
         print(f"Failed to send email: {e}")
+        return False
 
 
 if __name__ == "__main__":

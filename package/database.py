@@ -20,6 +20,7 @@ class DatabaseManager:
         print("Self",client_key)
         self.base_db_path = self.global_settings["BASE_DB_PATH"]
         self.default_client_key = self.global_settings["DEFAULT_CLIENT_KEY"]
+        self.default_db_path = self.global_settings["DEFAULT_DB_PATH"]
 
     def get_db_path(self, client_key=None):
         """
@@ -29,7 +30,9 @@ class DatabaseManager:
         :return: Path to the database file.
         """
         client_key = client_key or self.default_client_key
-        return os.path.join(self.base_db_path, f"{client_key}.db")
+        if client_key == self.default_client_key:
+            return self.default_db_path
+        return os.path.join(self.base_db_path, f"CareIL_{client_key}.db")
 
     @staticmethod
     def dict_factory(cursor, row):
