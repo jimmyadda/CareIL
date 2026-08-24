@@ -147,9 +147,17 @@ base_db_path = "./databases/"
 @login_manager.user_loader
 def load_user(userid):  #or client patid
     user=None
-    clientKey = session['client_key']
-    users = database_read(f"select * from accounts where userid='{userid}';",client_key=clientKey)
-    client = database_read(f"select * from patient where pat_id='{userid}';",client_key=clientKey)    
+    clientKey = session.get('client_key')
+    if not clientKey:
+        return None
+    try:
+        users = database_read(f"select * from accounts where userid='{userid}';",client_key=clientKey)
+        client = database_read(f"select * from patient where pat_id='{userid}';",client_key=clientKey)
+    except FileNotFoundError:
+        # A deployment, database rename, or removed tenant can leave an old
+        # browser cookie pointing at a database that no longer exists.
+        session.pop('client_key', None)
+        return None
     if len(users)==1:        
         user = User(users[0]['userid'],users[0]['email'],users[0]['name'],users[0]['client_key'])
     if len(client)==1:
@@ -349,7 +357,15 @@ def login_request():
 
 @app.route('/enter_email', methods=['POST'])
 def enter_email():
-    email = request.form['email']
+    client_key = session.get('client_key')
+    if not client_key:
+        flash("Your session expired. Please log in and try again.", "warning")
+        return redirect(url_for('login_page'))
+
+    email = request.form.get('email', '').strip()
+    if not email:
+        flash("Please enter a valid email address.", "danger")
+        return redirect(url_for('registration_page'))
     session['email'] = email
     
     # Generate a random verification code
@@ -357,7 +373,7 @@ def enter_email():
 
     # Store the verification code in the database with an expiration time (e.g., 10 minutes from now)
     expiration_time = datetime.datetime.now() + datetime.timedelta(minutes=10)
-    store_verification_code(session['client_key'], verification_code, expiration_time)
+    store_verification_code(client_key, verification_code, expiration_time)
 
     # Send the verification code email
     if not send_verification_code(email, verification_code):
@@ -379,11 +395,19 @@ def enter_email():
 # Route for 2FA verification (User enters verification code)
 @app.route('/verify', methods=['POST'])
 def verify():
-    entered_code = request.form['verification_code']
+    client_key = session.get('client_key')
+    if not client_key:
+        flash("Your verification session expired. Please log in again.", "warning")
+        return redirect(url_for('login_page'))
+
+    entered_code = request.form.get('verification_code', '').strip()
+    if not entered_code:
+        flash("Please enter the verification code.", "danger")
+        return redirect(url_for('login_page'))
 
     # Verify the entered code
     print("entered_code",entered_code)
-    if verify_code(session.get('client_key'), entered_code):
+    if verify_code(client_key, entered_code):
         session['verification_step'] = False  # Reset after successful verification
         flash("Email verified successfully!", "success")
         return redirect('/') # Redirect to home page after login

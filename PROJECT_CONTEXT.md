@@ -232,11 +232,12 @@ https://YOUR_PUBLIC_DOMAIN/google-calendar/callback
 ## Current source and artifacts
 
 - Current consolidated package at the time of this handoff: v30 (application changes through v29 plus this continuity record).
-- Clean full-source archive: `CareIL-full-source-v33.zip`.
+- Clean full-source archive: `CareIL-full-source-v34.zip`.
 - Earlier small unified-color update predates the CareIL rename.
 - The working source folder is `TherapyManager` in the current workspace (legacy technical folder name).
 - Fresh deployments use `CareIL.db`, `databases/CareIL_default_client.db`, and `databases/CareIL_<client_key>.db`; no legacy database migration is required.
 - Railway transactional email uses Resend over HTTPS through `RESEND_API_KEY` and `CAREIL_FROM_EMAIL`; SMTP remains only as a local fallback.
+- Email verification and user loading safely recover from missing or stale browser sessions instead of raising `KeyError` or `FileNotFoundError`.
 - The project root contains `README.md`, `.env.example`, and this `PROJECT_CONTEXT.md`.
 
 ## Known follow-up work
