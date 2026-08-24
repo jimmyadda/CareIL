@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+   <meta name="description" content="Bootstrap Admin App + jQuery">
+   <meta name="keywords" content="app, responsive, jquery, bootstrap, dashboard, admin">
+   <title>CareIL</title>
+   <!-- =============== VENDOR STYLES ===============-->
+   <!-- FONT AWESOME-->
+   <link rel="stylesheet" href="static/vendor/fontawesome/css/font-awesome.min.css">
+   <!-- SIMPLE LINE ICONS-->
+   <link rel="stylesheet" href="static/vendor/simple-line-icons/css/simple-line-icons.css">
+   <!-- ANIMATE.CSS-->
+   <link rel="stylesheet" href="static/vendor/animate.css/animate.min.css">
+   <!-- WHIRL (spinners)-->
+   <link rel="stylesheet" href="static/vendor/whirl/dist/whirl.css">
+    <link rel="stylesheet" href="static/vendor/sweetalert/dist/sweetalert.css">
+     <!-- DATATABLES-->
+   <link rel="stylesheet" href="static/vendor/datatables-colvis/css/dataTables.colVis.css">
+   <link rel="stylesheet" href="static/vendor/datatables/media/css/dataTables.bootstrap.css">
+   <link rel="stylesheet" href="static/vendor/dataTables.fontAwesome/index.css">
+
+
+   <!-- =============== PAGE VENDOR STYLES ===============-->
+   <!-- =============== BOOTSTRAP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss">
+    <link rel="stylesheet" href="static/vendor/datepicker/build/css/bootstrap-datetimepicker.min.css">
+   <!-- =============== APP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/app.css" id="maincss">
+
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+<body class="layout-h">
+   <div class="wrapper">
+      <!-- top navbar-->
+      <header class="topnavbar-wrapper">
+         <!-- START Top Navbar-->
+         <nav role="navigation" class="navbar topnavbar">
+            <!-- START navbar header-->
+            <div class="navbar-header">
+               <a href="/" class="navbar-brand">
+                  <div class="brand-logo">
+                     CareIL
+                  </div>
+                  <div class="brand-logo-collapsed">
+                     <img src="img/logo-single.png" alt="App Logo" class="img-responsive">
+                  </div>
+               </a>
+            </div>
+            <!-- END navbar header-->
+            <!-- START Nav wrapper-->
+            <div class="nav-wrapper">
+
+            </div>
+            <!-- END Nav wrapper-->
+            <!-- START Search form-->
+            <form role="search" action="search.html" class="navbar-form">
+               <div class="form-group has-feedback">
+                  <input type="text" placeholder="Type and hit enter ..." class="form-control">
+                  <div data-search-dismiss="" class="fa fa-times form-control-feedback"></div>
+               </div>
+               <button type="submit" class="hidden btn btn-default">Submit</button>
+            </form>
+            <!-- END Search form-->
+         </nav>
+         <!-- END Top Navbar-->
+      </header>
+      <!-- sidebar-->
+
+      <!-- offsidebar-->
+
+      <!-- Main section-->
+      <section>
+         <!-- Page content-->
+         <div class="content-wrapper">
+            <div class="content-heading">
+               <!-- START Language list-->
+
+               <!-- END Language list    -->
+              Session Summaries
+               <small data-localize="dashboard.WELCOME"></small>
+                <div class="pull-right">
+                  <div class="btn-group">
+                     <button style="bottom: 27px;" id="addpatient" class="mb-sm btn btn-primary" type="button">Add session summary</button>
+
+                  </div>
+               </div>
+            </div>
+           <div class="row">
+                  <div class="col-lg-12">
+                     <div class="panel panel-default"  style="padding: 15px;">
+
+                        <div class="table-responsive">
+                           <table id="datatable4" class="table table-striped">
+                              <thead>
+                                 <tr>
+                                    <th style="width:10%">Rec</th>
+                                    <th style="width:25%">Client</th>
+                                    <th style="width:35%">Desc</th>
+                                    <th style="width: 10%;">Date</th>
+                                      <th style="width:15%"></th>
+                                      <th style="width:15%"></th>
+                                      <th style="width:15%"></th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                {% for note in pat_mednotes%}
+                                <tr>
+                                  <td>{{ note['rec_id'] }}</td>
+                                  <td>{{ note['pat_first_name'] }} {{ note['pat_last_name'] }}</td>
+                                  <td>{{ note['text'] }}</td>                
+                                  <td>{{ note['create_date'] }}</td>  
+                                  <td><button class="btn-xs btn btn-info btn-edit" type="button">Edit</button> &nbsp;
+                                  <button class="btn-xs btn btn-danger delete-btn" type="button">Delete</button></td>
+                                  <td name="id" class="noteid" style="display: none;">{{ note['rec_id'] }}</td>
+                                  <td name="id" class="patientid" style="display: none;">{{ note['pat_id'] }}</td>
+                                </tr>
+                                {% endfor %} 
+                              </tbody>
+                           </table>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+         </div>
+      </section>
+      <!-- Page footer-->
+      <footer>
+         <span>&copy; 2024 - CareIL</span>
+      </footer>
+   </div>
+
+   <!-- =============== VENDOR SCRIPTS ===============-->
+   <!-- MODERNIZR-->
+   <script src="/static/vendor/modernizr/modernizr.custom.js"></script>
+
+   <!-- JQUERY-->
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+
+   <!-- <script src="/static/vendor/moment/moment-with-locales.min.js"></script> -->
+   <!-- BOOTSTRAP-->
+   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="/static/vendor/datatables/media/js/jquery.dataTables.min.js"></script>
+   <script src="/static/vendor/datatables-colvis/js/dataTables.colVis.js"></script>
+   <script src="/static/vendor/datatables/media/js/dataTables.bootstrap.js"></script>
+   <script src="/static/vendor/serialize/jquery.serializejson.js"></script>
+   <!-- STORAGE API-->
+   <script src="/static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="/static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="/static/vendor/animo.js/animo.js"></script>
+    <script src="/static/vendor/parsley/parsley.min.js"></script>
+       <script src="/static/vendor/sweetalert/dist/sweetalert.min.js"></script>
+   <!-- LOCALIZE-->
+   <!-- <script src="/static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script> -->
+    <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script> 
+   <!-- =============== PAGE VENDOR SCRIPTS ===============-->
+
+
+   <!-- =============== APP SCRIPTS ===============-->
+   <script src="/static/app/js/app.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+
+
+<script>
+   $(document).ready(function () {
+
+     var table = $('#datatable4').DataTable();
+
+            $('#datatable4 tbody').on('click', '.delete-btn', function () {
+                var data = table.row($(this).parents('tr')).data();
+                console.log(data)
+                deleteMedicalNote(data[0])
+            });
+
+            $('.btn-edit').on("click", function (e) {
+                var data = table.row($(this).parents('tr')).data();
+                console.log(data[0]);               
+                openmedicalnote(data[0],data[6])
+            });
+
+
+       function deleteMedicalNote(id) {
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": "medicalnoteapi/" + id,
+            "method": "DELETE",
+            "headers": {
+                "cache-control": "no-cache",
+                "postman-token": "28ea8360-5af0-1d11-e595-485a109760f2"
+            }
+        }
+        //Yes No ?
+        swal({
+            title: "Are you sure?",
+            text: "You will not be able to recover this data",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes, delete it!",
+            closeOnConfirm: false
+        }, function () {
+            $.ajax(settings).done(function (response) {
+                swal("Deleted!", "Session Summary has been deleted.", "success");
+                table.destroy();
+                $('#datatable4 tbody').empty(); // empty in case the columns change
+                getMedicalNote()
+            });
+        });
+
+    }
+   
+
+    function openmedicalnote(noteid,patienid){               
+        window.open('/medicalnote?id='+patienid+"&noteid="+noteid); 
+        return false;
+    }
+
+   });
+
+</script>
+</html>

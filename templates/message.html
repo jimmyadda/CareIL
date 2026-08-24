@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss">
+<style>
+body {font-family: Arial, Helvetica, sans-serif;}
+* {box-sizing: border-box;}
+
+input[type=text], select, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  resize: vertical;
+}
+
+input[type=submit] {
+  background-color: #04AA6D;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+input[type=submit]:hover {
+  background-color: #45a049;
+}
+
+.container {
+  border-radius: 5px;
+  background-color: #f2f2f2;
+  padding: 20px;
+}
+</style>
+
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+<body>
+
+<h3>Send message to client</h3>
+
+<div class="container">
+  <form method="POST"  enctype="multipart/form-data" action="/message">
+    <div class="form-group">
+        <label class="col-lg-2 control-label">Client</label>
+        <div class="col-lg-10">
+           <select required id="patient_select" type="text" name="pat_id" class="form-control" placeholder="Please select Client"></select>
+        </div>
+     </div>
+    <label for="msg">Subject</label>
+    <textarea id="msg" name="msg" placeholder="Write something.." style="height:200px"></textarea>
+
+    <input type="submit" value="Submit">
+  </form>
+</div>
+
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+   <!-- JQUERY-->
+   <!-- MODERNIZR-->
+   <script src="/static/vendor/modernizr/modernizr.custom.js"></script>
+   <!-- JQUERY-->
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+   <!-- BOOTSTRAP-->
+   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+
+   <script src="/static/vendor/serialize/jquery.serializejson.js"></script>
+   <!-- STORAGE API-->
+   <script src="/static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="/static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="/static/vendor/animo.js/animo.js"></script>
+       <script src="/static/vendor/sweetalert/dist/sweetalert.min.js"></script>
+   <!-- LOCALIZE-->
+   <script src="/static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script>
+   <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script> 
+   <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer></script>
+   <script type="text/javascript" src="https://cdn.addevent.com/libs/atc/1.6.1/atc.min.js" async defer></script>
+   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+      <!-- =============== APP SCRIPTS ===============-->
+<script>
+
+$(document).ready(function () {
+  var url_string = window.location; 
+  var url = new URL(url_string);
+  const patientId = url.searchParams.get("patid");
+
+  
+function getPatient() {
+
+    var patientSelect="";
+
+
+      var settings = {
+          "async": true,
+          "crossDomain": true,
+          "url": "patientapi",
+          "method": "GET",
+          "headers": {
+              "cache-control": "no-cache"
+          }
+      }
+
+      $.ajax(settings).done(function (response) {
+         console.log(response);
+            for(i=0;i<response.length;i++){
+                 response[i].pat_fullname=response[i].pat_first_name+" "+response[i].pat_last_name
+                 if (response[i].pat_id == patientId){
+                  patientSelect +="<option selected ='true' value="+response[i].pat_id+">"+response[i].pat_fullname+"</option>"
+                 }
+                 else
+                 {
+                  patientSelect +="<option value="+response[i].pat_id+">"+response[i].pat_fullname+"</option>"
+                 }
+                 
+                 
+            }
+          console.log(patientSelect);
+          $("#patient_select").html(patientSelect);
+        });
+
+
+              
+      }
+
+      getPatient();
+    });
+</script>
+</html>

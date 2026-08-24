@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+   <meta name="description" content="Bootstrap Admin App + jQuery">
+   <meta name="keywords" content="app, responsive, jquery, bootstrap, dashboard, admin">
+   <title>CareIL</title>
+   <!-- =============== VENDOR STYLES ===============-->
+   <!-- FONT AWESOME-->
+   <link rel="stylesheet" href="static/vendor/fontawesome/css/font-awesome.min.css">
+   <!-- SIMPLE LINE ICONS-->
+   <link rel="stylesheet" href="static/vendor/simple-line-icons/css/simple-line-icons.css">
+   <!-- ANIMATE.CSS-->
+   <link rel="stylesheet" href="static/vendor/animate.css/animate.min.css">
+   <!-- WHIRL (spinners)-->
+   <link rel="stylesheet" href="static/vendor/whirl/dist/whirl.css">
+    <link rel="stylesheet" href="static/vendor/sweetalert/dist/sweetalert.css">
+     <!-- DATATABLES-->
+   <link rel="stylesheet" href="static/vendor/datatables-colvis/css/dataTables.colVis.css">
+   <link rel="stylesheet" href="static/vendor/datatables/media/css/dataTables.bootstrap.css">
+   <link rel="stylesheet" href="static/vendor/dataTables.fontAwesome/index.css">
+   <!-- =============== PAGE VENDOR STYLES ===============-->
+   <!-- =============== BOOTSTRAP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss">
+   <!-- =============== APP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/app.css" id="maincss">
+
+   <style>
+      #detailedform label {
+         direction:rtl;
+  text-align:right;
+      }
+.HE 
+{
+  float: none;
+  text-align: right;
+}
+   </style>
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+<body class="layout-h">
+   <div class="wrapper">
+      <!-- top navbar-->
+      <header class="topnavbar-wrapper">
+         <!-- START Top Navbar-->
+         <nav role="navigation" class="navbar topnavbar">
+            <!-- START navbar header-->
+            <div class="navbar-header">
+               <a href="/" class="navbar-brand">
+                  <div class="brand-logo">
+                     CareIL
+                  </div>
+                  <div class="brand-logo-collapsed">
+                     <img src="img/logo-single.png" alt="App Logo" class="img-responsive">
+                  </div>
+               </a>
+            </div>
+            <!-- END navbar header-->
+            <!-- START Nav wrapper-->
+            <div class="nav-wrapper">
+               <a class="brand-logo"  style="right: 55px;position: absolute;color: white;font-size: 18px; padding: 5px;" href="/therapist">hey, {{ user.name }} 
+                  
+               </a>
+                  <span id="logout_button" >
+                  <i class="fa fa-sign-out" style="right: 0;position: absolute;color: white;font-size: 25px; padding: 5px;" aria-hidden="true"></i>
+               </span>
+            </div>
+            <!-- END Nav wrapper-->
+            <!-- START Search form-->
+            <form role="search" action="search.html" class="navbar-form">
+               <div class="form-group has-feedback">
+                  <input type="text" placeholder="Type and hit enter ..." class="form-control">
+                  <div data-search-dismiss="" class="fa fa-times form-control-feedback"></div>
+               </div>
+               <button type="submit" class="hidden btn btn-default translate EN">Submit</button>
+            </form>
+            <!-- END Search form-->
+         </nav>
+         <!-- END Top Navbar-->
+      </header>
+      <!-- sidebar-->
+
+      <!-- offsidebar-->
+
+      <!-- Main section-->
+      <section>
+         <!-- Page content-->
+         <div class="content-wrapper">
+            <div class="content-heading">
+               <!-- START Language list-->
+
+               <!-- END Language list    -->
+               Therapist profile
+               <small data-localize="dashboard.WELCOME"></small>
+               <small>Manage the therapist details shown to clients.</small>
+            </div>
+           <div class="row" id="create-therapist-row" style="display:none; margin-bottom:16px;">
+              <div class="col-lg-12">
+                 <button id="addpatient" type="button" class="btn btn-primary translate EN" key="createTherapist">
+                    Create therapist profile
+                 </button>
+              </div>
+           </div>
+           <div class="row">
+                  <div class="col-lg-12">
+                     <div class="panel panel-default"  style="padding: 15px;">
+
+                        <div class="table-responsive">
+                           <table id="datatable4" class="table table-striped">
+                              <thead>
+                                 <tr>
+                                    <th key="firstname" class="translate EN" style="width:20%">First Name</th>
+                                    <th key="lastname" class="translate EN" style="width:25%">Last Name</th>
+                                    <th key="address" class="translate EN" style="width:15%">Adress</th>
+                                    <th key="phone" class="translate EN" style="width:15%">Phone Number</th>
+                                    <th key="email" class="translate EN" style="width:25%">Email</th>
+                                      <th style="width:15%"></th>
+                                 </tr>
+                              </thead>
+                              <tbody></tbody>
+                           </table>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+         </div>
+      </section>
+      <!-- Page footer-->
+      <footer>
+         
+            <span >{{ user.userid }}</span>
+         <span>&copy; 2019 - Clinic Management System</span>
+      </footer>
+   </div>
+
+    <div id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" class="modal fade">
+      <div class="modal-dialog">
+         <div class="modal-content">
+            <div class="modal-header">
+               <button type="button" data-dismiss="modal" aria-label="Close" class="close">
+                  <span aria-hidden="true">&times;</span>
+               </button>
+               <h4 key="doch4" id="myModalLabel" class="modal-title translate EN">Therapist</h4>
+            </div>
+            <div class="modal-body">
+               <form data-parsley-validate="" novalidate="" class="form-horizontal" id="detailform">
+                           <div class="form-group">
+                              <label key="firstname" class="col-lg-2 control-label translate EN">First Name</label>
+                              <div class="col-lg-10">
+                                 <input required type="text" name="doc_first_name" class="form-control" placeholder="First Name">
+                              </div>
+                           </div>
+                           <div class="form-group">
+                              <label key="lastname" class="col-lg-2 control-label translate EN">Last name</label>
+                              <div class="col-lg-10">
+                                 <input required type="text" name="doc_last_name" class="form-control" placeholder="Last name">
+                              </div>
+                           </div>
+
+                   <div class="form-group">
+                              <label key="phone" class="col-lg-2 control-label translate EN">Phone Number</label>
+                              <div class="col-lg-10">
+                                 <input required name="doc_ph_no" type="text" class="form-control" placeholder="Phone Number">
+                              </div>
+                           </div>
+                   <div class="form-group">
+                              <label key="address" class="col-lg-2 control-label translate EN">Address</label>
+                              <div class="col-lg-10">
+                                 <textarea required name="doc_address" class="form-control" placeholder="Address"></textarea>
+                              </div>
+                           </div>
+                           <div class="form-group">
+                              <label key="email" class="col-lg-2 control-label translate EN">Email</label>
+                              <div class="col-lg-10">
+                                 <input required name="doc_email" class="form-control" placeholder="Email"></input>
+                              </div>
+                           </div>
+
+                           <input style="display:none;" name="doc_userid" class="form-control" placeholder="doc_userid" value="{{ user.userid }}"></input>
+
+                        </form>
+            </div>
+            <div class="modal-footer">
+               <button key="closebtn" type="button" data-dismiss="modal" class="btn btn-default translate EN">Close</button>
+               <button key="savebtn" id="savethepatient" type="button" class="btn btn-primary translate EN">Save changes</button>
+            </div>
+         </div>
+      </div>
+   </div>
+   <!-- =============== VENDOR SCRIPTS ===============-->
+   <!-- MODERNIZR-->
+   <script src="static/vendor/modernizr/modernizr.custom.js"></script>
+   <!-- JQUERY-->
+   <script src="static/vendor/jquery/dist/jquery.js"></script>
+   <!-- BOOTSTRAP-->
+   <script src="static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="static/vendor/datatables/media/js/jquery.dataTables.min.js"></script>
+   <script src="static/vendor/datatables-colvis/js/dataTables.colVis.js"></script>
+   <script src="static/vendor/datatables/media/js/dataTables.bootstrap.js"></script>
+   <script src="static/vendor/serialize/jquery.serializejson.js"></script>
+   <!-- STORAGE API-->
+   <script src="static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="static/vendor/animo.js/animo.js"></script>
+    <script src="static/vendor/parsley/parsley.min.js"></script>
+       <script src="static/vendor/sweetalert/dist/sweetalert.min.js"></script>
+   <!-- LOCALIZE-->
+   <script src="static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script>
+   <!-- =============== PAGE VENDOR SCRIPTS ===============-->
+   <!-- =============== APP SCRIPTS ===============-->
+   <script src="static/app/js/app.js"></script>
+
+   <script src="/static/app/js/app.js"></script>
+   <script type="text/javascript">
+
+      var my_lang = sessionStorage.getItem("lang");
+      var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');
+    
+    </script>
+<script src="/static/js/doctor.js?v=3"></script>
+<script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+
+</html>

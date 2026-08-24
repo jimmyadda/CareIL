@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+   <meta name="description" content="Bootstrap Admin App + jQuery">
+   <meta name="keywords" content="app, responsive, jquery, bootstrap, dashboard, admin">
+   <title>CareIL</title>
+   <!-- =============== VENDOR STYLES ===============-->
+   <!-- FONT AWESOME-->
+   <link rel="stylesheet" href="static/vendor/fontawesome/css/font-awesome.min.css"> 
+   <!-- SIMPLE LINE ICONS-->
+   <link rel="stylesheet" href="static/vendor/simple-line-icons/css/simple-line-icons.css">
+   <!-- ANIMATE.CSS-->
+   <link rel="stylesheet" href="static/vendor/animate.css/animate.min.css">
+   <!-- WHIRL (spinners)-->
+   <link rel="stylesheet" href="static/vendor/whirl/dist/whirl.css">
+   <!-- =============== PAGE VENDOR STYLES ===============-->
+   <!-- =============== BOOTSTRAP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss">
+   <!-- =============== APP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/app.css" id="maincss">
+
+   <style>
+      a:hover{
+       text-decoration: none!important;
+      }
+   .he {
+  direction: rtl;
+  text-align: right
+}
+
+.en {
+  direction: ltr;
+  text-align: left
+}
+   </style>
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+<body class="layout-h">
+   <div class="wrapper">
+      <!-- top navbar-->
+      <header class="topnavbar-wrapper">
+         <!-- START Top Navbar-->
+         <nav role="navigation" class="navbar topnavbar">
+            <!-- START navbar header-->
+            <div class="navbar-header">
+               <a href="#/" class="navbar-brand">
+                  <div class="brand-logo translate">
+                     CareIL                                         
+                  </div>  
+
+                                 
+                  <div class="brand-logo-collapsed">
+                     <img src="img/logo-single.png" alt="App Logo" class="img-responsive">
+                  </div>
+               </a>
+               <select hidden style="display:none!important" name="lang" id="lang" aria-hidden="true" tabindex="-1">
+                  <option value="none">Language</option>
+                  <option value="EN">EN</option>
+                  <option value="HE">HE</option>
+                </select>
+            </div>
+            <!-- END navbar header-->
+            <!-- START Nav wrapper-->
+            <div class="nav-wrapper">
+               <div class="nav-user-actions">
+                  <div class="language-flags" role="group" aria-label="Choose language">
+                     <button type="button" class="language-flag" data-language="EN" aria-label="English" title="English">
+                        <svg viewBox="0 0 60 36" role="img" aria-hidden="true"><rect width="60" height="36" fill="#012169"/><path d="M0 0l60 36M60 0L0 36" stroke="#fff" stroke-width="7"/><path d="M0 0l60 36M60 0L0 36" stroke="#C8102E" stroke-width="3"/><path d="M30 0v36M0 18h60" stroke="#fff" stroke-width="11"/><path d="M30 0v36M0 18h60" stroke="#C8102E" stroke-width="6"/></svg>
+                     </button>
+                     <button type="button" class="language-flag" data-language="HE" aria-label="עברית" title="עברית">
+                        <svg viewBox="0 0 60 36" role="img" aria-hidden="true"><rect width="60" height="36" fill="#fff"/><rect y="4" width="60" height="5" fill="#0038b8"/><rect y="27" width="60" height="5" fill="#0038b8"/><path d="M30 10l7 12H23zM30 26l-7-12h14z" fill="none" stroke="#0038b8" stroke-width="1.8"/></svg>
+                     </button>
+                  </div>
+                  <a class="nav-user-name" href="/therapist">hey, {{ user.name }}</a>
+                  <a class="nav-icon-button" href="/admin/adminPanel" aria-label="Settings" title="Settings">
+                     <i class="fa fa-cog fa-fw" aria-hidden="true"></i>
+                  </a>
+                  <span id="logout_button" >
+                     <button type="button" class="nav-icon-button" aria-label="Log out" title="Log out"><i class="fa fa-sign-out" aria-hidden="true"></i></button>
+                  </span>
+               </div>
+            </div>
+            <!-- END Nav wrapper-->
+
+            <!-- START Search form
+            <form role="search" action="search.html" class="navbar-form">
+               <div class="form-group has-feedback">
+                  <input type="text" placeholder="Type and hit enter ..." class="form-control">
+                  <div data-search-dismiss="" class="fa fa-times form-control-feedback"></div>
+               </div>
+               <button type="submit" class="hidden btn btn-default">Submit</button>
+            </form>-->
+            <!-- END Search form-->
+
+         </nav>
+         <!-- END Top Navbar-->
+      </header>
+      <!-- sidebar-->
+
+      <!-- offsidebar-->
+
+      <!-- Main section-->
+      <section>
+         <!-- Page content-->
+         <main class="content-wrapper clinic-dashboard">
+            <section class="clinic-welcome">
+               <div>
+                  <h1><span key="dashboardWelcome" class="translate EN">Welcome</span>, {{ user.name }}</h1>
+                  <p key="dashboardIntro" class="translate EN">Your clinic overview, appointments and client work in one calm space.</p>
+               </div>
+               <a class="btn" href="/appointment"><i class="fa fa-plus" aria-hidden="true"></i>&nbsp; <span key="dashboardNewAppointment" class="translate EN">New appointment</span></a>
+            </section>
+
+            <section class="clinic-stats" aria-label="Clinic overview">
+               <a class="clinic-stat" href="/patient">
+                  <span class="clinic-stat__icon"><i class="fa fa-users" aria-hidden="true"></i></span>
+                  <div class="clinic-stat__value" id="patientcount">0</div>
+                  <div key="dashboardActiveClients" class="clinic-stat__label translate EN">Active clients</div>
+               </a>
+               <a class="clinic-stat clinic-stat--accent" href="/appointment">
+                  <span class="clinic-stat__icon"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
+                  <div class="clinic-stat__value" id="appointmentcount">0</div>
+                  <div key="dashboardAppointments" class="clinic-stat__label translate EN">Appointments</div>
+               </a>
+               <a class="clinic-stat" href="/calendar">
+                  <span class="clinic-stat__icon"><i class="fa fa-calendar" aria-hidden="true"></i></span>
+                  <div key="dashboardView" class="clinic-stat__value translate EN">View</div>
+                  <div key="dashboardCalendar" class="clinic-stat__label translate EN">Calendar</div>
+               </a>
+            </section>
+
+            <section class="clinic-section">
+               <div class="clinic-section__header">
+                  <h2 key="dashboardQuickActions" class="translate EN">Quick actions</h2>
+               </div>
+               <div class="clinic-actions">
+                  <a class="clinic-action" href="/patient"><i class="fa fa-user-plus"></i><span key="dashboardClientsAction" class="translate EN">Add or find client</span></a>
+                  <a class="clinic-action" href="/appointment"><i class="fa fa-calendar-plus-o"></i><span key="dashboardScheduleAction" class="translate EN">Manage schedule</span></a>
+                  <a class="clinic-action" href="/patient"><i class="fa fa-file-text-o"></i><span key="dashboardNotesAction" class="translate EN">Session summaries</span></a>
+                  <a class="clinic-action" href="/admin/adminPanel"><i class="fa fa-sliders"></i><span key="dashboardSettingsAction" class="translate EN">Clinic settings</span></a>
+               </div>
+            </section>
+         </main>
+      </section>
+      <!-- Page footer-->
+      <footer>
+         <span>&copy; 2024 -Thrapy Manager</span>
+      </footer>
+   </div>
+
+
+   <!-- =============== VENDOR SCRIPTS ===============-->
+   <!-- MODERNIZR-->
+   <script src="/static/vendor/modernizr/modernizr.custom.js"></script>
+   <!-- JQUERY-->
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+   <!-- BOOTSTRAP-->
+   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+   <!-- STORAGE API-->
+   <script src="/static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="/static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="/static/vendor/animo.js/animo.js"></script>
+   <!-- LOCALIZE-->
+   <script src="/static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script>
+   <!-- =============== PAGE VENDOR SCRIPTS ===============-->
+   <!-- =============== APP SCRIPTS ===============-->
+   <script src="/static/app/js/app.js"></script>
+<script src="/static/js/home.js"></script>
+<script type="text/javascript" src="/static/main.js"></script>
+<script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
+
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+<script>
+   $( document ).ready(function() {
+
+      $("#lang").change(function() {
+            var optionValue = $(this).val();
+            var url = window.location.href.split("?")[0];
+            window.location = url + "?lang=" + optionValue; 
+            sessionStorage.setItem("lang",optionValue);
+         });
+
+      $(".language-flag").on("click", function() {
+            $("#lang").val($(this).data("language")).trigger("change");
+         });
+
+      var activeLanguage = Lang || sessionStorage.getItem("lang") || "EN";
+      $(".language-flag[data-language='" + activeLanguage + "']").addClass("is-active").attr("aria-pressed", "true");
+
+     // sessionStorage.setItem("lang",'EN');
+     var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');     
+     translate_DOM_element('translate',Translate_jsonData,'EN',activeLanguage);
+
+     
+
+
+});
+  </script>
+</html>

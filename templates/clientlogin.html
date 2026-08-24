@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, Initial-scale=1">
+        <title>CareIL</title>
+        <link rel="stylesheet" type="text/css" href="/static/login.css?v=2" media="screen">
+       <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+    <body>
+        <div class="container">
+            <h1 class="icon-tasker">CareIL</h1>
+            {%if alert != ""%}
+            <p class="alert">{{alert}}</p>
+            {%endif%}
+            <p>Please insert email & ID number to continue</p>
+            <form action="/clients/client_login" method="POST">
+                  <div>
+                    <input style="width: 300px;" type="text" name="pat_mail" placeholder="enter you email"/>
+                    <input type="text" name="pat_id" placeholder="ID Number"/>
+                    <br>
+                    <input type="submit" name="submit" value="Login to portal" class="icon-login"/></div>
+                    <div><hr></div>
+            </form>
+        </div>
+    <script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+</html>

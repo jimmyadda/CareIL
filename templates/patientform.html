@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head  style="overflow-x: hidden;">
+    <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <!-- =============== VENDOR STYLES ===============-->
+       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+   <!-- FONT AWESOME-->
+   <link rel="stylesheet" href="static/vendor/fontawesome/css/font-awesome.min.css">
+   <!-- SIMPLE LINE ICONS-->
+   <link rel="stylesheet" href="static/vendor/simple-line-icons/css/simple-line-icons.css">
+   <!-- ANIMATE.CSS-->
+   <link rel="stylesheet" href="static/vendor/animate.css/animate.min.css">
+   <!-- WHIRL (spinners)-->
+   <link rel="stylesheet" href="static/vendor/whirl/dist/whirl.css">
+    <link rel="stylesheet" href="static/vendor/sweetalert/dist/sweetalert.css">
+     <!-- DATATABLES-->
+   <link rel="stylesheet" href="static/vendor/datatables-colvis/css/dataTables.colVis.css">
+   <link rel="stylesheet" href="static/vendor/datatables/media/css/dataTables.bootstrap.css">
+   <link rel="stylesheet" href="static/vendor/dataTables.fontAwesome/index.css">
+   <!-- =============== PAGE VENDOR STYLES ===============-->
+   <!-- =============== BOOTSTRAP STYLES ===============-->
+   <!-- <link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss"> -->
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+   <link rel="stylesheet" href="static/vendor/datepicker/build/css/bootstrap-datetimepicker.min.css">
+   <!-- =============== APP STYLES ===============-->
+   <link rel="stylesheet" href="static/app/css/app.css" id="maincss">
+   <link rel="stylesheet" type="text/css" href="/static/main.css" media="screen"/>
+    <title>CareIL - Client Details</title>
+
+    <style>
+        .form-group {
+            padding-bottom: 30px;
+        }
+        .content-heading{
+            font-size: larger;
+            padding: 10px 15px 30px;
+            line-height: 21px;
+            text-decoration: underline;
+        }
+
+        tr{display:table-row;}
+        td{display:table-cell;}
+        .glyphicon {
+            position: relative;
+            top: 1px;
+            display: inline-block;
+            font-family: "Glyphicons Halflings";
+            font-style: normal;
+            font-weight: 400;
+            line-height: 1;
+      }
+.HE 
+{
+  float: none;
+  text-align: right;
+}
+    </style>
+
+
+
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+ <body>
+    <nav role="navigation" class="navbar topnavbar">
+        <!-- START navbar header-->
+        <div class="navbar-header">
+           <a href="/" class="navbar-brand">
+              <div class="brand-logo">
+                 CareIL
+              </div>
+              <div class="brand-logo-collapsed">
+                 <img src="img/logo-single.png" alt="App Logo" class="img-responsive">
+              </div>
+           </a>
+        </div>
+        <!-- END navbar header-->
+        <!-- START Nav wrapper-->
+        <div class="nav-wrapper">
+
+        </div>
+        <!-- END Nav wrapper-->
+        <!-- START Search form-->
+        <form style="border-bottom: none;" role="search" action="search.html" class="navbar-form">
+           <div class="form-group has-feedback">
+              <input type="text" placeholder="Type and hit enter ..." class="form-control">
+              <div data-search-dismiss="" class="fa fa-times form-control-feedback"></div>
+           </div>
+           <button type="submit" class="hidden btn btn-default">Submit</button>
+        </form>
+        <!-- END Search form-->
+     </nav>
+     <!-- END Top Navbar-->
+
+     <div class="content-heading">
+        <!-- START Language list-->
+
+        <!-- END Language list    -->
+        Client Details
+        <small data-localize="dashboard.WELCOME"></small>
+         <div class="pull-right">
+           <div class="btn-group">
+             {% if patientdata %}
+             <a class="btn btn-default" href="/patient/{{ patientdata[0]['pat_id'] }}/summary.docx">
+               <i class="fa fa-file-word-o" aria-hidden="true"></i> Export Word summary
+             </a>
+             <button type="button" class="btn btn-primary" onclick="sendPortalLink()">
+               <i class="fa fa-envelope-o" aria-hidden="true"></i> Send portal link
+             </button>
+             <button type="button" class="btn btn-default" onclick="copyPortalLink()">
+               <i class="fa fa-link" aria-hidden="true"></i> Copy portal link
+             </button>
+             <button type="button" class="btn btn-default portal-revoke-button" onclick="revokePortalLinks()">
+               <i class="fa fa-ban" aria-hidden="true"></i> Revoke links
+             </button>
+             {% endif %}
+           </div>
+        </div>
+     </div>
+
+    <div class="main">
+
+    <table id="maintbl"> 
+        <form method="POST" id="patientDetail" enctype="multipart/form-data" action="/patientform">
+            <tr>
+                <td>
+                    <div class="form-group">
+                        <label key="patid" class="col-lg-2 control-label translate EN">Id</label>
+                        <div class="col-lg-10">
+                        <input readonly type="text" class="form-control" value="{{ patient['pat_id'] }}" name="pat_id">
+                        </div>
+                    </div>
+            </td>
+            <td>
+            <div class="form-group">
+                <div class="col-lg-10">
+                    <button id="senmsg" type="button" class="patient-action-button patient-action-button--message" onclick="open_message();">
+                        <i class="fa fa-paper-plane-o" aria-hidden="true"></i>
+                        <span key="sendmsg" class="translate EN">Send message</span>
+                    </button>
+                </div>
+            </div>  
+        </td>
+        </tr>
+            <tr>
+                <td>
+                    <div class="form-group">
+                        <label key="firstname" class="col-lg-2 control-label translate EN">First Name</label>
+                        <div class="col-lg-10">
+                        <input type="text" class="form-control" value="{{ patient['pat_first_name'] or '' }}" name="pat_first_name">
+                        </div>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="form-group">
+                        <label key="lastname" class="col-lg-2 control-label translate EN">Last name</label>
+                        <div class="col-lg-10">
+                            <input type="text" name="pat_last_name" value="{{ patient['pat_last_name'] or '' }}" class="form-control" placeholder="Last name">
+                        </div>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <div class="form-group">
+                        <label key="IDNum" class="col-lg-2 control-label translate EN">Paient id No</label>
+                        <div class="col-lg-10">
+                            <input type="text" name="pat_insurance_no" value="{{ patient['pat_insurance_no'] or '' }}" class="form-control" placeholder="ID No">
+                        </div>
+                    </div>
+                </td>
+                <td>
+                   
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="form-group">
+                        <label key="dob" class="col-lg-2 control-label translate EN">Date of birth</label>
+                        <div class="col-lg-10">
+                            <input type="date" name="pat_dob" value="{{ patient['pat_dob'] or '' }}" class="form-control" placeholder="date of birth">
+                        </div>
+                    </div>
+                </td>
+                <td>
+                   
+                </td>
+            </tr>
+   <tr>
+        <td>
+            <div class="form-group">
+                <label key="phone" class="col-lg-2 control-label translate EN">Phone Number</label>
+                <div class="col-lg-10">
+                <input name="pat_ph_no" type="text" value="{{ patient['pat_ph_no'] or '' }}" class="form-control" placeholder="Phone Number">
+                </div>
+            </div>
+        </td>
+        <td>
+            <div class="form-group">
+                <label key="email" class="col-lg-2 control-label translate EN">Email</label>
+                <div class="col-lg-10">
+                   <input type="text" name="pat_email" value="{{ patient['pat_email'] or '' }}" class="form-control" placeholder="Email">
+                </div>
+             </div>
+        </td>
+   </tr>
+
+   <tr>
+    <td>
+     <div class="form-group">
+                <label key="address" class="col-lg-2 control-label translate EN">Address</label>
+                <div class="col-lg-10">
+                   <textarea name="pat_address" class="form-control" placeholder="Address">{{ patient['pat_address'] or '' }}</textarea>
+                </div>
+             </div>
+            </td>
+            </tr>
+            <tr>
+                <td>
+                    <button type="button" name="submit-save" class="patient-action-button" onclick="updatePatientdet();">
+                        <i class="fa fa-floppy-o" aria-hidden="true"></i>
+                        <span key="savebtn" class="translate EN">Save update</span>
+                    </button>
+                </td>             
+            </tr>
+    <input type="hidden" name="userid" value="{{ user.userid }}">
+        </form>
+    </table> 
+    
+    <br>
+    <div class="form-group patient-files-card">
+        <br>
+        <label key="patfiles" class="col-lg-2 control-label translate EN">Client attachments :</label>
+        <br>
+            <div class="col-lg-10"><button key="uploadfilebtn" type="button" class="patient-action-button translate EN" onclick="openpatienfiles()"><i class="fa fa-upload" aria-hidden="true"></i> Upload files</button></div>
+                <table id="filestbl">                             
+                     {% for taskfile in tasksfiles %}         
+                      <tr>
+                        <td class='filenames' name={{ taskfile['filename'] }} id={{taskfile['pat_id']}}>{{ taskfile['filename'] }} </td>
+                        <td><a key="viewfilebtn" class="translate EN" id="openfile" href="/download_file/{{ taskfile['filename'] }}" >View File</a> </td>                    
+                        <td><button key="removefilebtn" title="Remove file" class="removebtn translate EN"  name={{ taskfile['filename'] }} id="removefile_button"></button> </td>
+                       </tr>
+                     {% endfor %}
+                </table>
+        </div>
+
+          <!-- Records section-->
+          <section>
+            <!-- Page content-->
+            <div class="content-wrapper" style="width: 85%;">
+               <div key="mednotetitle" class="content-heading">
+                  <!-- START Language list-->
+                  <!-- END Language list    -->
+                 Session Summaries
+                  <small data-localize="dashboard.WELCOME"></small>
+                   <div id="pullcss1" class="pull-right">
+                     <div class="btn-group">
+                        <button key="addpatnotebtn" style="bottom: 27px;" id="newmedicalnote" class="mb-sm btn btn-primary translate EN" type="button">Add session summary</button>
+                     </div>
+                  </div>
+               </div>
+              <div class="row">
+                     <div class="col-lg-12">
+                        <div class="panel panel-default"  style="overflow: auto; padding: 15px;">
+                           <div class="table-responsive">
+                              <table id="patrecdatatable" class="table table-striped">
+                                 <thead>
+                                    <tr>
+                                       <th key="patrecid" class="translate EN" style="width:10%">Rec</th>
+                                       <th key="patfullname" class="translate EN" style="width:25%">Client</th>
+                                       <th key="desc" class="translate EN" style="width:35%">Desc</th>
+                                       <th key="patnotedate" class="translate EN" style="width: 10%;">Date</th>
+                                         <th style="width:15%"></th>
+                                         <th style="width:15%"></th>
+                                         <th style="width:15%"></th>
+                                    </tr>
+                                 </thead>
+                                 <tbody>
+                                   {% for note in pat_mednotes%}
+                                   <tr>
+                                     <td>{{ note['rec_id'] }}</td>
+                                     <td>{{ note['pat_first_name'] }} {{ note['pat_last_name'] }}</td>
+                                     <td>{{ note['text'][:50] }}</td>                
+                                     <td>{{ note['create_date'] }}</td>  
+                                      <td><button key="editbtn" class="btn-xs btn btn-info btn-editrecord translate EN" type="button">Edit</button> &nbsp;
+                                     <button  key="deletebtn" class="btn-xs btn btn-danger delete-btnrecord translate EN" type="button">Delete</button></td> 
+                                     <td name="id" class="noteid" style="display: none;">{{ note['rec_id'] }}</td>
+                                     <td name="id" class="patientid" style="display: none;">{{ note['pat_id'] }}</td>
+                                   </tr>
+                                   {% endfor %} 
+                                 </tbody>
+                              </table>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+            </div>
+         </section>
+
+         <section>
+            <!-- Page content-->
+            <div class="content-wrapper" style="width: 85%;">
+               <div key="apph4" class="content-heading">
+                  <!-- START Language list-->
+   
+                  <!-- END Language list    -->
+                 Client Appointments
+                  <small data-localize="dashboard.WELCOME"></small>
+                   <div id="pullcss" class="pull-right">
+                     <div class="btn-group">
+                        <button key="addappbtn" style="bottom: 27px;" id="addApp_pat_form" class="mb-sm btn btn-primary translate EN" type="button">Book appointment</button>
+                     </div>
+                  </div>
+               </div>
+         {%if appointments %}            
+              <div class="row">
+                     <div class="col-lg-12">
+                        <div class="panel panel-default"  style="padding: 15px;">
+   
+                           <div class="table-responsive">
+                              <table id="datatable5" class="table table-striped">
+                                 <thead>
+                                    <tr>
+                                       <th key="therapist" class="translate EN" style="width:20%">Therapist Name</th>
+                                       <th key="patient" class="translate EN" style="width:25%">Client Name</th>
+                                       <th key="appdate" class="translate EN" style="width:15%">Appointment Date</th>
+                                         <th style="width:15%"></th>
+                                    </tr>
+                                 </thead>
+                                 <tbody>
+                                    {% for appointment in appointments %}
+                                    <tr>
+                                      <td>{{ appointment['doc_first_name'] }} {{ appointment['doc_last_name'] }}</td>
+                                      <td>{{ appointment['pat_first_name'] }} {{ appointment['pat_last_name'] }}</td>
+                                      <td>{{ appointment['appointment_date'] }}</td>                
+                                    </tr>
+                                    {% endfor %} 
+                                 </tbody>
+                              </table>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+         {% endif %}
+            <!-- Add appointment new -->
+            <div id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" class="modal fade">
+                        <div class="modal-dialog">
+                           <div class="modal-content">
+                              <div class="modal-header">
+                                 <button type="button" data-dismiss="modal" aria-label="Close" class="close">
+                                    <span aria-hidden="true">&times;</span>
+                                 </button>
+                                 <h4 key="apph4" id="myModalLabel" class="modal-title translate EN">Appointment</h4>
+                              </div>
+                              <div class="modal-body">
+                                 <form data-parsley-validate="" novalidate="" class="form-horizontal" id="detailform">
+                                             <div class="form-group">
+                                                <label key="therapist" class="col-lg-2 control-label translate EN">Therapist</label>
+                                                <div class="col-lg-10">
+                                                   <select required id="therapist_select" type="text" name="doc_id" class="form-control" placeholder="Please select Therapist"></select>
+                                                </div>
+                                             </div>
+                                             <div class="form-group">
+                                                <label key="patient" class="col-lg-2 control-label translate EN">Client</label>
+                                                <div class="col-lg-10">
+                                                   <select required id="patient_select" type="text" name="pat_id" class="form-control" placeholder="Please select Client"></select>
+                                                </div>
+                                             </div>
+                  
+                                    <div class="form-group">
+                                                <label key="appdate" class="col-lg-2 control-label translate EN">Appointment date</label>
+                  
+                                           <div class="col-lg-10">
+                                             <input id="datepicker1" size="16" type="text" name="appointment_date" required class="form-control form_datetime" value="">
+                                                </div>          
+                                             </div>                             
+                                          </form>                       
+                              </div>
+                              <div class="modal-footer">
+                                 <button key="closebtn" type="button" data-dismiss="modal" class="btn btn-default translate EN">Close</button>
+                                 <button key="savebtn"  id="savethepatient" type="button" class="btn btn-primary translate EN">Save changes</button>
+                              </div>
+                           </div>
+                        </div>
+        </div> <!--end of Modal-->
+    </div> <!--end of content-wrapper-->
+         </section>
+    </div>
+    <input id="unavailableHours" type="text" style="display: none;"/>
+    <script>
+ $( document ).ready(function() {
+    let table;
+    const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const id = urlParams.get('id')
+            });
+
+
+            function populate(frm, data) {
+                $.each(data, function(key, value){
+                    $('[name='+key+']', frm).val(value);
+                });
+            }
+
+            
+ 
+     function updatePatientdet() {
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const id = urlParams.get('id')
+     
+        var data = JSON.stringify($('form').serializeJSON());
+        console.log(data);
+        
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": "patientapi/" + id,
+            "method": "PUT",
+            "headers": {
+                "content-type": "application/json",
+                "cache-control": "no-cache"
+            },
+            "processData": false,
+            "data": data
+        }
+
+        $.ajax(settings).done(function (response) {
+            $('.modal.in').modal('hide')
+                      //Get LAng
+                      var my_lang = sessionStorage.getItem("lang");
+                        if(my_lang=="HE"){
+                        $.notify(" עודכן בהצלחה", {"status":"success"}); 
+                        }
+                        else{
+                            $.notify("Client Updated Successfully", {"status":"success"});
+                        } 
+            getPatient()
+        });
+        
+
+
+    }
+
+    function portalInvitationRequest(action) {
+        const patientId = new URLSearchParams(window.location.search).get('id');
+        return fetch('/api/patients/' + encodeURIComponent(patientId) + '/portal-invitations', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action})
+        }).then(async function (response) {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Portal link action failed.');
+            return result;
+        });
+    }
+
+    function sendPortalLink() {
+        portalInvitationRequest('send').then(function () {
+            $.notify('Secure portal link sent successfully', {status: 'success'});
+        }).catch(function (error) {
+            $.notify(error.message, {status: 'danger'});
+        });
+    }
+
+    function copyPortalLink() {
+        portalInvitationRequest('copy').then(function (result) {
+            return navigator.clipboard.writeText(result.url);
+        }).then(function () {
+            $.notify('Secure portal link copied', {status: 'success'});
+        }).catch(function (error) {
+            $.notify(error.message, {status: 'danger'});
+        });
+    }
+
+    function revokePortalLinks() {
+        if (!window.confirm('Revoke all unused portal links for this client?')) return;
+        const patientId = new URLSearchParams(window.location.search).get('id');
+        fetch('/api/patients/' + encodeURIComponent(patientId) + '/portal-invitations/revoke', {
+            method: 'POST'
+        }).then(async function (response) {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Could not revoke portal links.');
+            $.notify(result.revoked + ' portal link(s) revoked', {status: 'success'});
+        }).catch(function (error) {
+            $.notify(error.message, {status: 'danger'});
+        });
+    }
+
+    function openpatienfiles(){
+
+        let pat_id =  document.getElementsByName('pat_id')[0].value
+        window.open("/upload?id="+pat_id+"",'File Upload','width=600,height=300,resizable=no');
+        return false;
+        //window.open('/patientnotes?id='+pat_id); 
+        //return false;
+    }
+
+    function getDoctor() {
+        var doc_sel = document.getElementById("therapist_select");
+
+        var therapistSelect="";
+
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": "doctorapi",
+            "method": "GET",
+            "headers": {
+                "cache-control": "no-cache"
+            }
+        }
+
+        $.ajax(settings).done(function (response) {
+        for(i=0;i<response.length;i++){
+
+        response[i].doc_fullname=response[i].doc_first_name+" "+response[i].doc_last_name
+        therapistSelect +="<option value="+response[i].doc_id+">"+response[i].doc_fullname+"</option>"
+        }
+
+        doc_sel.innerHTML =  therapistSelect
+        })
+        }
+
+    function getPatient(patient_id) {
+var pat_select = document.getElementById("patient_select");
+
+  var patientSelect= ""
+  let api_url;
+  if (patient_id === undefined) {
+    api_url = "patientapi";
+  } 
+  else{
+    api_url = "patientapi/"+ patient_id;
+  }
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": api_url,
+            "method": "GET",
+            "headers": {
+                "cache-control": "no-cache"
+            }
+        }
+
+        $.ajax(settings).done(function (response) {
+            console.log(response);
+            response.pat_fullname=response.pat_first_name+" "+response.pat_last_name
+            if (response.pat_id == patient_id){
+            patientSelect +="<option 'selected' value="+response.pat_id+">"+response.pat_fullname+"</option>"
+          }
+          else{
+            patientSelect +="<option value="+response.pat_id+">"+response.pat_fullname+"</option>"
+          }
+          console.log(patientSelect)
+          pat_select.innerHTML = patientSelect;
+                })
+
+        }
+    </script>
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+   <!-- =============== VENDOR SCRIPTS ===============-->
+   <!-- MODERNIZR-->
+   <script src="/static/vendor/modernizr/modernizr.custom.js"></script>
+   <!-- JQUERY-->
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+   <!-- BOOTSTRAP-->
+   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="/static/vendor/datatables/media/js/jquery.dataTables.min.js"></script>
+   <script src="/static/vendor/datatables-colvis/js/dataTables.colVis.js"></script>
+   <script src="/static/vendor/datatables/media/js/dataTables.bootstrap.js"></script>
+   <script src="/static/vendor/serialize/jquery.serializejson.js"></script>
+   <!-- STORAGE API-->
+   <script src="/static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="/static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="/static/vendor/animo.js/animo.js"></script>
+    <script src="/static/vendor/parsley/parsley.min.js"></script>
+       <script src="/static/vendor/sweetalert/dist/sweetalert.min.js"></script>
+   <!-- LOCALIZE-->
+   <script src="/static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script>
+   <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script> 
+   <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer></script>
+   <script type="text/javascript" src="https://cdn.addevent.com/libs/atc/1.6.1/atc.min.js" async defer></script>
+   <!-- =============== PAGE VENDOR SCRIPTS ===============-->
+   <!-- =============== APP SCRIPTS ===============-->
+
+   <script src="/static/app/js/app.js"></script>
+   <script type="text/javascript">
+
+    var my_lang = sessionStorage.getItem("lang");
+    var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');
+  
+  </script>
+  <script type="text/javascript" src="/static/js/patient.js?v=2"></script>
+
+  <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
+  <script src="/static/js/medicalnote.js?v=2"></script>
+   <script src="/static/js/disabledatetime.js?v=5"></script>
+   <script src="/static/js/appointmentpatientform.js?v=10"></script>
+   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+   
+   
+
+
+<script>
+
+    $(document).ready(function () {
+
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const patienid = urlParams.get('id')
+
+            let removefiles = document.querySelectorAll("#removefile_button");
+                removefiles.forEach(btn => {
+                btn.addEventListener('click',Remove_file);
+            });
+     
+             var table = $('#datatable4').DataTable();
+ 
+             $('#datatable4 tbody').on('click', '.delete-btn', function () {
+                 var data = table.row($(this).parents('tr')).data();
+                 deleteMedicalNote(data[0])
+             });
+ 
+             $('.btn-editrecord').off("click").on("click", function (e) {
+                var data = table.row($(this).parents('tr')).data();  
+                var thistr = e.target.parentElement.parentNode
+                var noteid = $(e.target).closest('tr').find(".noteid").html();
+                var id = $(e.target).closest('tr').find(".patientid").html();  
+                 if(noteid){openmedicalnote(noteid,id)}
+             });
+ 
+              //////////////
+             $('#newmedicalnote').on("click", function (e) {
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+                const patienid = urlParams.get('id')
+                window.open('/medicalnote?id='+patienid); 
+                return false;
+             });
+
+        function deleteMedicalNote(id) {
+         var settings = {
+             "async": true,
+             "crossDomain": true,
+             "url": "medicalnoteapi/" + id,
+             "method": "DELETE",
+             "headers": {
+                 "cache-control": "no-cache",
+                 "postman-token": "28ea8360-5af0-1d11-e595-485a109760f2"
+             }
+         }
+         //Yes No ?
+         swal({
+             title: "Are you sure?",
+             text: "You will not be able to recover this data",
+             type: "warning",
+             showCancelButton: true,
+             confirmButtonColor: "#DD6B55",
+             confirmButtonText: "Yes, delete it!",
+             closeOnConfirm: false
+         }, function () {
+             $.ajax(settings).done(function (response) {
+                 swal("Deleted!", "Session Summary has been deleted.", "success");
+                 table.destroy();
+                 //$('#datatable4 tbody').empty(); // empty in case the columns change
+                 getMedicalNote();
+             });
+         });
+ 
+     }
+    
+ 
+        function openmedicalnote(noteid,patienid){               
+         window.open('/medicalnote?id='+patienid+"&noteid="+noteid); 
+         return false;
+     }
+      
+        async function Remove_file(event){  
+            //let folderid = document.querySelector("[name = 'folderid']").value;
+            let id = document.querySelector("[name = 'pat_id']").value;
+            let userid = document.querySelector("[name = 'userid']").value;
+            var $row = $(this).closest("tr");
+            var file = $row.find(".filenames");
+
+            console.log(file[0]);
+            file[0].style.text += ' -Deleting';
+            var file_to_delete = file[0].getAttribute("name");
+            if(file_to_delete.length > 0){
+
+                let f = new FormData();
+                f.append("id",id)
+                f.append("userid",userid);
+                f.append("filename",file_to_delete);
+                 await fetch('/delete_file', {
+                    method: 'DELETE',
+                    body: f
+                })
+                .then((response) => {
+                // handle success
+                response.json()
+                console.log("Remove_file- success",response);
+                location.reload();
+                getMedicalNote();
+                })
+
+                return "ok"
+            } //end if file
+
+        }
+
+        function HandleRemove_file(event) {
+        Remove_file(event).then((json) => {
+                // handle success
+                console.log("Remove_file- success",json);
+                location.reload()
+                })
+            .catch(error => error);
+            
+        }
+
+    $("#addpatient").click(function () {
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+                const patienid = urlParams.get('id')
+                
+                $('#myModal').modal().one('shown.bs.modal', function (e) {
+
+                    $("#savethepatient").off("click").on("click", function(e) {
+                            
+                            var instance = $('#detailform').parsley();
+                            instance.validate()
+                            if(instance.isValid()){
+                                jsondata = $('#detailform').serializeJSON();
+                                let pat_id = jsondata.pat_id;
+                                addAppointment(jsondata);
+                                //send mail to patient
+                                
+                                }
+                            
+                            })
+
+                })
+
+            });
+            
+    function getMedicalNote() {
+                console.log("test");
+                            var settings = {
+                                "async": true,
+                                "crossDomain": true,
+                                "url": "medicalnoteapi",
+                                "method": "GET",
+                                "headers": {
+                                    "cache-control": "no-cache"
+                                }
+                            }
+                            console.log("settings",settings);
+                            $.ajax(settings).done(function (response) {
+                                console.log("response",response);
+                                table = $('#datatable4').DataTable({
+                                    "bDestroy": true,
+                                    'paging': true, // Table pagination
+                                    'ordering': true, // Column ordering
+                                    'info': true, // Bottom left status text
+                                    aaData: response,
+                                    "aaSorting": [],
+                                    aoColumns: [   
+                                        {
+                                            mData: 'pat_id'
+                                        },
+                                        {
+                                            mData: 'create_date'
+                                        },
+                                        {
+                                            mData: 'body'
+                                        },
+                                        {
+                                            mRender: function (o) {
+                                                return '<button class="btn-xs btn btn-info btn-edit" type="button">Edit</button>';
+                                            }
+                                        },
+                                        {
+                                            mRender: function (o) {
+                                                return '<button class="btn-xs btn btn-danger delete-btn" type="button">Delete</button>';
+                                            }
+                                        }
+                            ]
+                                });
+                                $('#datatable4 tbody').on('click', '.delete-btnrecord', function () {
+                                    var data = table.row($(this).parents('tr')).data();
+                                    deleteMedicalNote(data.doc_id)
+
+                                });
+
+
+                                $('.btn-editrecord').one("click", function (e) {
+                                    var data = table.row($(this).parents('tr')).data();
+                                    $('#myModal').modal().one('shown.bs.modal', function (e) {
+                                        for (var key in data) {
+                                            $("[name=" + key + "]").val(data[key])
+                                        }
+                                    })
+
+
+
+                                });
+
+                            });
+
+
+                    }
+
+
+
+       //call 
+       //language
+       if(my_lang=="HE"){
+       translate_DOM_element('translate',Translate_jsonData,'EN',my_lang);     
+       }
+       else{
+       translate_DOM_element('translate',Translate_jsonData,'HE',my_lang);  
+       }  
+    });
+ 
+   function open_message(){               
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const patienid = urlParams.get('id')
+         window.open('/message?patid='+patienid); 
+         return false;
+     }
+ 
+/*      function addAppointment(data) {
+ */        
+        /* var patien_mail ="";
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": "appointmentapi",
+            "method": "POST",
+            "headers": {
+                "content-type": "application/json",
+                "cache-control": "no-cache",
+                "postman-token": "2612534b-9ccd-ab7e-1f73-659029967199"
+            },
+            "processData": false,
+            "data": JSON.stringify(data)
+        }
+        $.ajax(settings).done(function (response) {
+            if(response["pat_mail"]){console.log(response["pat_mail"][0]); patien_mail =response["pat_mail"][0]; }           
+                  //Get LAng
+                  var my_lang = sessionStorage.getItem("lang");
+                  if(my_lang=="HE"){
+                    $.notify("פגישת טיפול נקבעה בהצלחה", {"status":"success"});   
+                    }
+                    else{
+                        $.notify("Appointment Added Successfully", {"status":"success"});
+                    } 
+            $('.modal.in').modal('hide')
+            //table.destroy();
+            $('#datatable4 tbody').empty(); // empty in case the columns change   
+                //send mail   
+          if(patien_mail!=" "){
+            let f = new FormData();
+            f.append("id",data.pat_id)
+            f.append("doc_id",data.doc_id)
+            f.append("appointment_date",data.appointment_date)
+            fetch("/send-mail",{
+            "method": "POST",
+            "body":f,       
+            }).then(response => response.text()).then(data => {               
+            });
+        }
+        
+            getAppointment("datatable5");
+        });
+
+        if(data.app_id){
+            //was pending
+            console.log("end of add ",data.app_id);
+            deleteapprovedAppointment(data.app_id);            
+        }
+    } */
+
+ </script>
+
+
+
+
+</html>

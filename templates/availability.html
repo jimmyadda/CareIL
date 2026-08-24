@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Booking availability · CareIL</title>
+  <link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/static/app/css/bootstrap.css">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#708238">
+  <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+<body class="layout-h">
+  <div class="wrapper">
+    <header class="topnavbar-wrapper">
+      <nav class="navbar topnavbar">
+        <div class="navbar-header">
+          <a href="/" class="navbar-brand"><div class="brand-logo">CareIL</div></a>
+        </div>
+      </nav>
+    </header>
+    <main class="content-wrapper">
+      <div class="content-heading">
+        <span>Booking availability</span>
+        <a href="/admin/adminPanel" class="btn btn-default">Back to settings</a>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <section class="clinic-section" style="max-width:760px">
+        <div class="clinic-section__header">
+          <div>
+            <h2>When clients may book</h2>
+            <p style="margin:6px 0 0;color:var(--clinic-muted)">Existing appointments are automatically excluded.</p>
+          </div>
+        </div>
+        <form method="post">
+          <div class="form-group">
+            <label>Available days</label>
+            <div class="clinic-day-grid">
+              {% for value, label in [('0','Sunday'),('1','Monday'),('2','Tuesday'),('3','Wednesday'),('4','Thursday'),('5','Friday'),('6','Saturday')] %}
+                <label class="clinic-day-option">
+                  <input type="checkbox" name="days" value="{{ value }}" {% if value in selected_days %}checked{% endif %}>
+                  <span>{{ label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-4 form-group">
+              <label for="start">Start time</label>
+              <input id="start" class="form-control" type="time" name="start" value="{{ settings['AVAILABILITY_START'] }}" required>
+            </div>
+            <div class="col-sm-4 form-group">
+              <label for="end">End time</label>
+              <input id="end" class="form-control" type="time" name="end" value="{{ settings['AVAILABILITY_END'] }}" required>
+            </div>
+            <div class="col-sm-4 form-group">
+              <label for="duration">Session duration</label>
+              <select id="duration" class="form-control" name="duration">
+                {% for minutes in [30,45,50,60,75,90] %}
+                  <option value="{{ minutes }}" {% if settings['APPOINTMENT_DURATION']|int == minutes %}selected{% endif %}>{{ minutes }} minutes</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">Save availability</button>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="/static/modern-clinic.js?v=18"></script>
+</body>
+</html>

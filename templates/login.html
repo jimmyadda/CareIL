@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, Initial-scale=1">
+        <title>CareIL</title>
+        <link rel="stylesheet" type="text/css" href="/static/login.css?v=2" media="screen">
+       <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+    <body>
+        <div class="container">
+            <h1 class="icon-tasker">CareIL</h1>
+            {%if alert != ""%}
+            <p class="alert">{{alert}}</p>
+            {%endif%}
+
+
+            <p>Please login to continue</p>
+            <form action="/login" method="POST">
+                  <div>
+                    <input type="text" name="userid" placeholder="userid"/>
+                    <input type="password" name="password" placeholder="password"/>
+                    <input type="submit" name="submit" value="Login" class="icon-login"/></div>
+                    <div><hr></div>
+                    <div>
+                    <div class="small">No Account? <a href="/register">Register!</a></div>
+                    <br>
+<!--                     <div><hr></div>
+                    <div class="small">Client Portal Login <a href="/clients/client_login">Log in!</a></div>  -->
+                </div>
+            </form>
+           
+        </div>
+    <script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+</html>

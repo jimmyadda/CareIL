@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Google Calendar · CareIL</title>
+  <link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/static/app/css/bootstrap.css">
+  <link rel="stylesheet" href="/static/app/css/app.css">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+  <style>
+    .calendar-settings { max-width:760px; margin:0 auto; }
+    .calendar-status { display:flex; align-items:center; gap:12px; padding:16px; border-radius:14px; background:var(--clinic-primary-soft); }
+    .calendar-status i { font-size:24px; color:var(--clinic-primary); }
+    .calendar-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+    .calendar-help { margin-top:22px; padding-top:18px; border-top:1px solid var(--clinic-border); }
+    .calendar-help code { overflow-wrap:anywhere; }
+    @media(max-width:767px) { .calendar-actions .btn { width:100%; } }
+  </style>
+</head>
+<body class="layout-h">
+  <div class="wrapper">
+    <header class="topnavbar-wrapper">
+      <nav class="navbar topnavbar">
+        <div class="navbar-header"><a href="/" class="navbar-brand"><div class="brand-logo">CareIL</div></a></div>
+      </nav>
+    </header>
+    <section>
+      <div class="content-wrapper calendar-settings">
+        <div class="content-heading">Google Calendar</div>
+        {% if request.args.get('error') %}<div class="alert alert-danger">{{ request.args.get('error') }}</div>{% endif %}
+        {% if request.args.get('connected') %}<div class="alert alert-success">Google Calendar connected successfully.</div>{% endif %}
+        {% if request.args.get('disconnected') %}<div class="alert alert-info">Google Calendar disconnected.</div>{% endif %}
+        {% if request.args.get('synced') is not none %}<div class="alert alert-success">{{ request.args.get('synced') }} upcoming appointment(s) synchronized.</div>{% endif %}
+
+        <div class="panel panel-default"><div class="panel-body">
+          {% if connected %}
+          <div class="calendar-status"><i class="fa fa-check-circle"></i><div><strong>Connected</strong><br><span>Confirmed appointments sync to your primary Google Calendar.</span></div></div>
+          <div class="calendar-actions">
+            <form action="/google-calendar/sync" method="post"><button class="btn btn-primary" type="submit"><i class="fa fa-refresh"></i> Sync upcoming appointments</button></form>
+            <form action="/google-calendar/disconnect" method="post" onsubmit="return confirm('Disconnect Google Calendar? Existing Google events will remain.');"><button class="btn btn-danger" type="submit">Disconnect</button></form>
+          </div>
+          {% elif configured %}
+          <p>Connect the therapist’s Google account. CareIL will create calendar events only for confirmed appointments.</p>
+          <a class="btn btn-primary" href="/google-calendar/connect"><i class="fa fa-google"></i> Connect Google Calendar</a>
+          {% else %}
+          <div class="alert alert-warning">Google Calendar credentials are not configured yet.</div>
+          <div class="calendar-help">
+            <p>Create a Google Cloud OAuth Web Application, enable the Google Calendar API and add this authorized redirect URI:</p>
+            <p><code>{{ url_for('google_calendar_callback', _external=True) }}</code></p>
+            <p>Then set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in your environment and restart Flask.</p>
+          </div>
+          {% endif %}
+        </div></div>
+      </div>
+    </section>
+  </div>
+  <script src="/static/modern-clinic.js?v=18"></script>
+</body>
+</html>

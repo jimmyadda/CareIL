@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, Initial-scale=1">
+        <title>CareIL</title>
+        <link rel="stylesheet" type="text/css" href="/static/login.css?v=2" media="screen">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+       <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+
+    <body>
+        <div class="container">
+            <h1 class="icon-tasker">CareIL</h1>
+            {%if alert != ""%}
+            <p class="alert">{{alert}}</p>
+            {%endif%}
+             {% if verification_step  == 0 and email_step == 0%}
+            <p>Plaese register to continue</p>
+            <form action="/register" method="POST">
+                  <div>
+                    <input type="text" name="name" placeholder="name"/>
+                    <input type="text" name="email" class="email" placeholder="email"/>
+                    <input type="text" name="userid" placeholder="userid"/>
+                    <input type="password" name="password" placeholder="password"/>
+
+                    <input type="submit" name="submit" value="register" class="icon-login"/></div>                  
+            </form>
+            {% endif %} 
+                        {% if email_step == 1 %}
+            <!-- 2FA Step: Enter MAil Number -->
+            <p>Please enter your email number for Verification:</p>
+            <form action="/enter_email" method="POST">
+                <div>
+                    <input type="email" name="email" placeholder="Email Address" required/>
+                    <input type="submit" name="submit" value="Submit Email" class="icon-login"/>
+                </div>
+            </form>
+            {% endif %}  
+
+            {% if email_step == 0 and  verification_step == 1 %}
+            <!-- 2FA Step: Verification Code -->
+            <p>A verification code has been sent to your Email. Please enter it below:</p>
+            <form action="/verify" method="POST">
+                <div>
+                    <input type="text" name="verification_code" placeholder="Enter the verification code" required/>
+                    <input type="hidden" name="email" value="{{ email }}"/>
+                    <input type="submit" name="submit" value="Verify" class="icon-login"/>
+                </div>
+            </form>
+        {% endif %}  
+        
+        </div>
+    <script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+    <script type="text/javascript">
+
+                $(".email").blur(function(){            
+                console.log($(".email").val())
+                var verify_mail = validateEmail($(".email").val())
+                console.log(verify_mail)
+                if(!verify_mail){
+                    $(".email").val('') 
+                }
+                }); 
+
+                function validateEmail(email) {
+                    var is_valid= false
+                    if( /(.+)@(.+){2,}\.(.+){2,}/.test(email) ){
+                        is_valid= true
+                    } 
+                  return is_valid
+                }
+                
+
+
+    </script>
+</html>

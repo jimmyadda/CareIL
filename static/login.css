@@ -1,0 +1,67 @@
+body,html{
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    display: grid;
+    background: #f6f4ef;
+}
+
+.container{
+    margin: auto;
+    padding: 34px;
+    border: 1px solid #e2e6e3;
+    border-radius: 22px;
+    background-color: #ffffff;
+    width: min(420px, calc(100vw - 32px));
+    box-shadow: 0 20px 55px rgba(43,67,59,.13);
+}
+
+input{
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 13px;
+    margin: 6px 0;
+    font-size: 1em;
+    border-radius: 10px;
+    border: 1px solid #ccc;    
+}
+
+input[type='submit']{
+    background: linear-gradient(135deg, #a3b18a 0%, #588157 100%);
+    color: #102a1c;
+    padding: 11px 16px;
+    margin: 14px 0 6px;
+    border-radius: 11px;
+    border: 1px solid #708238;
+    width: 100%;
+    display: inline-block;
+    height: 44px;
+}
+
+input[type='submit']:hover{
+    background: linear-gradient(135deg, #a3b18a 0%, #588157 100%);
+    filter: brightness(.94);
+}
+
+.icon-tasker{
+    color: #4f5d27;
+    font-size: 29px;
+    letter-spacing: -.5px;
+}
+
+.icon-login{
+    background: url('/static/icons/log-in-outline.svg') no-repeat left center;
+}
+.alert{
+   border: 1px solid #efd6d6;
+   border-radius: 11px;
+   background-color: #fff4f4;
+   color: #9b4545;
+   padding: 10px;
+
+}
+
+@media (max-width: 480px) {
+    .container { padding: 26px 20px; }
+}

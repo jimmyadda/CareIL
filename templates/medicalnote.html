@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<title>Session Summary</title>
+<style>
+    .editor-toolbar {
+        position: relative;
+        top: 20px;
+        background-color: #fff;
+        border: 1px solid #e2e6e3;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 10px 28px rgba(79,93,39,.08);
+    }
+
+    button.editor-button {
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        min-height: 38px;
+        padding: 0;
+        margin: 3px;
+        cursor: pointer;
+        border: 1px solid #e2e6e3;
+        border-radius: 9px;
+        background: #fff;
+        color: #24332f;
+        vertical-align: middle;
+    }
+
+    button.editor-button:hover {
+        background: #f0f2e5;
+        border-color: #708238;
+        color: #4f5d27;
+    }
+
+    button.editor-button i {
+        font-size: 15px;
+        line-height: 1;
+    }
+
+    .editor-toolbar select.editor-button {
+        width: auto;
+        min-width: 110px;
+        height: 40px;
+        margin: 3px;
+        padding: 6px 32px 6px 10px;
+        color: #24332f;
+        background-color: #fff;
+    }
+
+    .editor-toolbar input[type="color"] {
+        width: 42px;
+        min-width: 42px;
+        height: 38px;
+        min-height: 38px;
+        padding: 3px;
+        margin: 3px;
+        vertical-align: middle;
+    }
+
+    #editor {
+        position: relative;
+        width: 99%;
+        height: 700px;
+        top: 36px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+        overflow-y: auto;
+        resize: both;overflow: auto;
+    }
+    .HE 
+{
+  float: none;
+  text-align: right;
+}
+    .patient-context { margin: 18px; padding: 14px 18px; border: 1px solid #dfe5d1; border-radius: 14px; background: #f8f9f3; }
+    .patient-context strong { display: block; color: #35411f; font-size: 18px; }
+    .patient-context span { color: #64706b; }
+    button.editor-button.direction-button { width: auto; min-width: 54px; padding: 0 10px; font-weight: 700; }
+</style>
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+<body>
+
+
+    <div class="patient-context">
+        <strong><i class="fa fa-user-o" aria-hidden="true"></i> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</strong>
+        <span>ID: {{ patient['pat_insurance_no'] or patient['pat_id'] }}{% if patient['pat_ph_no'] %} · {{ patient['pat_ph_no'] }}{% endif %}{% if patient['pat_email'] %} · {{ patient['pat_email'] }}{% endif %}</span>
+        <input id="patient_select" type="hidden" name="pat_id" value="{{ patient['pat_id'] }}">
+    </div>
+
+<div class="editor-toolbar" >
+    <h4 key="medrech4" class="translate EN">Write session summary</h4>
+    <button type="button" class="editor-button" onclick="execCommand('bold')" title="Bold" aria-label="Bold"><b>B</b></button>
+    <button type="button" class="editor-button" onclick="execCommand('italic')" title="Italic" aria-label="Italic"><i>I</i></button>
+    <button type="button" class="editor-button" onclick="execCommand('underline')" title="Underline" aria-label="Underline"><u>U</u></button>
+    <button type="button" class="editor-button" onclick="execCommand('insertOrderedList')" title="Numbered list" aria-label="Numbered list"><i class="fa fa-list-ol" aria-hidden="true"></i></button>
+    <button type="button" class="editor-button" onclick="execCommand('insertUnorderedList')" title="Bulleted list" aria-label="Bulleted list"><i class="fa fa-list-ul" aria-hidden="true"></i></button>
+    <button type="button" class="editor-button" onclick="execCommand('justifyLeft')" title="Align left" aria-label="Align left"><i class="fa fa-align-left" aria-hidden="true"></i></button>
+    <button type="button" class="editor-button" onclick="execCommand('justifyCenter')" title="Align center" aria-label="Align center"><i class="fa fa-align-center" aria-hidden="true"></i></button>
+    <button type="button" class="editor-button" onclick="execCommand('justifyRight')" title="Align right" aria-label="Align right"><i class="fa fa-align-right" aria-hidden="true"></i></button>
+    <button type="button" class="editor-button direction-button" onclick="setEditorDirection('ltr')" title="Left-to-right text">LTR</button>
+    <button type="button" class="editor-button direction-button" onclick="setEditorDirection('rtl')" title="Right-to-left text">RTL</button>
+
+    <input id="foreColor" type="color">
+    <input id="hiliteColor" type="color">
+
+    <select id="fontname" class="editor-button">
+        <option selected disabled>Font</option>
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Helvetica">Helvetica</option>
+        <option value="Times New Roman">Times New Roman</option>
+    </select>
+    <select id="fontsize" class="editor-button">
+        <option selected disabled>Size</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+    </select>
+    <br>
+<h4 key="newtypetitle" class="translate EN">Summary types</h4>
+<input type="text" id="newTypeName" data-placeholder-key="newTypeName" placeholder="New summary type">
+<button key="addtype" class="translate EN" id="addType" >Add Type</button>
+<br>
+    <select class="translate EN" id="appointmentType">
+    </select>
+    <span> &nbsp;&nbsp;</span>
+    <button  key="saveTemplate" id="saveTemplate" class="translate EN">Save Template</button>
+<button key="LoadTemplate"  id="loadTemplate" class="translate EN">Load Template</button>
+</div>
+
+{% if session['textineditor'] %}
+<div id="texttoedit" style="display: none;"> {{session['textineditor']}} </div>
+<div id="editor" contenteditable="true"></div>
+{% else %}
+<div id="editor" contenteditable="true"></div>
+{% endif %}
+<br>
+<br>
+<button style="margin-top: 20px;" id="savethepatient" type="button" class="btn btn-primary" onclick="saveText()" >Save changes</button>
+
+
+
+
+<script>
+
+   //select changes
+   const selectsize = $("#fontsize");
+   const selectname = $("#fontname");
+   const selectforecolor = $("#foreColor");
+   const selecthiliteColor = $("#hiliteColor");
+
+   selectsize.on('change', function() {
+    execCommand('fontSize', this.value);
+    });
+
+    selectname.on('change', function() {
+        execCommand('fontname', this.value);
+    });
+    selectforecolor.on('change', function() {
+    execCommand('foreColor', this.value);
+    });
+    selecthiliteColor.on('change', function() {
+    execCommand('hiliteColor', this.value);
+    });
+   ////////////////////////////////////////////
+
+
+    function execCommand(command, value = null) {        
+        document.execCommand(command, false, value);
+    }
+
+    function setEditorDirection(direction) {
+        const editor = document.getElementById('editor');
+        editor.setAttribute('dir', direction);
+        editor.style.direction = direction;
+        editor.style.textAlign = direction === 'rtl' ? 'right' : 'left';
+        editor.focus();
+    }
+
+
+    function saveText() {
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const id = urlParams.get('id')
+    const noteid = urlParams.get('noteid')
+    var content = document.getElementById('editor').innerHTML;
+    let f = new FormData();
+    if (noteid > 0){
+    f.append("noteid",noteid)
+    }
+    f.append("pat_id",id)
+    f.append("content",JSON.stringify({content}));
+    fetch("/medicalnote",{
+    "method": "POST",
+    "body":f,       
+    }).then(response => response.text()).then(data => {
+                                //Get LAng
+                                var my_lang = sessionStorage.getItem("lang");
+                        if(my_lang=="HE"){
+                        $.notify("רשומה התווספה בהצלחה", {"status":"success"}); 
+                        }
+                        else{
+                            $.notify("Session Summary Added Successfully", {"status":"success"});
+                        } 
+    }).catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save text');
+    });
+   }
+   
+
+  function getPatient(id) {
+    var patientSelect="";
+        var settings = {
+            "async": true,
+            "crossDomain": true,
+            "url": "patientapi/"+id,
+            "method": "GET",
+            "headers": {
+                "cache-control": "no-cache"
+            }
+        }
+
+        $.ajax(settings).done(function (response) {
+            response.pat_fullname = response.pat_first_name+" "+response.pat_last_name
+            patientSelect +="<option value="+response.pat_id+">"+response.pat_fullname+"</option>";
+
+        $("#patient_select").html(patientSelect);
+
+        });
+
+            //$("#patient_select").html(patientSelect)
+        }
+
+   $(document).ready(function () {
+    var textElement = document.getElementById("texttoedit");
+    if (textElement && textElement.textContent.trim()) { $("#editor").html(textElement.textContent); }
+         
+         
+
+
+    // Templates
+    document.getElementById('loadTemplate').addEventListener('click', async () => {
+        const sel = document.getElementById('appointmentType');
+        const appointmentType = sel.options[sel.selectedIndex].text;
+        const response = await fetch(`/api/templates/${encodeURIComponent(appointmentType)}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('editor').innerHTML = data.template_text || '';
+        } else {
+            alert('Template not found');
+        }
+      
+        //call 
+       //language    
+       if(my_lang=="HE"){
+       translate_DOM_element('translate',Translate_jsonData,'EN',my_lang);     
+       }
+       else{
+       translate_DOM_element('translate',Translate_jsonData,'HE',my_lang);  
+       }  
+
+    });
+
+document.getElementById('saveTemplate').addEventListener('click', async () => {
+        const sel = document.getElementById('appointmentType');
+        const appointmentType = sel.options[sel.selectedIndex].text;
+        const templateText = document.getElementById('editor').innerHTML;
+
+        const response = await fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointment_type: appointmentType, template_text: templateText })
+        });
+
+        const result = await response.json();
+        alert(result.message || 'Error saving template');
+    });
+
+        // Fetch templates and populate dropdown
+            async function fetchTemplates() {
+            let response = await fetch('/templates');
+            var templates = await response.json();
+            templates = templates.templates
+            console.log(templates);
+            let select = document.getElementById('appointmentType');
+            templates.forEach(template => {
+                let option = document.createElement('option');
+                option.classList = "translate EN";
+                option.value = template.rec_id;
+                option.textContent = template.appointment_type;
+                select.appendChild(option);
+            });
+        }
+
+            // Add a new type
+            document.getElementById('addType').addEventListener('click', async () =>  {
+                let typeName = document.getElementById('newTypeName').value;
+                if (!typeName) {
+                    alert('Type name cannot be empty');
+                    return;
+                }
+                let response = await fetch('/Addappointment_type', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: typeName })
+                });
+                if (response.ok) {
+                    document.getElementById('newTypeName').value = ''; // Clear input
+                    removeOptions(document.getElementById('appointmentType'))
+                    fetchTemplates();
+                } else {
+                    let error = await response.json();
+                    alert(error.error);
+                }
+            });
+
+        fetchTemplates();
+    });
+
+    function removeOptions(selectElement) {
+        var i, L = selectElement.options.length - 1;
+        for(i = L; i >= 0; i--) {
+            selectElement.remove(i);
+        }
+    }
+
+</script>
+
+
+<script>
+    window.onunload = refreshParent;
+    function refreshParent() {
+        window.opener.location.reload();
+        window.close();
+    }
+</script>
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+
+   <!-- =============== VENDOR SCRIPTS ===============-->
+   <!-- MODERNIZR-->
+   <script src="/static/vendor/modernizr/modernizr.custom.js"></script>
+
+   <!-- JQUERY-->
+   <script src="/static/vendor/jquery/dist/jquery.js"></script>
+
+   <!-- <script src="/static/vendor/moment/moment-with-locales.min.js"></script> -->
+   <!-- BOOTSTRAP-->
+   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="/static/vendor/datatables/media/js/jquery.dataTables.min.js"></script>
+   <script src="/static/vendor/datatables-colvis/js/dataTables.colVis.js"></script>
+   <script src="/static/vendor/datatables/media/js/dataTables.bootstrap.js"></script>
+   <script src="/static/vendor/serialize/jquery.serializejson.js"></script>
+   <!-- STORAGE API-->
+   <script src="/static/vendor/jQuery-Storage-API/jquery.storageapi.js"></script>
+   <!-- JQUERY EASING-->
+   <script src="/static/vendor/jquery.easing/js/jquery.easing.js"></script>
+   <!-- ANIMO-->
+   <script src="/static/vendor/animo.js/animo.js"></script>
+    <script src="/static/vendor/parsley/parsley.min.js"></script>
+       <script src="/static/vendor/sweetalert/dist/sweetalert.min.js"></script>
+   <!-- LOCALIZE-->
+   <!-- <script src="/static/vendor/jquery-localize-i18n/dist/jquery.localize.js"></script> -->
+    <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script> 
+   <!-- =============== PAGE VENDOR SCRIPTS ===============-->
+
+
+   <!-- =============== APP SCRIPTS ===============-->
+   <script src="/static/app/js/app.js"></script>
+   <script type="text/javascript">
+
+    var my_lang = sessionStorage.getItem("lang");
+    var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');
+  
+  </script>
+  <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
+
+
+  <script>
+
+  </script>
+<script src="/static/js/appointment.js"></script>
+<script src="/static/js/disabledatetime.js?v=5"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="https://rawgit.com/AuspeXeu/bootstrap-datetimepicker/master/js/bootstrap-datetimepicker.js"></script>
+
+</html>

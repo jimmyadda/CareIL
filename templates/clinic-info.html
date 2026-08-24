@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Clinic Information</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css">
+   <!-- =============== VENDOR STYLES ===============-->
+   <!-- FONT AWESOME-->
+   <link rel="stylesheet" href="../static/vendor/fontawesome/css/font-awesome.min.css">
+   <!-- SIMPLE LINE ICONS-->
+   <link rel="stylesheet" href="../static/vendor/simple-line-icons/css/simple-line-icons.css">
+   <!-- ANIMATE.CSS-->
+   <link rel="stylesheet" href="../static/vendor/animate.css/animate.min.css">
+   <!-- WHIRL (spinners)-->
+   <link rel="stylesheet" href="../static/vendor/whirl/dist/whirl.css">
+    <link rel="stylesheet" href="../static/vendor/sweetalert/dist/sweetalert.css">
+     <!-- DATATABLES-->
+   <link rel="stylesheet" href="../static/vendor/datatables-colvis/css/dataTables.colVis.css">
+   <link rel="stylesheet" href="../static/vendor/datatables/media/css/dataTables.bootstrap.css">
+   <link rel="stylesheet" href="../static/vendor/dataTables.fontAwesome/index.css">
+   <!-- =============== PAGE VENDOR STYLES ===============-->
+   <!-- =============== BOOTSTRAP STYLES ===============-->
+   <link rel="stylesheet" href="../static/app/css/bootstrap.css" id="bscss">
+   <!-- =============== APP STYLES ===============-->
+   <link rel="stylesheet" href="../static/app/css/app.css" id="maincss">
+   <link rel="manifest" href="/static/manifest.webmanifest">
+   <meta name="theme-color" content="#708238">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+<body>
+    <header class="topnavbar-wrapper">
+        <!-- START Top Navbar-->
+        <nav role="navigation" class="navbar topnavbar">
+           <!-- START navbar header-->
+           <div class="navbar-header" style="left: 0;position: absolute;">
+              <a href="/" class="navbar-brand">
+                 <div class="brand-logo">
+                    CareIL
+                 </div>
+                 <div class="brand-logo-collapsed">
+                    <img src="img/logo-single.png" alt="App Logo" class="img-responsive">
+                 </div>
+              </a>
+           </div>
+           <!-- END navbar header-->
+        </nav>
+        <!-- END Top Navbar-->
+     </header>
+
+    <div class="container mt-5">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alert-container">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="card-title">Update Clinic Information</h3>
+            </div>
+            <div class="card-body">
+            {% if error %}
+                <p>{{ error }}</p>
+                <form method="POST" action="{{ url_for('get_clinic_info') }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Clinic Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="phone" name="phone" value="" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="website" class="form-label">Website (optional)</label>
+                        <input type="url" class="form-control" id="website" name="website" value="">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Save</button>
+                    </div>
+                </form>
+            {% else %}
+                <form method="POST" action="{{ url_for('get_clinic_info') }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Clinic Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ clinic.name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3" required>{{ clinic.address }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="phone" name="phone" value="{{ clinic.phone }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ clinic.email }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="website" class="form-label">Website (optional)</label>
+                        <input type="url" class="form-control" id="website" name="website" value="{{ clinic.website }}">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Save</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> 
+<script src="/static/modern-clinic.js?v=18"></script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
+</body>
+</html>

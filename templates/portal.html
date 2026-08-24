@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Portal · CareIL</title>
+  <link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap/dist/css/bootstrap.css">
+  <link rel="stylesheet" href="/static/vendor/datepicker/build/css/bootstrap-datetimepicker.min.css">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#708238">
+  <style>
+    :root { --olive:#708238; --olive-dark:#526526; --ink:#24332f; --muted:#687570; --line:#dfe5d8; --soft:#f3f5ed; --paper:#fff; --clinic-gradient:linear-gradient(135deg,#a3b18a 0%,#588157 100%); }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#f7f6f1; font-family:Inter,Segoe UI,Arial,sans-serif; }
+    .portal-nav { background:var(--clinic-gradient); color:#fff; }
+    .portal-nav-inner { max-width:1120px; min-height:72px; margin:auto; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .portal-brand { display:flex; align-items:center; gap:10px; color:#102a1c; font-size:20px; font-weight:800; letter-spacing:-.3px; }
+    .portal-brand img { display:block; width:52px; height:48px; object-fit:contain; }
+    .portal-user { display:flex; align-items:center; gap:14px; }
+    .portal-user span { opacity:.95; }
+    .portal-signout { color:#fff; border:1px solid rgba(255,255,255,.45); border-radius:10px; padding:8px 12px; text-decoration:none; }
+    .portal-signout:hover { color:#fff; background:rgba(255,255,255,.12); text-decoration:none; }
+    .portal-shell { max-width:1120px; margin:0 auto; padding:34px 22px 48px; }
+    .portal-hero { margin-bottom:26px; display:flex; justify-content:space-between; align-items:flex-end; gap:20px; }
+    .portal-hero h1 { margin:0 0 6px; font-size:30px; font-weight:800; }
+    .portal-hero p { margin:0; color:var(--muted); }
+    .portal-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 18px; border:1px solid #588157; border-radius:12px; background:var(--clinic-gradient); color:#102a1c; font-weight:700; box-shadow:0 8px 20px rgba(53,94,59,.2); }
+    .portal-button:hover,.portal-button:focus { color:#172511; filter:brightness(.96); }
+    .portal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }
+    .portal-card { min-width:0; padding:22px; border:1px solid var(--line); border-radius:18px; background:var(--paper); box-shadow:0 12px 30px rgba(40,55,48,.06); }
+    .portal-card--wide { grid-column:1/-1; }
+    .portal-card h2 { margin:0 0 18px; font-size:19px; font-weight:800; display:flex; align-items:center; gap:10px; }
+    .portal-card h2 i { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; color:var(--olive-dark); background:var(--soft); }
+    .appointment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .appointment-box { padding:17px; border-radius:14px; background:var(--soft); }
+    .appointment-box small { display:block; margin-bottom:8px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .appointment-box strong { display:block; font-size:18px; }
+    .empty-state { padding:18px; border-radius:14px; color:var(--muted); background:var(--soft); text-align:center; }
+    .detail-list { margin:0; display:grid; gap:0; }
+    .detail-row { padding:12px 0; display:grid; grid-template-columns:145px minmax(0,1fr); gap:16px; border-bottom:1px solid #edf0e9; }
+    .detail-row:last-child { border-bottom:0; }
+    .detail-row dt { color:var(--muted); font-weight:600; }
+    .detail-row dd { margin:0; font-weight:700; overflow-wrap:anywhere; }
+    .message-list { display:grid; gap:12px; }
+    .message-item { padding:17px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:center; border:1px solid var(--line); border-radius:14px; }
+    .message-text { margin:0 0 7px; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .message-date { color:var(--muted); font-size:13px; }
+    .mark-read { border:1px solid var(--line); border-radius:10px; padding:8px 12px; color:var(--olive-dark); background:#fff; font-weight:700; white-space:nowrap; }
+    .mark-read:hover { background:var(--soft); }
+    .modal-content { border:0; border-radius:18px; overflow:hidden; }
+    .modal-header { color:#fff; background:var(--clinic-gradient); }
+    .modal-header .close { color:#fff; opacity:.9; }
+    .modal-body { padding:24px; }
+    .modal-footer { padding:16px 24px; }
+    .form-control { min-height:44px; border-color:var(--line); border-radius:10px; }
+    .portal-note { margin-top:12px; color:var(--muted); font-size:13px; }
+    .datetimepicker .datetimepicker-hours span.disabled,.datetimepicker .datetimepicker-hours span.booked-hour,.datetimepicker .datetimepicker-hours span.disabled:hover { color:#969d99 !important; background:#e2e5e0 !important; cursor:not-allowed !important; text-decoration:line-through; opacity:.72; }
+    @media (max-width:760px) {
+      .portal-nav-inner,.portal-hero { align-items:flex-start; }
+      .portal-user span { display:none; }
+      .portal-shell { padding:25px 15px 36px; }
+      .portal-hero { flex-direction:column; }
+      .portal-button { width:100%; }
+      .portal-grid { grid-template-columns:1fr; }
+      .portal-card--wide { grid-column:auto; }
+      .appointment-grid { grid-template-columns:1fr; }
+      .detail-row { grid-template-columns:1fr; gap:4px; }
+      .message-item { grid-template-columns:1fr; }
+      .mark-read { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="portal-nav">
+    <div class="portal-nav-inner">
+      <div class="portal-brand"><img src="/static/img/therapy-hands-logo.png" alt=""> CareIL</div>
+      <div class="portal-user">
+        <span>Hello, {{ patientdata[0]['pat_first_name'] }} {{ patientdata[0]['pat_last_name'] }}</span>
+        <a class="portal-signout" href="/portal/logout"><i class="fa fa-sign-out" aria-hidden="true"></i> Sign out</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <div class="portal-hero">
+      <div>
+        <h1>Your client portal</h1>
+        <p>Appointments, contact information and messages in one place.</p>
+      </div>
+      <button id="openAppointment" class="portal-button" type="button"><i class="fa fa-calendar-plus-o" aria-hidden="true"></i> Request appointment</button>
+    </div>
+
+    <div class="portal-grid">
+      <section class="portal-card">
+        <h2><i class="fa fa-calendar" aria-hidden="true"></i> Appointments</h2>
+        {% if appointment_dates.lastappointment or appointment_dates.nextappointment %}
+        <div class="appointment-grid">
+          {% if appointment_dates.nextappointment %}
+          <div class="appointment-box"><small>Next appointment</small><strong>{{ appointment_dates['nextappointment'] }}</strong></div>
+          {% endif %}
+          {% if appointment_dates.lastappointment %}
+          <div class="appointment-box"><small>Previous appointment</small><strong>{{ appointment_dates['lastappointment'] }}</strong></div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No scheduled appointments yet.</div>
+        {% endif %}
+      </section>
+
+      <section class="portal-card">
+        <h2><i class="fa fa-user-o" aria-hidden="true"></i> Personal details</h2>
+        <dl class="detail-list">
+          <div class="detail-row"><dt>Name</dt><dd>{{ patientdata[0]['pat_first_name'] }} {{ patientdata[0]['pat_last_name'] }}</dd></div>
+          <div class="detail-row"><dt>Date of birth</dt><dd>{{ patientdata[0]['pat_dob'] or '—' }}</dd></div>
+          <div class="detail-row"><dt>Phone</dt><dd>{{ patientdata[0]['pat_ph_no'] or '—' }}</dd></div>
+          <div class="detail-row"><dt>Email</dt><dd>{{ patientdata[0]['pat_email'] or '—' }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="portal-card portal-card--wide">
+        <h2><i class="fa fa-comment-o" aria-hidden="true"></i> Messages</h2>
+        {% if patientmessages %}
+        <div class="message-list">
+          {% for msg in patientmessages %}
+          <article class="message-item" id="message-{{ msg['rec_id'] }}">
+            <div><p class="message-text" dir="auto">{{ msg['message'] }}</p><span class="message-date">{{ msg['create_date'] }}</span></div>
+            <button class="mark-read" type="button" data-message-id="{{ msg['rec_id'] }}"><i class="fa fa-check" aria-hidden="true"></i> Mark as read</button>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">You have no unread messages.</div>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+
+  <div id="appointmentModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="appointmentTitle">
+    <div class="modal-dialog" role="document"><div class="modal-content">
+      <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="appointmentTitle" class="modal-title">Request an appointment</h4></div>
+      <div class="modal-body">
+        <form id="appointmentForm">
+          <input type="hidden" name="pat_id" value="{{ patientdata[0]['pat_id'] }}">
+          <div class="form-group"><label for="appointmentDate">Available date and time</label><input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" required></div>
+          <p class="portal-note">Unavailable days, hours and already-booked times cannot be selected. The clinic will review and approve your request.</p>
+        </form>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button id="submitAppointment" type="button" class="portal-button">Send request</button></div>
+    </div></div>
+  </div>
+
+  <script src="/static/vendor/jquery/dist/jquery.js"></script>
+  <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
+  <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script>
+  <script src="/static/js/disabledatetime.js?v=5"></script>
+  <script>
+    $(function () {
+      const bookedTimes = {{ allappointments | tojson }}.map(function (item) { return item.appointment_date; });
+      $('#openAppointment').on('click', function () {
+        $('#appointmentModal').modal('show').one('shown.bs.modal', function () {
+          const disabled = changearrformat(bookedTimes.slice());
+          availabilityPickerOptions(disabled).then(function (options) {
+            if ($('.form_datetime').data('datetimepicker')) $('.form_datetime').datetimepicker('remove');
+            $('.form_datetime').datetimepicker(options);
+            attachBookedSlotGuard($('.form_datetime'), disabled);
+          });
+        });
+      });
+
+      $('.mark-read').on('click', function () {
+        const button = this;
+        const messageId = button.getAttribute('data-message-id');
+        button.disabled = true;
+        fetch('/portal/messages/' + encodeURIComponent(messageId) + '/read', {method:'POST'})
+          .then(async function (response) {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Could not update the message.');
+            const item = document.getElementById('message-' + messageId);
+            if (item) item.remove();
+            if (!document.querySelector('.message-item')) window.location.reload();
+          }).catch(function (error) { button.disabled = false; window.alert(error.message); });
+      });
+
+      $('#submitAppointment').on('click', async function () {
+        const form = document.getElementById('appointmentForm');
+        if (!form.reportValidity()) return;
+        const button = this;
+        button.disabled = true;
+        const appointmentDate = form.elements.appointment_date.value;
+        const payload = {pat_id: form.elements.pat_id.value, appointment_date: appointmentDate};
+        const check = new FormData();
+        check.append('pat_id', payload.pat_id);
+        check.append('appointmentdate', payload.appointment_date);
+        try {
+          const availability = await fetch('/checkdate', {method:'POST', body:check});
+          if (!availability.ok || (await availability.text()).trim() !== 'OK') throw new Error('This time is unavailable. Please select another time.');
+          const response = await fetch('/appointmentrequestapi', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'The appointment request could not be sent.');
+          $('#appointmentModal').modal('hide');
+          form.reset();
+          window.alert('Your appointment request was sent successfully.');
+        } catch (error) { window.alert(error.message); }
+        finally { button.disabled = false; }
+      });
+    });
+  </script>
+</body>
+</html>
