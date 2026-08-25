@@ -266,14 +266,28 @@
       recognition.lang = 'he-IL';
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
       let listening = false;
       let savedRange = null;
+      let interimNode = null;
+      let receivedResult = false;
+      let resultWatchdog = null;
+      let failureMessage = '';
+      const isEdge = /Edg\//.test(navigator.userAgent);
+
+      function watchForResults() {
+        receivedResult = false;
+        window.clearTimeout(resultWatchdog);
+        resultWatchdog = window.setTimeout(function () {
+          if (!receivedResult && listening) recognition.stop();
+        }, 10000);
+      }
 
       function rememberCaret() {
         const selection = window.getSelection();
         if (selection.rangeCount && document.getElementById('editor').contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
       }
-      function insertTranscript(text) {
+      function placeInterimNode() {
         const editor = document.getElementById('editor');
         editor.focus();
         const selection = window.getSelection();
@@ -282,32 +296,95 @@
         } else {
           const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false); selection.removeAllRanges(); selection.addRange(range);
         }
-        document.execCommand('insertText', false, text + ' ');
+        interimNode = document.createElement('span');
+        interimNode.setAttribute('data-dictation-interim', 'true');
+        interimNode.style.opacity = '.68';
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(interimNode);
+        range.setStartAfter(interimNode);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
         rememberCaret();
+      }
+      function showInterim(text) {
+        if (!interimNode || !interimNode.isConnected) placeInterimNode();
+        interimNode.textContent = text;
+      }
+      function commitTranscript(text) {
+        if (!interimNode || !interimNode.isConnected) placeInterimNode();
+        const finalNode = document.createTextNode(text.trim() + ' ');
+        interimNode.replaceWith(finalNode);
+        interimNode = null;
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.setStartAfter(finalNode); range.collapse(true);
+        selection.removeAllRanges(); selection.addRange(range);
+        savedRange = range.cloneRange();
       }
       document.getElementById('editor').addEventListener('keyup', rememberCaret);
       document.getElementById('editor').addEventListener('mouseup', rememberCaret);
       recognition.onresult = function (event) {
+        receivedResult = true;
+        failureMessage = '';
+        window.clearTimeout(resultWatchdog);
         let finalText = '', interimText = '';
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
           else interimText += event.results[i][0].transcript;
         }
-        if (finalText) insertTranscript(finalText);
+        if (interimText) showInterim(interimText);
+        if (finalText) commitTranscript(finalText);
         status.textContent = interimText || copy('Listening in Hebrew…', 'מקשיב בעברית…');
       };
+      recognition.onspeechstart = function () {
+        status.textContent = copy('Speech detected…', 'זוהה דיבור…');
+      };
+      recognition.onnomatch = function () {
+        status.textContent = copy('Speech was heard but not recognized. Please try again.', 'הדיבור נשמע אך לא זוהה. נסו שוב.');
+      };
       recognition.onend = function () {
-        if (listening) { try { recognition.start(); } catch (error) {} }
+        window.clearTimeout(resultWatchdog);
+        if (interimNode && interimNode.isConnected && !interimNode.textContent) interimNode.remove();
+        if (failureMessage) {
+          listening = false;
+          button.classList.remove('is-listening');
+          label.textContent = copy('Dictate in Hebrew', 'הכתבה בעברית');
+          status.textContent = failureMessage;
+        }
+        else if (listening && receivedResult) {
+          try { recognition.start(); watchForResults(); } catch (error) {}
+        }
+        else if (listening && !receivedResult) {
+          listening = false;
+          button.classList.remove('is-listening');
+          label.textContent = copy('Dictate in Hebrew', 'הכתבה בעברית');
+          status.textContent = isEdge
+            ? copy('Edge returned no speech. Click in the editor and press Win + H, or use Chrome.', 'Edge לא החזיר תמלול. לחצו בעורך והקישו Win + H, או השתמשו ב-Chrome.')
+            : copy('No speech was recognized. Please try again.', 'לא זוהה דיבור. נסו שוב.');
+        }
         else { button.classList.remove('is-listening'); label.textContent = copy('Dictate in Hebrew', 'הכתבה בעברית'); status.textContent = ''; }
       };
       recognition.onerror = function (event) {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') listening = false;
-        status.textContent = copy('Microphone access is required for dictation.', 'נדרשת הרשאת מיקרופון לצורך הכתבה.');
+        window.clearTimeout(resultWatchdog);
+        listening = false;
+        const errors = {
+          'not-allowed': copy('Microphone access is required for dictation.', 'נדרשת הרשאת מיקרופון לצורך הכתבה.'),
+          'service-not-allowed': copy('Speech recognition is blocked by the browser or organization policy.', 'זיהוי הדיבור חסום על ידי הדפדפן או מדיניות הארגון.'),
+          'network': copy('The browser speech service could not connect. Try Chrome or Windows dictation with Win + H.', 'שירות זיהוי הדיבור לא הצליח להתחבר. נסו Chrome או הכתבה של Windows באמצעות Win + H.'),
+          'no-speech': copy('No speech was detected. Please try again.', 'לא זוהה דיבור. נסו שוב.'),
+          'audio-capture': copy('The microphone could not be captured.', 'לא ניתן היה להתחבר למיקרופון.')
+        };
+        failureMessage = errors[event.error] || (copy('Dictation error: ', 'שגיאת הכתבה: ') + event.error);
+        status.textContent = failureMessage;
       };
       button.addEventListener('click', function () {
         listening = !listening;
         if (listening) {
+          failureMessage = '';
           rememberCaret(); button.classList.add('is-listening'); label.textContent = copy('Stop dictation', 'עצירת הכתבה'); status.textContent = copy('Listening in Hebrew…', 'מקשיב בעברית…'); recognition.start();
+          watchForResults();
         } else { recognition.stop(); }
       });
    })();
