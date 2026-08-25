@@ -305,7 +305,7 @@
          <section>
             <!-- Page content-->
             <div class="content-wrapper" style="width: 85%;">
-               <div key="apph4" class="content-heading">
+               <div key="apph4" class="content-heading translate EN">
                   <!-- START Language list-->
    
                   <!-- END Language list    -->
@@ -326,17 +326,12 @@
                               <table id="datatable5" class="table table-striped">
                                  <thead>
                                     <tr>
-                                       <th key="therapist" class="translate EN" style="width:20%">Therapist Name</th>
-                                       <th key="patient" class="translate EN" style="width:25%">Client Name</th>
                                        <th key="appdate" class="translate EN" style="width:15%">Appointment Date</th>
-                                         <th style="width:15%"></th>
                                     </tr>
                                  </thead>
                                  <tbody>
                                     {% for appointment in appointments %}
                                     <tr>
-                                      <td>{{ appointment['doc_first_name'] }} {{ appointment['doc_last_name'] }}</td>
-                                      <td>{{ appointment['pat_first_name'] }} {{ appointment['pat_last_name'] }}</td>
                                       <td>{{ appointment['appointment_date'] }}</td>                
                                     </tr>
                                     {% endfor %} 
@@ -359,18 +354,7 @@
                               </div>
                               <div class="modal-body">
                                  <form data-parsley-validate="" novalidate="" class="form-horizontal" id="detailform">
-                                             <div class="form-group">
-                                                <label key="therapist" class="col-lg-2 control-label translate EN">Therapist</label>
-                                                <div class="col-lg-10">
-                                                   <select required id="therapist_select" type="text" name="doc_id" class="form-control" placeholder="Please select Therapist"></select>
-                                                </div>
-                                             </div>
-                                             <div class="form-group">
-                                                <label key="patient" class="col-lg-2 control-label translate EN">Client</label>
-                                                <div class="col-lg-10">
-                                                   <select required id="patient_select" type="text" name="pat_id" class="form-control" placeholder="Please select Client"></select>
-                                                </div>
-                                             </div>
+                                             <input type="hidden" name="pat_id" value="{{ patient['pat_id'] }}">
                   
                                     <div class="form-group">
                                                 <label key="appdate" class="col-lg-2 control-label translate EN">Appointment date</label>
@@ -501,69 +485,8 @@
         //return false;
     }
 
-    function getDoctor() {
-        var doc_sel = document.getElementById("therapist_select");
-
-        var therapistSelect="";
-
-        var settings = {
-            "async": true,
-            "crossDomain": true,
-            "url": "doctorapi",
-            "method": "GET",
-            "headers": {
-                "cache-control": "no-cache"
-            }
-        }
-
-        $.ajax(settings).done(function (response) {
-        for(i=0;i<response.length;i++){
-
-        response[i].doc_fullname=response[i].doc_first_name+" "+response[i].doc_last_name
-        therapistSelect +="<option value="+response[i].doc_id+">"+response[i].doc_fullname+"</option>"
-        }
-
-        doc_sel.innerHTML =  therapistSelect
-        })
-        }
-
-    function getPatient(patient_id) {
-var pat_select = document.getElementById("patient_select");
-
-  var patientSelect= ""
-  let api_url;
-  if (patient_id === undefined) {
-    api_url = "patientapi";
-  } 
-  else{
-    api_url = "patientapi/"+ patient_id;
-  }
-        var settings = {
-            "async": true,
-            "crossDomain": true,
-            "url": api_url,
-            "method": "GET",
-            "headers": {
-                "cache-control": "no-cache"
-            }
-        }
-
-        $.ajax(settings).done(function (response) {
-            console.log(response);
-            response.pat_fullname=response.pat_first_name+" "+response.pat_last_name
-            if (response.pat_id == patient_id){
-            patientSelect +="<option 'selected' value="+response.pat_id+">"+response.pat_fullname+"</option>"
-          }
-          else{
-            patientSelect +="<option value="+response.pat_id+">"+response.pat_fullname+"</option>"
-          }
-          console.log(patientSelect)
-          pat_select.innerHTML = patientSelect;
-                })
-
-        }
     </script>
-<script src="/static/modern-clinic.js?v=18"></script>
+<script src="/static/modern-clinic.js?v=19"></script>
 <script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
 </body>
    <!-- =============== VENDOR SCRIPTS ===============-->
@@ -605,7 +528,7 @@ var pat_select = document.getElementById("patient_select");
   <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
   <script src="/static/js/medicalnote.js?v=2"></script>
    <script src="/static/js/disabledatetime.js?v=5"></script>
-   <script src="/static/js/appointmentpatientform.js?v=10"></script>
+   <script src="/static/js/appointmentpatientform.js?v=11"></script>
    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
    
    

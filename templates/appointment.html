@@ -88,7 +88,7 @@
       <section>
          <!-- Page content-->
          <div class="content-wrapper">
-            <div class="content-heading translate EN">
+            <div key="AppointmentWidget" class="content-heading translate EN">
                <!-- START Language list-->
 
                <!-- END Language list    -->
@@ -110,7 +110,6 @@
                            <table id="datatable4" class="table table-striped">
                               <thead>
                                  <tr>
-                                    <th key="therapist" class="translate EN" style="width:20%">Therapist Name</th>
                                     <th key="patient" class="translate EN" style="width:25%">Client Name</th>
                                     <th key="appdate" class="translate EN" style="width:15%">Appointment Date</th>
                                       <th style="width:15%"></th>
@@ -132,7 +131,6 @@
                            <table id="pendingtbl" class="table table-striped">
                               <thead>
                                  <tr>
-                                    <th key="therapist" class="translate EN" style="width:20%">Therapist Name</th>
                                     <th key="patient" class="translate EN" style="width:25%">Client Name</th>
                                     <th key="appdate" class="translate EN" style="width:15%">Appointment Date</th>
                                       <th style="width:15%"></th>
@@ -164,12 +162,6 @@
             </div>
             <div class="modal-body">
                <form data-parsley-validate="" novalidate="" class="form-horizontal" id="detailform">
-                           <div class="form-group">
-                              <label key="therapist" class="col-lg-2 control-label translate EN">Therapist</label>
-                              <div class="col-lg-10">
-                                 <select required id="therapist_select" type="text" name="doc_id" class="form-control" placeholder="Please select therapist"></select>
-                              </div>
-                           </div>
                            <div class="form-group">
                               <label key="patient" class="col-lg-2 control-label translate EN">Client</label>
                               <div class="col-lg-10">
@@ -236,10 +228,10 @@
       var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');
     
     </script>
-<script type="text/javascript" src="/static/js/appointment.js"></script>
+<script type="text/javascript" src="/static/js/appointment.js?v=4"></script>
 <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
 <script src="/static/js/disabledatetime.js?v=5"></script>
-<script src="/static/js/appointment-page-fix.js?v=3"></script>
+<script src="/static/js/appointment-page-fix.js?v=4"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
 <script>
@@ -252,7 +244,7 @@
 
 <input id="unavailableHours" type="text" style="display: none;"/>
 <input id="pendingunavailableHours" type="text" style="display: none;"/>
-<script src="/static/modern-clinic.js?v=18"></script>
+<script src="/static/modern-clinic.js?v=19"></script>
 <script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
 </body>
 </html>

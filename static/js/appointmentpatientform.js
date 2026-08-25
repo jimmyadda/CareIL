@@ -3,27 +3,15 @@ $(function () {
     const $modal = $('#myModal');
     let bookedAppointmentTimes = [];
 
-    function fullName(person, prefix) {
-        return [person[prefix + '_first_name'], person[prefix + '_last_name']].filter(Boolean).join(' ');
-    }
+    function language() { return sessionStorage.getItem('lang') === 'HE' ? 'HE' : 'EN'; }
+    function text(en, he) { return language() === 'HE' ? he : en; }
     function showError(message) {
         if ($.notify) $.notify(message, { status: 'danger' });
         else window.alert(message);
     }
     function loadOptions() {
-        return $.when(
-            $.getJSON('/doctorapi'),
-            $.getJSON('/patientapi/' + encodeURIComponent(patientId)),
-            $.getJSON('/appointmentapi')
-        ).then(function (doctorResult, patientResult, appointmentResult) {
-                const $doctors = $modal.find('#doctor_select').empty();
-                const $patient = $modal.find('#patient_select').empty();
-                (doctorResult[0] || []).forEach(function (doctor) {
-                    $('<option>').val(doctor.doc_id).text(fullName(doctor, 'doc')).appendTo($doctors);
-                });
-                const patient = patientResult[0];
-                $('<option>').val(patient.pat_id).text(fullName(patient, 'pat')).appendTo($patient);
-                bookedAppointmentTimes = (appointmentResult[0] || []).map(function (item) {
+        return $.getJSON('/appointmentapi').then(function (appointments) {
+                bookedAppointmentTimes = (appointments || []).map(function (item) {
                     return item.appointment_date;
                 });
             });
@@ -44,10 +32,10 @@ $(function () {
         }
     }
     $('#addApp_pat_form').off('click').on('click.patientAppointment', function () {
-        if (!patientId) return showError('Please select a patient first.');
+        if (!patientId) return showError(text('Please select a client first.', 'יש לבחור מטופל תחילה.'));
         loadOptions().done(function () {
             $modal.modal('show').one('shown.bs.modal', configureDatePicker);
-        }).fail(function () { showError('Could not load the appointment form. Please try again.'); });
+        }).fail(function () { showError(text('Could not load the appointment form. Please try again.', 'לא ניתן לטעון את טופס הפגישה. נסו שוב.')); });
     });
     $modal.find('#savethepatient').off('click').on('click.patientAppointment', function () {
         const $form = $modal.find('#detailform');
@@ -59,14 +47,14 @@ $(function () {
         data.pat_id = patientId;
         $.ajax({url: '/appointmentapi', method: 'POST', contentType: 'application/json', data: JSON.stringify(data)})
             .done(function () {
-                const message = sessionStorage.getItem('lang') === 'HE' ? 'פגישת טיפול נקבעה בהצלחה' : 'Appointment added successfully';
+                const message = text('Appointment added successfully', 'פגישת טיפול נקבעה בהצלחה');
                 if ($.notify) $.notify(message, {status: 'success'});
                 $modal.modal('hide');
                 window.setTimeout(function () { window.location.reload(); }, 350);
             })
             .fail(function (xhr) {
                 const response = xhr.responseJSON;
-                showError(response && response.error ? response.error : 'Could not add the appointment.');
+                showError(response && response.error ? response.error : text('Could not add the appointment.', 'לא ניתן לקבוע את הפגישה.'));
             });
     });
 });

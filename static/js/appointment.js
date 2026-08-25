@@ -116,7 +116,6 @@ swal({
         
 
         response[i].pat_fullname=response[i].pat_first_name+" "+response[i].pat_last_name
-        response[i].doc_fullname=response[i].doc_first_name+" "+response[i].doc_last_name
         }
 
         $('#unavailableHours').val(unavailableHours); 
@@ -129,9 +128,6 @@ swal({
                 aaData: response,
                    "aaSorting": [],
                 aoColumns: [
-                    {
-                        mData: 'doc_fullname'
-                    },
                     {
                         mData: 'pat_fullname'
                     },
@@ -191,7 +187,6 @@ swal({
 
 
         response[i].pat_fullname=response[i].pat_first_name+" "+response[i].pat_last_name
-        response[i].doc_fullname=response[i].doc_first_name+" "+response[i].doc_last_name
         }
          
 //        $('#pendingunavailableHours').val(unavailableHours); 
@@ -211,9 +206,6 @@ swal({
                 aaData: response,
                    "aaSorting": [],
                 aoColumns: [
-                    {
-                        mData: 'doc_fullname'
-                    },
                     {
                         mData: 'pat_fullname'
                     },

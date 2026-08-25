@@ -11,22 +11,33 @@ $(function () {
     else window.alert(message);
   }
 
+  function language() {
+    return sessionStorage.getItem('lang') === 'HE' ? 'HE' : 'EN';
+  }
+
+  function text(en, he) {
+    return language() === 'HE' ? he : en;
+  }
+
   $('#addpatient').off('click').on('click.appointmentPage', function () {
-    $.when($.getJSON('/doctorapi'), $.getJSON('/patientapi'), $.getJSON('/appointmentapi'))
-      .done(function (doctorResult, patientResult, appointmentResult) {
-        const doctors = doctorResult[0] || [];
+    $.when($.getJSON('/patientapi'), $.getJSON('/appointmentapi'))
+      .done(function (patientResult, appointmentResult) {
         const patients = patientResult[0] || [];
         bookedAppointmentTimes = (appointmentResult[0] || []).map(function (item) {
           return item.appointment_date;
         });
-        const $doctor = $modal.find('#doctor_select').empty();
         const $patient = $modal.find('#patient_select').empty();
-        doctors.forEach(function (item) {
-          $('<option>').val(item.doc_id).text(nameOf(item, 'doc')).appendTo($doctor);
-        });
+        $('<option>').val('').prop('disabled', true).prop('selected', true)
+          .text(text('Select a client', 'בחרו מטופל')).appendTo($patient);
         patients.forEach(function (item) {
           $('<option>').val(item.pat_id).text(nameOf(item, 'pat')).appendTo($patient);
         });
+        if (!patients.length) {
+          $patient.empty().append($('<option>').val('').prop('disabled', true).prop('selected', true)
+            .text(text('No clients available', 'אין מטופלים זמינים')));
+          notifyError(text('Add a client before booking an appointment.', 'יש להוסיף מטופל לפני קביעת פגישה.'));
+          return;
+        }
         $modal.modal('show').one('shown.bs.modal', function () {
           const disabled = changearrformat(bookedAppointmentTimes);
           availabilityPickerOptions(disabled).then(function (options) {
@@ -36,7 +47,7 @@ $(function () {
           });
         });
       })
-      .fail(function () { notifyError('Could not load the appointment form.'); });
+      .fail(function () { notifyError(text('Could not load the appointment form.', 'לא ניתן לטעון את טופס הפגישה.')); });
   });
 
   $modal.find('#savethepatient').off('click').on('click.appointmentPage', function () {
@@ -47,12 +58,12 @@ $(function () {
     const data = $form.serializeJSON();
     $.ajax({url:'/appointmentapi', method:'POST', contentType:'application/json', data:JSON.stringify(data)})
       .done(function () {
-        if ($.notify) $.notify('Appointment added successfully', {status:'success'});
+        if ($.notify) $.notify(text('Appointment added successfully', 'פגישת הטיפול נקבעה בהצלחה'), {status:'success'});
         $modal.modal('hide');
         window.setTimeout(function () { window.location.reload(); }, 350);
       })
       .fail(function (xhr) {
-        notifyError((xhr.responseJSON && xhr.responseJSON.error) || 'Could not add the appointment.');
+        notifyError((xhr.responseJSON && xhr.responseJSON.error) || text('Could not add the appointment.', 'לא ניתן לקבוע את הפגישה.'));
       });
   });
 });

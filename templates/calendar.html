@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>
+    window.careilCalendarLang = sessionStorage.getItem('lang') === 'HE' ? 'HE' : 'EN';
+    document.documentElement.lang = window.careilCalendarLang === 'HE' ? 'he' : 'en';
+    document.documentElement.dir = window.careilCalendarLang === 'HE' ? 'rtl' : 'ltr';
+  </script>
   <title>Appointment Calendar · CareIL</title>
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
   <link rel="stylesheet" href="/static/vendor/fullcalendar/calendar.js.min.css">
@@ -33,27 +38,53 @@
   </header>
   <main class="calendar-page">
     <div class="calendar-header">
-      <div><h1 class="calendar-title"><i class="fa fa-calendar" aria-hidden="true"></i> Appointment calendar</h1><p class="calendar-subtitle">Review scheduled client sessions by day, week or month.</p></div>
+      <div><h1 class="calendar-title"><i class="fa fa-calendar" aria-hidden="true"></i> <span id="calendar-page-title">Appointment calendar</span></h1><p id="calendar-page-subtitle" class="calendar-subtitle">Review scheduled client sessions by day, week or month.</p></div>
       <div class="calendar-actions">
         <form action="/google-calendar/sync" method="post">
           <input type="hidden" name="next" value="/calendar">
-          <button class="btn btn-primary" type="submit"><i class="fa fa-refresh" aria-hidden="true"></i> Sync Google Calendar</button>
+          <button class="btn btn-primary" type="submit"><i class="fa fa-refresh" aria-hidden="true"></i> <span id="calendar-sync-label">Sync Google Calendar</span></button>
         </form>
-        <a class="btn btn-default" href="/appointment"><i class="fa fa-list" aria-hidden="true"></i> Table view</a>
+        <a class="btn btn-default" href="/appointment"><i class="fa fa-list" aria-hidden="true"></i> <span id="calendar-table-label">Table view</span></a>
       </div>
     </div>
-    {% if request.args.get('synced') is not none %}<div class="alert alert-success"><i class="fa fa-check-circle" aria-hidden="true"></i> {{ request.args.get('synced') }} upcoming appointment(s) synchronized with Google Calendar.</div>{% endif %}
+    {% if request.args.get('synced') is not none %}<div id="calendar-sync-success" data-count="{{ request.args.get('synced') }}" class="alert alert-success"><i class="fa fa-check-circle" aria-hidden="true"></i> <span>{{ request.args.get('synced') }} upcoming appointment(s) synchronized with Google Calendar.</span></div>{% endif %}
     {% if request.args.get('sync_error') %}<div class="alert alert-danger">{{ request.args.get('sync_error') }}</div>{% endif %}
     <section class="calendar-card"><div id="calendar"></div></section>
   </main>
   <script src="/static/vendor/fullcalendar/calendar.js"></script>
   <script>
+    const calendarLanguage = window.careilCalendarLang;
+    const isHebrew = calendarLanguage === 'HE';
+    const copy = isHebrew ? {
+      title:'יומן פגישות', subtitle:'צפייה בפגישות טיפול לפי יום, שבוע או חודש.', sync:'סנכרון יומן Google', table:'תצוגת טבלה'
+    } : {title:'Appointment calendar', subtitle:'Review scheduled client sessions by day, week or month.', sync:'Sync Google Calendar', table:'Table view'};
+    document.title = copy.title + ' · CareIL';
+    document.getElementById('calendar-page-title').textContent = copy.title;
+    document.getElementById('calendar-page-subtitle').textContent = copy.subtitle;
+    document.getElementById('calendar-sync-label').textContent = copy.sync;
+    document.getElementById('calendar-table-label').textContent = copy.table;
+    const syncSuccess = document.getElementById('calendar-sync-success');
+    if (syncSuccess && isHebrew) syncSuccess.querySelector('span').textContent = syncSuccess.dataset.count + ' פגישות קרובות סונכרנו עם יומן Google.';
     document.documentElement.style.setProperty('--calendar-js-event-color','#708238');
     document.documentElement.style.setProperty('--calendar-js-dark-color','#4f5d27');
-    const calendar = new calendarJs('calendar', {manualEditingEnabled:false,startOfWeekDay:6,reverseOrderDaysOfWeek:true});
+    const calendarOptions = {manualEditingEnabled:false,startOfWeekDay:6,reverseOrderDaysOfWeek:isHebrew};
+    if (isHebrew) Object.assign(calendarOptions, {
+      dayHeaderNames:['יום שני','יום שלישי','יום רביעי','יום חמישי','יום שישי','שבת','יום ראשון'],
+      dayNames:['יום שני','יום שלישי','יום רביעי','יום חמישי','יום שישי','שבת','יום ראשון'],
+      dayNamesAbbreviated:['ב׳','ג׳','ד׳','ה׳','ו׳','ש׳','א׳'],
+      monthNames:['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'],
+      monthNamesAbbreviated:['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'],
+      previousMonthTooltipText:'חודש קודם', nextMonthTooltipText:'חודש הבא', currentMonthTooltipText:'החודש הנוכחי',
+      previousDayTooltipText:'יום קודם', nextDayTooltipText:'יום הבא', previousWeekTooltipText:'שבוע קודם', nextWeekTooltipText:'שבוע הבא',
+      previousYearTooltipText:'שנה קודמת', nextYearTooltipText:'שנה הבאה', todayTooltipText:'היום', thisWeekTooltipText:'השבוע',
+      allDayText:'כל היום', allEventsText:'כל הפגישות', noEventsAvailableText:'אין פגישות', noEventsAvailableFullText:'אין פגישות להצגה.',
+      weekText:'שבוע', dayText:'יום', daysText:'ימים', monthText:'חודש', previousText:'הקודם', nextText:'הבא', closeTooltipText:'סגירה',
+      refreshTooltipText:'רענון', searchText:'חיפוש', searchTooltipText:'חיפוש', moreText:'עוד'
+    });
+    const calendar = new calendarJs('calendar', calendarOptions);
     const events = {{ appointments | tojson }};
     events.forEach(function (item) {
-      item.title = 'Therapy session · ' + item.pat_first_name + ' ' + item.pat_last_name;
+      item.title = (isHebrew ? 'פגישת טיפול · ' : 'Therapy session · ') + item.pat_first_name + ' ' + item.pat_last_name;
       item.from = item.appointment_date;
       const end = new Date(Date.parse(item.appointment_date));
       end.setMinutes(end.getMinutes()+{{ appointment_duration | int }});
@@ -61,6 +92,6 @@
     });
     calendar.addEvents(events);
   </script>
-  <script src="/static/modern-clinic.js?v=18"></script>
+  <script src="/static/modern-clinic.js?v=19"></script>
 </body>
 </html>
