@@ -4,6 +4,7 @@
         <meta name="viewport" content="width=device-width, Initial-scale=1">
         <title>CareIL</title>
         <link rel="stylesheet" type="text/css" href="/static/login.css?v=2" media="screen">
+        <link rel="stylesheet" href="/static/legal-consent.css?v=1">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
        <link rel="manifest" href="/static/manifest.webmanifest">
    <meta name="theme-color" content="#708238">
@@ -17,14 +18,19 @@
             <p class="alert">{{alert}}</p>
             {%endif%}
              {% if verification_step  == 0 and email_step == 0%}
-            <p>Plaese register to continue</p>
+            <p>Please register to continue</p>
             <form action="/register" method="POST">
                   <div>
-                    <input type="text" name="name" placeholder="name"/>
-                    <input type="text" name="email" class="email" placeholder="email"/>
-                    <input type="text" name="userid" placeholder="userid"/>
-                    <input type="password" name="password" placeholder="password"/>
-
+                    <input type="text" name="name" placeholder="name" required/>
+                    <input type="email" name="email" class="email" placeholder="email" required/>
+                    <input type="text" name="userid" placeholder="userid" required/>
+                    <input type="password" name="password" placeholder="password" required/>
+                    <input type="hidden" name="legal_language" value="en"/>
+                    <label class="legal-check"><input type="checkbox" name="accept_privacy" value="yes" required/><span>I accept the <a href="/legal/privacy" target="_blank">Privacy Policy</a>.</span></label>
+                    <label class="legal-check"><input type="checkbox" name="accept_terms" value="yes" required/><span>I accept the <a href="/legal/terms" target="_blank">Terms of Service</a>.</span></label>
+                    <label class="legal-check"><input type="checkbox" name="accept_dpa" value="yes" required/><span>I accept the <a href="/legal/dpa" target="_blank">Data Processing Agreement</a>.</span></label>
+                    <label class="legal-check optional"><input type="checkbox" name="marketing_consent" value="yes"/><span>Optional: send me CareIL product news.</span></label>
+                    <div class="small">עברית: <a href="/he/legal/privacy" target="_blank">פרטיות</a> · <a href="/he/legal/terms" target="_blank">תנאים</a> · <a href="/he/legal/dpa" target="_blank">עיבוד מידע</a></div>
                     <input type="submit" name="submit" value="register" class="icon-login"/></div>                  
             </form>
             {% endif %} 

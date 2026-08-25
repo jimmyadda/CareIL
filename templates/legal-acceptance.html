@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Review CareIL terms</title>
+  <link rel="stylesheet" href="/static/account-lifecycle.css?v=2">
+  <link rel="stylesheet" href="/static/legal-consent.css?v=1">
+</head>
+<body>
+  <main class="lifecycle">
+    <section class="lifecycle-card">
+      <a class="lifecycle-logo" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a>
+      <h1>Please review the CareIL documents</h1>
+      <p>Before continuing, accept the current legal documents for your professional CareIL workspace. Version: <strong>{{ version }}</strong></p>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <form action="/legal/accept" method="post">
+        <input type="hidden" name="legal_language" value="en">
+        <label class="legal-check"><input type="checkbox" name="accept_privacy" value="yes" required><span>I have read and accept the <a href="/legal/privacy" target="_blank">Privacy Policy</a>.</span></label>
+        <label class="legal-check"><input type="checkbox" name="accept_terms" value="yes" required><span>I accept the <a href="/legal/terms" target="_blank">Terms of Service</a>.</span></label>
+        <label class="legal-check"><input type="checkbox" name="accept_dpa" value="yes" required><span>I accept the <a href="/legal/dpa" target="_blank">Data Processing Agreement</a> for client information.</span></label>
+        <label class="legal-check optional"><input type="checkbox" name="marketing_consent" value="yes"><span>Optional: send me CareIL product news. I can unsubscribe at any time.</span></label>
+        <p class="small-legal">Hebrew versions: <a href="/he/legal/privacy" target="_blank">פרטיות</a> · <a href="/he/legal/terms" target="_blank">תנאים</a> · <a href="/he/legal/dpa" target="_blank">עיבוד מידע</a></p>
+        <div class="actions"><button class="btn" type="submit">Accept and continue</button><a class="btn btn-secondary" href="/logout">Log out</a></div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

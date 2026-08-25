@@ -11,6 +11,19 @@
 - Verification codes expire after five minutes and are deleted after successful use.
 - `tests/test_registration_flow.py` covers early-login prevention, unverified-login blocking, code-form rendering, and activation after a valid code.
 
+## v36 public SaaS foundation
+
+- Logged-out `/` is a public SEO landing page; authenticated users still see the existing dashboard.
+- `robots.txt`, `sitemap.xml`, canonical metadata, Open Graph metadata and SoftwareApplication structured data are included.
+- `/demo/start` creates an isolated seeded demo tenant; external email, uploads, Google authorization, portal invitations and account deletion are blocked.
+- Demo databases expire automatically after two hours and the app caps concurrent demo databases.
+- Settings includes a Danger Zone requiring the current password and the exact phrase `DELETE CAREIL`.
+- Account deletion suspends the tenant immediately, emails an undo link, and retains the database for a 24-hour recovery period.
+- Signing in during the recovery window also offers account restoration.
+- After the recovery window, tenant database and tenant uploads are permanently removed by lifecycle cleanup.
+- Existing tenant databases receive additive lifecycle columns automatically; existing account/client data is preserved.
+- `tests/test_saas_features.py` covers the landing page, demo isolation/seeding, additive migration and expired-demo cleanup.
+
 Last consolidated: 2026-08-23
 
 This file is the project handoff and continuity record for future CareIL work. It summarizes the useful decisions and implementation history from earlier conversations. It is not a verbatim chat transcript and contains no credentials or client records.
@@ -242,8 +255,8 @@ https://YOUR_PUBLIC_DOMAIN/google-calendar/callback
 
 ## Current source and artifacts
 
-- Current consolidated package at the time of this handoff: v30 (application changes through v29 plus this continuity record).
-- Clean full-source archive: `CareIL-full-source-v34.zip`.
+- Current consolidated package at the time of this handoff: v37.
+- Current clean full-source archive: `CareIL-full-source-v37.zip`.
 - Earlier small unified-color update predates the CareIL rename.
 - The working source folder is `TherapyManager` in the current workspace (legacy technical folder name).
 - Fresh deployments use `CareIL.db`, `databases/CareIL_default_client.db`, and `databases/CareIL_<client_key>.db`; no legacy database migration is required.
@@ -252,6 +265,16 @@ https://YOUR_PUBLIC_DOMAIN/google-calendar/callback
 - The project root contains `README.md`, `.env.example`, and this `PROJECT_CONTEXT.md`.
 
 ## Known follow-up work
+
+### v37 legal/compliance baseline
+
+- Added public bilingual legal pages: Privacy, Terms, DPA, Cookies, Accessibility, Cancellation/Refunds, Subprocessors, and Security/Retention.
+- Registration requires explicit acceptance of the current Privacy, Terms, and DPA versions. Marketing is a separate optional choice.
+- Existing therapist accounts are redirected once to `/legal/accept` when the legal version changes.
+- `legal_acceptances` stores document type/version, timestamp, selected language, IP, and user-agent in the tenant database; `accounts.marketing_consent` stores the optional marketing choice.
+- Public legal pages are linked from the landing page, login and clinic settings and included in the sitemap.
+- Railway operator/contact variables are documented in `.env.example`. The configured legal operator identity and email routes must be completed before launch.
+- The documents are operational drafts, not legal certification. Israeli legal, privacy, accessibility, and information-security review remains required before using CareIL for real health information or paid subscriptions.
 
 Prioritize these before treating the app as production-ready:
 

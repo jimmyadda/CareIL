@@ -101,7 +101,7 @@ def create_client_database(client_key):
     if not os.path.exists(base_db_path):
         os.makedirs(base_db_path)
 
-    database_filename = os.path.join(base_db_path, f"TherapyManager_{client_key}.db")
+    database_filename = os.path.join(base_db_path, f"CareIL_{client_key}.db")
     
     if not os.path.exists(database_filename):
         conn = sqlite3.connect(database_filename)
@@ -131,7 +131,7 @@ def get_db_path(client_key, global_settings):
 
 def connect_to_db(client_key):   
     base_db_path = "./databases/"
-    database_filename = os.path.join(base_db_path, f"TherapyManager_{client_key}.db")
+    database_filename = os.path.join(base_db_path, f"CareIL_{client_key}.db")
     try:
         # Create a connection to the SQLite database
         conn = sqlite3.connect(database_filename)

@@ -8,6 +8,7 @@ import pathlib
 from pydoc import text
 import random
 import secrets
+import shutil
 import string
 from bs4 import BeautifulSoup
 import smtplib
@@ -53,6 +54,11 @@ from package.email_service import (
     resend_is_configured,
     resend_sender_address,
     send_resend_email,
+)
+from package.legal_documents import (
+    DOCUMENTS as LEGAL_DOCUMENTS,
+    LEGAL_EFFECTIVE_DATE,
+    LEGAL_VERSION,
 )
 from package.Myutils import render_ics
 import json
@@ -158,7 +164,8 @@ def load_user(userid):  #or client patid
         # browser cookie pointing at a database that no longer exists.
         session.pop('client_key', None)
         return None
-    if len(users)==1 and bool(users[0].get('email_verified')):
+    if (len(users) == 1 and bool(users[0].get('email_verified'))
+            and not users[0].get('deletion_requested_at')):
         user = User(users[0]['userid'],users[0]['email'],users[0]['name'],users[0]['client_key'])
     if len(client)==1:
         user = ClientUser(client[0]['pat_id'],client[0]['pat_email'],client[0]['pat_first_name'],client[0]['client_key'])
@@ -172,6 +179,146 @@ def load_user(userid):  #or client patid
 def generate_client_key(user_id):
     # Use SHA-256 to generate a consistent hash
     return f"client_{hashlib.sha256(user_id.encode()).hexdigest()}" 
+
+def _utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+def _legal_operator_context():
+    support_email = os.environ.get('CAREIL_SUPPORT_EMAIL', 'support@careil.net')
+    privacy_email = os.environ.get('CAREIL_PRIVACY_EMAIL', 'privacy@careil.net')
+    return {
+        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'CareIL'),
+        'operator_address': os.environ.get('CAREIL_LEGAL_ADDRESS', ''),
+        'support_email': support_email,
+        'privacy_email': privacy_email,
+        'accessibility_email': os.environ.get('CAREIL_ACCESSIBILITY_EMAIL', support_email),
+    }
+
+def _visitor_ip_address():
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    return (forwarded.split(',')[0].strip() if forwarded else request.remote_addr) or ''
+
+def _record_legal_acceptances(conn, userid, language='en', marketing=False):
+    audit = (
+        userid, LEGAL_VERSION, language, _visitor_ip_address(),
+        request.headers.get('User-Agent', '')[:500],
+    )
+    for document_type in ('privacy', 'terms', 'dpa'):
+        conn.execute(
+            """INSERT INTO legal_acceptances
+               (userid, document_type, document_version, language, ip_address, user_agent)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (audit[0], document_type, audit[1], audit[2], audit[3], audit[4]),
+        )
+    conn.execute(
+        'UPDATE accounts SET marketing_consent=? WHERE userid=?',
+        (1 if marketing else 0, userid),
+    )
+    conn.commit()
+
+def _database_client_key(filename):
+    if not filename.startswith('CareIL_') or not filename.endswith('.db'):
+        return None
+    return filename[len('CareIL_'):-3]
+
+def _cleanup_expired_workspaces():
+    """Purge expired demos and accounts whose 24-hour recovery window ended."""
+    base_path = pathlib.Path(db_manager.base_db_path)
+    if not base_path.is_dir():
+        return
+    now = _utc_now()
+    for db_path in base_path.glob('CareIL_*.db'):
+        client_key = _database_client_key(db_path.name)
+        if not client_key or client_key == Globalsetting['DEFAULT_CLIENT_KEY']:
+            continue
+        should_remove = False
+        if client_key.startswith('demo_'):
+            modified = datetime.datetime.fromtimestamp(db_path.stat().st_mtime, datetime.timezone.utc)
+            should_remove = now - modified >= datetime.timedelta(hours=2)
+        else:
+            try:
+                conn = sqlite3.connect(str(db_path))
+                row = conn.execute(
+                    "SELECT deletion_purge_at FROM accounts "
+                    "WHERE deletion_purge_at IS NOT NULL LIMIT 1"
+                ).fetchone()
+                conn.close()
+                if row and row[0]:
+                    purge_at = datetime.datetime.fromisoformat(str(row[0])).replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+                    should_remove = now >= purge_at
+            except (sqlite3.Error, OSError, ValueError):
+                current_app.logger.exception('Could not inspect tenant cleanup state')
+        if not should_remove:
+            continue
+        upload_path = pathlib.Path(app.config['UPLOAD_FOLDER']) / client_key
+        try:
+            db_path.unlink(missing_ok=True)
+            if upload_path.is_dir():
+                shutil.rmtree(upload_path)
+            current_app.logger.info('Permanently removed expired CareIL workspace: %s', client_key)
+        except OSError:
+            current_app.logger.exception('Could not remove expired CareIL workspace')
+
+@app.before_request
+def careil_workspace_lifecycle():
+    last_cleanup = app.config.get('LAST_WORKSPACE_CLEANUP')
+    now = _utc_now()
+    if not last_cleanup or now - last_cleanup >= datetime.timedelta(minutes=5):
+        app.config['LAST_WORKSPACE_CLEANUP'] = now
+        _cleanup_expired_workspaces()
+
+    client_key = session.get('client_key', '')
+    if not client_key.startswith('demo_'):
+        return None
+    blocked_endpoints = {
+        'send_appointment', 'upload', 'upload_page', 'mail_settings',
+        'google_calendar_connect', 'google_calendar_callback',
+        'google_calendar_sync_now', 'google_calendar_disconnect',
+        'create_portal_invitation', 'request_account_deletion',
+    }
+    if request.endpoint in blocked_endpoints:
+        return render_template('demo-blocked.html'), 403
+    return None
+
+@app.after_request
+def protect_private_pages_from_indexing(response):
+    public_paths = {'/', '/robots.txt', '/sitemap.xml'}
+    public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
+    if (request.path not in public_paths and not public_legal
+            and not request.path.startswith('/static/')):
+        response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
+
+@app.before_request
+def require_current_legal_acceptance():
+    allowed = {
+        'legal_document', 'legal_acceptance', 'logout_page', 'service_worker',
+        'robots_txt', 'sitemap_xml', 'restore_deleted_account',
+        'restore_account_after_login',
+    }
+    if request.endpoint in allowed or request.path.startswith('/static/'):
+        return None
+    if not flask_login.current_user.is_authenticated:
+        return None
+    user = flask_login.current_user.get_dict()
+    client_key = session.get('client_key', '')
+    if 'userid' not in user or client_key.startswith('demo_'):
+        return None
+    conn = DatabaseManager(client_key).connect_to_db(client_key)
+    try:
+        rows = conn.execute(
+            """SELECT DISTINCT document_type FROM legal_acceptances
+               WHERE userid=? AND document_version=?
+               AND document_type IN ('privacy','terms','dpa')""",
+            (user['userid'], LEGAL_VERSION),
+        ).fetchall()
+    finally:
+        conn.close()
+    if len(rows) < 3:
+        return redirect(url_for('legal_acceptance'))
+    return None
 
 def ensure_single_therapist(client_key, user_data):
     """Create the one therapist profile required by appointment records."""
@@ -257,23 +404,17 @@ def close_db(exception=None):
 
 #region index,login,register
 @app.route("/")
-def index_page():    
-    default_user = db_manager.get_db_connection()
-    default_user = db_manager.get_db_path()
-    if 'default' in default_user:
-        client_key = Globalsetting['DEFAULT_CLIENT_KEY']
-    else:
-        client_key = session['client_key']
-    print(client_key)
-    if flask_login.current_user.is_authenticated:
-        logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")   
-        user = flask_login.current_user.get_dict()
-        #dump sql con
-        apps = Appointments()
-        appointments= apps.get()   
-        return render_template('/index.html',Translate_data=Translate_data,user=user,appointments=appointments)
-    else:
-        return render_template("login.html",alert="", verification_step=0, email_step=0)
+def index_page():
+    if not flask_login.current_user.is_authenticated:
+        return render_template('landing.html')
+    logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")
+    user = flask_login.current_user.get_dict()
+    apps = Appointments()
+    appointments = apps.get()
+    return render_template(
+        '/index.html', Translate_data=Translate_data, user=user,
+        appointments=appointments, demo=session.get('client_key', '').startswith('demo_')
+    )
 
 @app.route("/register", methods=['GET'])
 def registration_page():
@@ -281,14 +422,22 @@ def registration_page():
 
 @app.route("/register", methods=['POST'])
 def registration_request():
-    form = dict(request.values)    
+    form = dict(request.values)
+    required_legal = ('accept_privacy', 'accept_terms', 'accept_dpa')
+    if not all(request.form.get(field) == 'yes' for field in required_legal):
+        return render_template(
+            'register.html',
+            alert='You must accept the Privacy Policy, Terms of Service and Data Processing Agreement.',
+            verification_step=0,
+            email_step=0,
+        ), 400
     folderid="0"
     if 'folderid' in request.values:
         folderid = request.values['folderid']
     id="1"
     if 'id' in request.values:
         id = request.values['id']
-    reg_email = request.values['email']
+    reg_email = request.values.get('email', '').strip()
     if reg_email:
         # Generate a unique client_key (e.g., UUID or hash)
         #client_key = f"client_{hash(form['userid'])}"
@@ -305,6 +454,13 @@ def registration_request():
         checkconn= db_manager.connect_to_db(client_key)
         ok = create_account(form)
         ensure_single_therapist(client_key, form)
+        _record_legal_acceptances(
+            checkconn,
+            form['userid'],
+            language=request.form.get('legal_language', 'en'),
+            marketing=request.form.get('marketing_consent') == 'yes',
+        )
+        checkconn.close()
         session['formData'] = form
         print('ok:' ,ok)
         if ok == 1: 
@@ -336,6 +492,19 @@ def login_request():
             generated_key = hashlib.pbkdf2_hmac('sha256',form['password'].encode('utf-8'),salt.encode('utf-8'),10000).hex()            
             if saved_key == generated_key: #password match
                 session['client_key'] = client_key
+                if users[0].get('deletion_requested_at'):
+                    flask_login.logout_user()
+                    if (users[0].get('deletion_purge_at') or '') <= _utc_now().strftime('%Y-%m-%d %H:%M:%S'):
+                        return render_template(
+                            '/login.html',
+                            alert='This account recovery period has expired.',
+                        ), 410
+                    session['pending_restore_client_key'] = client_key
+                    session['pending_restore_userid'] = formid
+                    return render_template(
+                        'account-deletion-pending.html',
+                        purge_at=users[0].get('deletion_purge_at'),
+                    )
                 if not bool(users[0].get('email_verified')):
                     flask_login.logout_user()
                     session['pending_verification_userid'] = formid
@@ -462,6 +631,286 @@ def logout_page():
     session.pop('client_key', None)
     flask_login.logout_user()
     return redirect("/")
+
+@app.route('/demo/start', methods=['POST'])
+def start_demo():
+    flask_login.logout_user()
+    session.clear()
+    demo_databases = list(pathlib.Path(db_manager.base_db_path).glob('CareIL_demo_*.db'))
+    if len(demo_databases) >= 50:
+        return render_template(
+            'landing.html', demo_error='The demo is busy. Please try again shortly.'
+        ), 503
+    client_key = 'demo_' + uuid.uuid4().hex
+    db_manager.create_client_database(client_key)
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        userid = 'demo-' + uuid.uuid4().hex[:10]
+        salt = str(uuid.uuid4())
+        password_hash = hashlib.pbkdf2_hmac(
+            'sha256', secrets.token_bytes(24), salt.encode('utf-8'), 10000
+        ).hex()
+        conn.execute(
+            "INSERT INTO users (userid, client_key) VALUES (?, ?)",
+            (userid, client_key),
+        )
+        conn.execute(
+            """INSERT INTO accounts
+               (userid, salt, password, email, name, client_key, email_verified, is_demo)
+               VALUES (?, ?, ?, ?, ?, ?, 1, 1)""",
+            (userid, salt, password_hash, 'demo@careil.net', 'Demo Therapist', client_key),
+        )
+        cursor = conn.execute(
+            """INSERT INTO doctor
+               (doc_first_name, doc_last_name, doc_ph_no, doc_email, doc_address, userid)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            ('Demo', 'Therapist', '', 'demo@careil.net', 'CareIL Demo Clinic', userid),
+        )
+        doctor_id = cursor.lastrowid
+        demo_clients = [
+            ('Noa', 'Levi', '1001', '050-000-0001', 'noa@example.test', 'Haifa'),
+            ('Daniel', 'Cohen', '1002', '050-000-0002', 'daniel@example.test', 'Tel Aviv'),
+            ('Maya', 'Israel', '1003', '050-000-0003', 'maya@example.test', 'Jerusalem'),
+        ]
+        patient_ids = []
+        for first, last, insurance, phone, email, address in demo_clients:
+            patient = conn.execute(
+                """INSERT INTO patient
+                   (pat_first_name, pat_last_name, pat_insurance_no, pat_ph_no,
+                    pat_email, pat_address, client_key)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (first, last, insurance, phone, email, address, client_key),
+            )
+            patient_ids.append(patient.lastrowid)
+        tomorrow = (_utc_now() + datetime.timedelta(days=1)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        ).strftime('%Y-%m-%d %H:%M:%S')
+        next_week = (_utc_now() + datetime.timedelta(days=7)).replace(
+            hour=16, minute=30, second=0, microsecond=0
+        ).strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            "INSERT INTO appointment (pat_id, doc_id, appointment_date) VALUES (?, ?, ?)",
+            (patient_ids[0], doctor_id, tomorrow),
+        )
+        conn.execute(
+            "INSERT INTO appointment (pat_id, doc_id, appointment_date) VALUES (?, ?, ?)",
+            (patient_ids[1], doctor_id, next_week),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    session['client_key'] = client_key
+    user = User(userid, 'demo@careil.net', 'Demo Therapist', client_key)
+    flask_login.login_user(user)
+    return redirect('/')
+
+@app.route('/robots.txt')
+def robots_txt():
+    body = "User-agent: *\nAllow: /$\nDisallow: /admin/\nDisallow: /portal/\nDisallow: /login\nDisallow: /register\nSitemap: https://www.careil.net/sitemap.xml\n"
+    return current_app.response_class(body, mimetype='text/plain')
+
+@app.route('/legal/<document_key>')
+@app.route('/he/legal/<document_key>')
+def legal_document(document_key):
+    if document_key not in LEGAL_DOCUMENTS:
+        abort(404)
+    lang = 'he' if request.path.startswith('/he/') else 'en'
+    labels = {
+        'en': {
+            'privacy': 'Privacy Policy', 'terms': 'Terms of Service',
+            'dpa': 'Data Processing Agreement', 'cookies': 'Cookie Policy',
+            'accessibility': 'Accessibility', 'refunds': 'Cancellation & Refunds',
+            'subprocessors': 'Subprocessors', 'security': 'Security & Retention',
+        },
+        'he': {
+            'privacy': 'מדיניות פרטיות', 'terms': 'תנאי שימוש',
+            'dpa': 'נספח עיבוד מידע', 'cookies': 'מדיניות עוגיות',
+            'accessibility': 'נגישות', 'refunds': 'ביטול והחזרים',
+            'subprocessors': 'ספקי משנה', 'security': 'אבטחה ושמירה',
+        },
+    }
+    canonical_path = f"{'/he' if lang == 'he' else ''}/legal/{document_key}"
+    alternate_path = f"{'/legal' if lang == 'he' else '/he/legal'}/{document_key}"
+    return render_template(
+        'legal.html', document=LEGAL_DOCUMENTS[document_key][lang],
+        document_key=document_key, lang=lang,
+        navigation=list(labels[lang].items()), version=LEGAL_VERSION,
+        effective_date=LEGAL_EFFECTIVE_DATE, canonical_path=canonical_path,
+        alternate_path=alternate_path, **_legal_operator_context()
+    )
+
+@app.route('/legal/accept', methods=['GET', 'POST'])
+@flask_login.login_required
+def legal_acceptance():
+    user = flask_login.current_user.get_dict()
+    if 'userid' not in user:
+        abort(403)
+    if request.method == 'POST':
+        if not all(request.form.get(field) == 'yes' for field in (
+                'accept_privacy', 'accept_terms', 'accept_dpa')):
+            return render_template(
+                'legal-acceptance.html', user=user, version=LEGAL_VERSION,
+                error='All three required documents must be accepted.'
+            ), 400
+        conn = DatabaseManager(user['client_key']).connect_to_db(user['client_key'])
+        try:
+            _record_legal_acceptances(
+                conn, user['userid'], request.form.get('legal_language', 'en'),
+                request.form.get('marketing_consent') == 'yes'
+            )
+        finally:
+            conn.close()
+        return redirect('/')
+    return render_template(
+        'legal-acceptance.html', user=user, version=LEGAL_VERSION, error=''
+    )
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    urls = ['https://www.careil.net/']
+    for key in LEGAL_DOCUMENTS:
+        urls.extend([
+            f'https://www.careil.net/legal/{key}',
+            f'https://www.careil.net/he/legal/{key}',
+        ])
+    entries = ''.join(
+        f'<url><loc>{url}</loc><changefreq>monthly</changefreq></url>' for url in urls
+    )
+    body = ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + entries + '</urlset>')
+    return current_app.response_class(body, mimetype='application/xml')
+
+@app.route('/admin/danger-zone')
+@flask_login.login_required
+@admin_only
+def danger_zone():
+    user = flask_login.current_user.get_dict()
+    return render_template('danger-zone.html', user=user)
+
+@app.route('/account/delete', methods=['POST'])
+@flask_login.login_required
+@admin_only
+def request_account_deletion():
+    user = flask_login.current_user.get_dict()
+    if session.get('client_key', '').startswith('demo_'):
+        return render_template('demo-blocked.html'), 403
+    confirmation = request.form.get('confirmation', '').strip()
+    password = request.form.get('password', '')
+    if confirmation != 'DELETE CAREIL':
+        return render_template(
+            'danger-zone.html', user=user,
+            error='Type DELETE CAREIL exactly to continue.'
+        ), 400
+    accounts = database_read(
+        'SELECT * FROM accounts WHERE userid=?',
+        (user['userid'],), client_key=user['client_key']
+    )
+    if len(accounts) != 1:
+        abort(404)
+    account = accounts[0]
+    candidate = hashlib.pbkdf2_hmac(
+        'sha256', password.encode('utf-8'), account['salt'].encode('utf-8'), 10000
+    ).hex()
+    if not hmac.compare_digest(candidate, account['password']):
+        return render_template(
+            'danger-zone.html', user=user, error='The password is incorrect.'
+        ), 400
+
+    token = secrets.token_urlsafe(40)
+    requested_at = _utc_now()
+    purge_at = requested_at + datetime.timedelta(hours=24)
+    database_write(
+        """UPDATE accounts SET deletion_requested_at=?, deletion_purge_at=?,
+           deletion_token_hash=? WHERE userid=?""",
+        (
+            requested_at.strftime('%Y-%m-%d %H:%M:%S'),
+            purge_at.strftime('%Y-%m-%d %H:%M:%S'),
+            hashlib.sha256(token.encode('utf-8')).hexdigest(),
+            user['userid'],
+        ),
+    )
+    restore_url = url_for(
+        'restore_deleted_account', client_key=user['client_key'], token=token,
+        _external=True
+    )
+    if resend_is_configured() and user.get('email'):
+        try:
+            send_resend_email(
+                user['email'], 'CareIL | Account deletion requested',
+                email_brand_header()
+                + '<p>Your CareIL workspace is suspended and scheduled for permanent deletion in 24 hours.</p>'
+                + f'<p><a href="{restore_url}">Undo account deletion</a></p>'
+                + '<p>If you requested deletion, no action is needed.</p>',
+                attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+            )
+        except Exception:
+            current_app.logger.exception('Could not send account restoration email')
+    flask_login.logout_user()
+    session.clear()
+    return render_template('account-deletion-requested.html', purge_at=purge_at)
+
+def _valid_restore_client_key(client_key):
+    if not client_key.startswith('client_'):
+        return False
+    digest = client_key[len('client_'):]
+    return len(digest) == 64 and all(char in string.hexdigits for char in digest)
+
+@app.route('/account/restore/<client_key>/<token>')
+def restore_deleted_account(client_key, token):
+    if not _valid_restore_client_key(client_key):
+        abort(404)
+    try:
+        conn = DatabaseManager(client_key).connect_to_db(client_key)
+    except FileNotFoundError:
+        return render_template('account-restore-result.html', restored=False), 410
+    try:
+        account = conn.execute(
+            "SELECT deletion_purge_at, deletion_token_hash FROM accounts "
+            "WHERE deletion_token_hash IS NOT NULL LIMIT 1"
+        ).fetchone()
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+        now_text = _utc_now().strftime('%Y-%m-%d %H:%M:%S')
+        if (not account or not hmac.compare_digest(
+                account.get('deletion_token_hash') or '', token_hash)
+                or account.get('deletion_purge_at', '') <= now_text):
+            return render_template('account-restore-result.html', restored=False), 410
+        conn.execute(
+            """UPDATE accounts SET deletion_requested_at=NULL,
+               deletion_purge_at=NULL, deletion_token_hash=NULL"""
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return render_template('account-restore-result.html', restored=True)
+
+@app.route('/account/restore', methods=['POST'])
+def restore_account_after_login():
+    client_key = session.get('pending_restore_client_key')
+    userid = session.get('pending_restore_userid')
+    if not client_key or not userid or not _valid_restore_client_key(client_key):
+        return redirect(url_for('login_page'))
+    conn = DatabaseManager(client_key).connect_to_db(client_key)
+    try:
+        account = conn.execute(
+            "SELECT deletion_purge_at FROM accounts WHERE userid=? LIMIT 1",
+            (userid,),
+        ).fetchone()
+        if (not account or not account.get('deletion_purge_at')
+                or account['deletion_purge_at'] <= _utc_now().strftime('%Y-%m-%d %H:%M:%S')):
+            session.clear()
+            return render_template('account-restore-result.html', restored=False), 410
+        conn.execute(
+            """UPDATE accounts SET deletion_requested_at=NULL,
+               deletion_purge_at=NULL, deletion_token_hash=NULL WHERE userid=?""",
+            (userid,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    session.clear()
+    flash('Your CareIL account was restored. You can sign in now.', 'success')
+    return redirect(url_for('login_page'))
 
 #endregion
 
@@ -1398,7 +1847,7 @@ def _find_portal_invitation(token):
     for filename in os.listdir(manager.base_db_path):
         if not filename.endswith('.db'):
             continue
-        client_key = filename[:-3]
+        client_key = _database_client_key(filename) or filename[:-3]
         try:
             conn = manager.connect_to_db(client_key)
             invitation = conn.execute(

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CareIL — Calm clinic management for therapists</title>
+  <meta name="description" content="CareIL helps independent therapists manage clients, appointments, session summaries, secure portal links and Google Calendar in Hebrew and English.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://www.careil.net/">
+  <meta property="og:title" content="CareIL — Therapy practice management">
+  <meta property="og:description" content="Your clients, calendar and therapeutic work in one calm, secure space.">
+  <meta property="og:url" content="https://www.careil.net/">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/static/favicon.ico">
+  <link rel="stylesheet" href="/static/landing.css?v=1">
+  <link rel="stylesheet" href="/static/landing-footer.css?v=1">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"CareIL","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.careil.net/","description":"Bilingual therapy practice management for independent therapists."}</script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="CareIL home">
+      <img src="/static/img/therapy-hands-logo.png" alt="" width="52" height="52">
+      <span>CareIL</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#preview">Preview</a>
+      <a href="/login">Log in</a>
+      <a class="nav-cta" href="/register">Start now</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Made for independent therapists</span>
+        <h1>Your clinic work,<br><em>held in one calm space.</em></h1>
+        <p>Manage clients, appointments, session summaries and secure communication without losing the human feeling of your practice.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="/register">Create your clinic</a>
+          <form action="/demo/start" method="post"><button class="button secondary" type="submit">Try the live demo</button></form>
+        </div>
+        {% if demo_error %}<p style="color:#9c221d;font-weight:700;">{{ demo_error }}</p>{% endif %}
+        <p class="microcopy">No real client information is used in the demo. Demo workspaces expire automatically.</p>
+      </div>
+      <div class="hero-product" aria-label="CareIL dashboard preview">
+        <div class="browser-bar"><i></i><i></i><i></i><span>www.careil.net</span></div>
+        <div class="preview-nav"><strong>CareIL</strong><span>EN&nbsp;&nbsp;🇮🇱 &nbsp; Hey, Karin</span></div>
+        <div class="preview-body">
+          <div class="welcome-card"><small>WELCOME BACK</small><h2>Your clinic at a glance</h2><p>Tuesday, 25 August</p></div>
+          <div class="preview-stats"><article><b>12</b><span>Active clients</span></article><article><b>4</b><span>Appointments</span></article><article><b>2</b><span>Requests</span></article></div>
+          <div class="schedule-card"><div><b>10:00</b><span>Client appointment</span></div><div><b>13:30</b><span>Parent guidance</span></div><div><b>17:00</b><span>Client appointment</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="CareIL benefits">
+      <span>Hebrew &amp; English</span><span>Mobile friendly</span><span>Google Calendar</span><span>Private tenant workspace</span>
+    </section>
+
+    <section id="features" class="section">
+      <div class="section-heading"><span class="eyebrow">Everything connected</span><h2>Less administration.<br>More room for care.</h2></div>
+      <div class="feature-grid">
+        <article><span>01</span><h3>Clients and therapeutic work</h3><p>Keep client details, appointment summaries, files and history together in one organized record.</p></article>
+        <article><span>02</span><h3>Scheduling that knows your hours</h3><p>Set availability and session duration, manage requests and synchronize confirmed sessions with Google Calendar.</p></article>
+        <article><span>03</span><h3>Secure client communication</h3><p>Send appointment details and short-lived portal links without exposing private clinic records.</p></article>
+        <article><span>04</span><h3>Designed for phone and desktop</h3><p>Use CareIL comfortably from the clinic, home or phone, in English or Hebrew.</p></article>
+      </div>
+    </section>
+
+    <section id="preview" class="section preview-section">
+      <div class="section-heading"><span class="eyebrow">Product preview</span><h2>Clear on every screen.</h2><p>The desktop dashboard keeps the whole clinic visible; compact mobile cards keep essential actions within reach.</p></div>
+      <div class="device-grid">
+        <div class="desktop-shot"><div class="shot-top">CareIL <span>Calendar · Clients · Settings</span></div><div class="shot-content"><div class="shot-banner"></div><div class="shot-row"><i></i><i></i><i></i></div><div class="shot-table"><b></b><b></b><b></b><b></b></div></div></div>
+        <div class="phone-shot"><div class="phone-notch"></div><strong>CareIL</strong><div class="phone-welcome"></div><article><b>Noa Levi</b><span>Edit · Profile</span></article><article><b>Daniel Cohen</b><span>Edit · Profile</span></article></div>
+      </div>
+    </section>
+
+    <section class="hebrew-callout" dir="rtl">
+      <span class="eyebrow">נבנה במיוחד לקליניקה הישראלית</span>
+      <h2>ניהול קליניקה רגוע, ברור ואנושי.</h2>
+      <p>לקוחות, פגישות, סיכומי טיפול וקשר מאובטח — בעברית ובאנגלית, מכל מכשיר.</p>
+    </section>
+
+    <section class="final-cta"><img src="/static/img/therapy-hands-logo.png" alt="CareIL hands and sprout logo"><h2>Ready to give your clinic more space?</h2><div class="hero-actions"><a class="button primary" href="/register">Create an account</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">Open demo</button></form></div></section>
+  </main>
+
+  <footer><a class="brand small" href="/"><img src="/static/img/therapy-hands-logo.png" alt="" width="36">CareIL</a><p>Care Israel · Care I Love</p><div class="footer-links"><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a><a href="/legal/accessibility">Accessibility</a><a href="/legal/cookies">Cookies</a><a href="/login">Login</a><a href="mailto:support@careil.net">Contact</a></div></footer>
+</body>
+</html>

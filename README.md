@@ -1,5 +1,32 @@
 # CareIL
 
+## Legal and consent pages (v37)
+
+CareIL includes public English and Hebrew pages for Privacy, Terms, Data Processing, Cookies, Accessibility, Cancellation/Refunds, Subprocessors, and Security/Retention. New registrations must accept the current Privacy Policy, Terms of Service, and DPA. Existing therapist accounts are prompted once after a legal-document version changes. The tenant database records the document type/version, time, language, IP address, and browser user agent; marketing consent remains separate and optional.
+
+These pages are launch drafts, not legal certification. Before accepting real clinical data or payments, set the operator details below in Railway, make the email addresses operational, and obtain Israeli legal/privacy review:
+
+```text
+CAREIL_LEGAL_NAME=the operator's legal person/company name
+CAREIL_LEGAL_ADDRESS=the operator's business/contact address
+CAREIL_SUPPORT_EMAIL=support@careil.net
+CAREIL_PRIVACY_EMAIL=privacy@careil.net
+CAREIL_ACCESSIBILITY_EMAIL=accessibility@careil.net
+```
+
+No consent banner is shown because the current app describes only essential session/security cookies. Add a consent mechanism before adding non-essential analytics, advertising, or tracking technologies.
+
+See [`LEGAL_LAUNCH_CHECKLIST.md`](LEGAL_LAUNCH_CHECKLIST.md) for the operator details, security, Google OAuth, client-consent, accessibility, and legal-review work that remains before a real-data or paid launch.
+
+## Public site, demo and account recovery
+
+- Logged-out visitors see the public product page at `/`; authenticated therapists continue to the dashboard.
+- `/demo/start` creates a fictional, isolated demo workspace that expires automatically after two hours.
+- Demo workspaces cannot send email, upload files, connect Google Calendar, send portal links or delete accounts.
+- Settings → Danger Zone schedules complete workspace deletion after a 24-hour recovery period.
+- Therapists can undo deletion from the emailed link or by signing in during the recovery period.
+- Permanent cleanup removes the tenant database and its tenant upload directory; Railway Volume storage remains mounted for all other tenants.
+
 Project decisions, implementation history, deployment notes, and future-work context are maintained in [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md). Read it before continuing development.
 
 A mobile-first Flask application for a single-therapist clinic. It manages clients, appointments, session notes, files, messages, online appointment requests, and Word summaries.
@@ -35,7 +62,7 @@ The interface is responsive and can be installed from Safari/Chrome using “Add
 
 Do not commit `.env`, `config.json`, SQLite databases, client uploads, logs, or real client data. If an email password was ever committed, revoke it and issue a new app password; removing it from a later commit is not enough to invalidate the exposed credential.
 
-Before public production use, add CSRF protection, rate limiting, encrypted backups, audit logging, expiring portal links, and a formal privacy/security review appropriate to your jurisdiction.
+Before public production use, add CSRF protection, rate limiting, encrypted backups, broader security audit logging, and a formal privacy/security review appropriate to your jurisdiction.
 
 ## Google Calendar synchronization
 

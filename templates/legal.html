@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'he' else 'ltr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ document.title }} | CareIL</title>
+  <meta name="description" content="{{ document.intro }}">
+  <link rel="canonical" href="https://www.careil.net{{ canonical_path }}">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/legal/{{ document_key }}">
+  <link rel="alternate" hreflang="he" href="https://www.careil.net/he/legal/{{ document_key }}">
+  <link rel="icon" href="/static/favicon.ico">
+  <link rel="stylesheet" href="/static/legal.css?v=1">
+</head>
+<body>
+  <header class="legal-header">
+    <a class="legal-brand" href="/"><img src="/static/img/therapy-hands-logo.png" alt="" width="46">CareIL</a>
+    <nav>
+      <a href="{{ alternate_path }}">{{ 'English' if lang == 'he' else 'עברית' }}</a>
+      <a href="/">{{ 'דף הבית' if lang == 'he' else 'Home' }}</a>
+    </nav>
+  </header>
+  <main class="legal-layout">
+    <aside aria-label="{{ 'מסמכים משפטיים' if lang == 'he' else 'Legal documents' }}">
+      {% for key, label in navigation %}<a class="{{ 'active' if key == document_key else '' }}" href="{{ '/he' if lang == 'he' else '' }}/legal/{{ key }}">{{ label }}</a>{% endfor %}
+    </aside>
+    <article>
+      <span class="legal-kicker">{{ 'מסמכי CareIL' if lang == 'he' else 'CareIL Legal' }}</span>
+      <h1>{{ document.title }}</h1>
+      <p class="legal-intro">{{ document.intro }}</p>
+      <div class="legal-meta"><span>{{ 'גרסה' if lang == 'he' else 'Version' }}: {{ version }}</span><span>{{ 'בתוקף מיום' if lang == 'he' else 'Effective' }}: {{ effective_date }}</span></div>
+      {% for heading, paragraphs in document.sections %}
+      <section><h2>{{ heading }}</h2>{% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}</section>
+      {% endfor %}
+      {% if document_key == 'privacy' %}<section><h2>{{ 'מדיניות Google API' if lang == 'he' else 'Google API policy' }}</h2><p>{{ 'השימוש של CareIL במידע שהתקבל מ-Google APIs כפוף ל' if lang == 'he' else "CareIL's use of information received from Google APIs adheres to the " }}<a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener" target="_blank">Google API Services User Data Policy</a>{{ ', לרבות דרישות Limited Use.' if lang == 'he' else ', including the Limited Use requirements.' }}</p></section>{% endif %}
+      <section class="legal-contact">
+        <h2>{{ 'פרטי המפעיל ויצירת קשר' if lang == 'he' else 'Operator and contact' }}</h2>
+        <p><strong>{{ operator_name }}</strong></p>
+        {% if operator_address %}<p>{{ operator_address }}</p>{% endif %}
+        <p>{{ 'פרטיות' if lang == 'he' else 'Privacy' }}: <a href="mailto:{{ privacy_email }}">{{ privacy_email }}</a><br>
+        {{ 'תמיכה' if lang == 'he' else 'Support' }}: <a href="mailto:{{ support_email }}">{{ support_email }}</a><br>
+        {{ 'נגישות' if lang == 'he' else 'Accessibility' }}: <a href="mailto:{{ accessibility_email }}">{{ accessibility_email }}</a></p>
+      </section>
+      <p class="legal-note">{{ 'מסמכים אלה הם מסמכי מוצר כלליים ואינם תחליף לייעוץ משפטי המותאם לפעילות הספציפית של המפעיל או המטפל.' if lang == 'he' else 'These are general product documents and do not replace legal advice tailored to the operator or therapist’s specific activities.' }}</p>
+    </article>
+  </main>
+</body>
+</html>

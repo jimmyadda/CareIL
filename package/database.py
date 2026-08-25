@@ -58,6 +58,7 @@ class DatabaseManager:
 
         conn = sqlite3.connect(db_path)
         self.ensure_account_verification_schema(conn)
+        self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
@@ -65,15 +66,58 @@ class DatabaseManager:
         return conn
 
     @staticmethod
-    def ensure_account_verification_schema(conn):
-        """Add persistent email-verification state to existing account databases."""
+    def ensure_legal_acceptance_schema(conn):
+        """Create an auditable record of versioned legal and consent choices."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS legal_acceptances (
+                acceptance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                userid TEXT NOT NULL,
+                document_type TEXT NOT NULL,
+                document_version TEXT NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en',
+                accepted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (userid) REFERENCES accounts(userid)
+            );
+            CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user
+                ON legal_acceptances(userid, document_type, document_version);
+        ''')
         account_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(accounts)").fetchall()
         }
-        if account_columns and 'email_verified' not in account_columns:
+        if account_columns and 'marketing_consent' not in account_columns:
             conn.execute(
-                "ALTER TABLE accounts ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"
+                "ALTER TABLE accounts ADD COLUMN marketing_consent INTEGER NOT NULL DEFAULT 0"
             )
+        acceptance_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(legal_acceptances)").fetchall()
+        }
+        if acceptance_columns and 'language' not in acceptance_columns:
+            conn.execute(
+                "ALTER TABLE legal_acceptances ADD COLUMN language TEXT NOT NULL DEFAULT 'en'"
+            )
+        conn.commit()
+
+    @staticmethod
+    def ensure_account_verification_schema(conn):
+        """Add account lifecycle fields to existing tenant databases."""
+        account_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(accounts)").fetchall()
+        }
+        migrations = {
+            'email_verified': "INTEGER NOT NULL DEFAULT 0",
+            'deletion_requested_at': "DATETIME",
+            'deletion_purge_at': "DATETIME",
+            'deletion_token_hash': "TEXT",
+            'is_demo': "INTEGER NOT NULL DEFAULT 0",
+        }
+        changed = False
+        for column, definition in migrations.items():
+            if account_columns and column not in account_columns:
+                conn.execute(f"ALTER TABLE accounts ADD COLUMN {column} {definition}")
+                changed = True
+        if changed:
             conn.commit()
 
     @staticmethod
@@ -158,7 +202,12 @@ class DatabaseManager:
             email TEXT,
             name TEXT,
             client_key TEXT,
-            email_verified INTEGER NOT NULL DEFAULT 0
+            email_verified INTEGER NOT NULL DEFAULT 0,
+            deletion_requested_at DATETIME,
+            deletion_purge_at DATETIME,
+            deletion_token_hash TEXT,
+            is_demo INTEGER NOT NULL DEFAULT 0,
+            marketing_consent INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS users (
             userid TEXT PRIMARY KEY,
@@ -266,6 +315,21 @@ class DatabaseManager:
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES doctor(doc_id)
             );
+
+            CREATE TABLE IF NOT EXISTS legal_acceptances (
+                acceptance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                userid TEXT NOT NULL,
+                document_type TEXT NOT NULL,
+                document_version TEXT NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en',
+                accepted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (userid) REFERENCES accounts(userid)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user
+                ON legal_acceptances(userid, document_type, document_version);
 
             CREATE TABLE IF NOT EXISTS portal_invitations (
                 invitation_id INTEGER PRIMARY KEY AUTOINCREMENT,

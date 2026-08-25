@@ -33,11 +33,25 @@ class RegistrationFlowTest(unittest.TestCase):
                 'email': 'jimmy@example.com',
                 'userid': 'Jimmy',
                 'password': 'test-password',
+                'accept_privacy': 'yes',
+                'accept_terms': 'yes',
+                'accept_dpa': 'yes',
+                'legal_language': 'en',
             })
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'/enter_email', response.data)
         login_user.assert_not_called()
+
+    def test_registration_rejects_missing_required_legal_acceptance(self):
+        response = self.client.post('/register', data={
+            'name': 'Jimmy Adda',
+            'email': 'jimmy@example.com',
+            'userid': 'Jimmy',
+            'password': 'test-password',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b'Privacy Policy', response.data)
 
     @patch.object(server, 'database_read')
     def test_unverified_account_cannot_log_in(self, database_read):

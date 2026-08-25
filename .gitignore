@@ -9,4 +9,4 @@ uploads/*
 
 config.json
 LogFile.log
-*.db
+CareIL.db
