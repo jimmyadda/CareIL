@@ -1,5 +1,11 @@
 # CareIL
 
+## Bilingual public landing page (v38)
+
+The searchable public site is available in English at `/` and in Hebrew at `/he`. The language control switches between server-rendered pages with matching RTL/LTR layouts, translated metadata and localized legal links.
+
+On mobile, client-card actions use compact proportional widths so longer Hebrew labels remain readable.
+
 ## Legal and consent pages (v37)
 
 CareIL includes public English and Hebrew pages for Privacy, Terms, Data Processing, Cookies, Accessibility, Cancellation/Refunds, Subprocessors, and Security/Retention. New registrations must accept the current Privacy Policy, Terms of Service, and DPA. Existing therapist accounts are prompted once after a legal-document version changes. The tenant database records the document type/version, time, language, IP address, and browser user agent; marketing consent remains separate and optional.

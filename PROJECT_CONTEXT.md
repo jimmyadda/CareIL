@@ -255,8 +255,9 @@ https://YOUR_PUBLIC_DOMAIN/google-calendar/callback
 
 ## Current source and artifacts
 
-- Current consolidated package at the time of this handoff: v37.
-- Current clean full-source archive: `CareIL-full-source-v37.zip`.
+- Current consolidated package at the time of this handoff: v38.
+- Current clean full-source archive: `CareIL-full-source-v38.zip`.
+- v38 adds a searchable server-rendered Hebrew landing page at `/he`, RTL presentation, translated SEO metadata and a visible language toggle. It also compacts mobile client action buttons and gives the profile action additional width.
 - Earlier small unified-color update predates the CareIL rename.
 - The working source folder is `TherapyManager` in the current workspace (legacy technical folder name).
 - Fresh deployments use `CareIL.db`, `databases/CareIL_default_client.db`, and `databases/CareIL_<client_key>.db`; no legacy database migration is required.

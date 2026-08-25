@@ -60,6 +60,7 @@ from package.legal_documents import (
     LEGAL_EFFECTIVE_DATE,
     LEGAL_VERSION,
 )
+from package.landing_content import LANDING_CONTENT
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -284,7 +285,7 @@ def careil_workspace_lifecycle():
 
 @app.after_request
 def protect_private_pages_from_indexing(response):
-    public_paths = {'/', '/robots.txt', '/sitemap.xml'}
+    public_paths = {'/', '/he', '/robots.txt', '/sitemap.xml'}
     public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
     if (request.path not in public_paths and not public_legal
             and not request.path.startswith('/static/')):
@@ -406,7 +407,7 @@ def close_db(exception=None):
 @app.route("/")
 def index_page():
     if not flask_login.current_user.is_authenticated:
-        return render_template('landing.html')
+        return render_template('landing.html', lang='en', t=LANDING_CONTENT['en'])
     logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")
     user = flask_login.current_user.get_dict()
     apps = Appointments()
@@ -415,6 +416,12 @@ def index_page():
         '/index.html', Translate_data=Translate_data, user=user,
         appointments=appointments, demo=session.get('client_key', '').startswith('demo_')
     )
+
+@app.route("/he")
+def landing_hebrew_page():
+    if flask_login.current_user.is_authenticated:
+        return redirect('/')
+    return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
 
 @app.route("/register", methods=['GET'])
 def registration_page():
@@ -767,7 +774,7 @@ def legal_acceptance():
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
-    urls = ['https://www.careil.net/']
+    urls = ['https://www.careil.net/', 'https://www.careil.net/he']
     for key in LEGAL_DOCUMENTS:
         urls.extend([
             f'https://www.careil.net/legal/{key}',
