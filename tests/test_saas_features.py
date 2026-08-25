@@ -39,6 +39,9 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn(b'href="/he"', response.data)
         self.assertIn(b'class="login-link" href="/login">Log in', response.data)
         self.assertIn(b'class="nav-cta" href="/register">Sign up', response.data)
+        self.assertIn(b'/static/img/product-dashboard.webp', response.data)
+        self.assertIn(b'/static/img/product-clients-mobile.webp', response.data)
+        self.assertNotIn('—'.encode('utf-8'), response.data)
         self.assertNotIn('X-Robots-Tag', response.headers)
 
     def test_hebrew_landing_page_is_rtl_searchable_and_translated(self):
@@ -48,6 +51,9 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn('עבודת הקליניקה שלך'.encode('utf-8'), response.data)
         self.assertIn('class="login-link" href="/login">כניסה'.encode('utf-8'), response.data)
         self.assertIn('class="nav-cta" href="/register">הרשמה'.encode('utf-8'), response.data)
+        self.assertIn(b'/static/img/product-dashboard.webp', response.data)
+        self.assertIn(b'/static/img/product-clients-mobile.webp', response.data)
+        self.assertNotIn('—'.encode('utf-8'), response.data)
         self.assertIn(b'hreflang="he"', response.data)
         self.assertIn(b'href="/"', response.data)
         self.assertNotIn('X-Robots-Tag', response.headers)

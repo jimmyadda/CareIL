@@ -1,0 +1,24 @@
+/* Actual CareIL product screenshots used by the public landing page. */
+.product-screenshot {
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.product-screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.phone-shot.phone-real {
+  min-height: 0;
+  border-radius: 28px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.phone-real img {
+  aspect-ratio: 520 / 920;
+  object-fit: cover;
+}

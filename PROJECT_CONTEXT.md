@@ -260,6 +260,7 @@ https://YOUR_PUBLIC_DOMAIN/google-calendar/callback
 - v38 adds a searchable server-rendered Hebrew landing page at `/he`, RTL presentation, translated SEO metadata and a visible language toggle. It also compacts mobile client action buttons and gives the profile action additional width.
 - v39 keeps explicit Log in/Sign up actions visible in the mobile landing header in both languages.
 - v40 adds visible spacing between mobile client-card action buttons and insets the action row from the card edges.
+- v41 replaces the empty landing-page preview mockups with optimized screenshots of the real CareIL demo and removes dash punctuation from English and Hebrew marketing copy.
 - Earlier small unified-color update predates the CareIL rename.
 - The working source folder is `TherapyManager` in the current workspace (legacy technical folder name).
 - Fresh deployments use `CareIL.db`, `databases/CareIL_default_client.db`, and `databases/CareIL_<client_key>.db`; no legacy database migration is required.

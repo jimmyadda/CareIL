@@ -6,6 +6,8 @@ The searchable public site is available in English at `/` and in Hebrew at `/he`
 
 The mobile header keeps separate Log in/Sign up (`כניסה`/`הרשמה`) controls visible alongside the language toggle.
 
+The product-preview section uses optimized screenshots captured from the seeded CareIL demo dashboard and mobile client view rather than decorative empty placeholders.
+
 On mobile, client-card actions use compact proportional widths so longer Hebrew labels remain readable.
 
 ## Legal and consent pages (v37)
