@@ -22,22 +22,27 @@ class Medicalnotes(Resource):
         db_manager = DatabaseManager(client_key)
         conn = db_manager.connect_to_db(client_key)
 
-        patmedicalnotes = conn.execute("SELECT p.*,m.* from medrecords m LEFT JOIN patient p ON m.pat_id = p.pat_id where m.pat_id = ? ORDER BY m.create_date DESC", (patid,)).fetchall()        
+        patmedicalnotes = conn.execute("""SELECT p.*,m.*,a.appointment_date
+            FROM medrecords m
+            LEFT JOIN patient p ON m.pat_id = p.pat_id
+            LEFT JOIN appointment a ON m.app_id = a.app_id
+            WHERE m.pat_id = ? ORDER BY m.create_date DESC""", (patid,)).fetchall()
         return patmedicalnotes 
 
     def post(self):
         """Add the new medicalnote"""
-        client_key = session.get("clientKey", "default_client")  # Get the client key from the session
-        db_manager = DatabaseManager(client_key)  # Create a DatabaseManager instance
-        conn = db_manager.connect_to_db()  # Connect to the client's databas 
+        client_key = session['client_key']
+        db_manager = DatabaseManager(client_key)
+        conn = db_manager.connect_to_db(client_key)
 
 
         medicalnoteInput = request.get_json(force=True)
         pat_id = medicalnoteInput['pat_id']
         create_date = medicalnoteInput['create_date']
         body = medicalnoteInput['body']
-        medicalnoteInput['doc_id']=conn.execute('''INSERT INTO medrecords(pat_id,create_date,body)
-            VALUES(?,?,?,?)''', (pat_id, create_date,body)).lastrowid
+        app_id = medicalnoteInput.get('app_id') or None
+        medicalnoteInput['doc_id']=conn.execute('''INSERT INTO medrecords(pat_id,app_id,create_date,body)
+            VALUES(?,?,?,?)''', (pat_id, app_id, create_date,body)).lastrowid
         conn.commit()
         return medicalnoteInput
 
@@ -74,8 +79,9 @@ class Medicalnote(Resource):
         pat_id = noteInput['pat_id']
         create_date = noteInput['create_date']
         body = noteInput['body']
+        app_id = noteInput.get('app_id') or None
         conn.execute( 
-            "UPDATE medrecords  SET pat_id=?,create_date=?,body=? WHERE rec_id=?",
-            (pat_id, create_date, body, id))
+            "UPDATE medrecords SET pat_id=?,app_id=?,create_date=?,body=? WHERE rec_id=?",
+            (pat_id, app_id, create_date, body, id))
         conn.commit()
         return noteInput

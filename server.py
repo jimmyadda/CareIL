@@ -3,7 +3,6 @@ from collections import defaultdict
 from email import encoders
 from email.mime.base import MIMEBase
 import hmac
-import io
 import pathlib
 from pydoc import text
 import random
@@ -18,15 +17,13 @@ from email.mime.image import MIMEImage
 from email.mime.text import MIMEText
 import os
 from dotenv import load_dotenv
-from flask import Flask, abort, current_app, g, jsonify, send_file,flash,render_template,request,redirect, send_from_directory, session, url_for
+from flask import Flask, abort, current_app, g, jsonify,flash,render_template,request,redirect, send_from_directory, session, url_for
 import flask_login
 import sqlite3
 import datetime
 import uuid
 import hashlib
 from werkzeug.utils import secure_filename
-from docx import Document
-from docx.shared import Pt
 from flask_restful import Resource, Api
 from mail import get_Mail_settings, send_notification, update_Mail_setting
 from package.decorators import admin_only
@@ -1486,7 +1483,18 @@ def patient_folder_Load():
         mednote = med.get(noteid)
     pat_id = id
     apps = Appointments()
-    appointments = apps.getappointmentsbypatient(pat_id)    
+    appointments = apps.getappointmentsbypatient(pat_id)
+    now_value = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    summaries_by_appointment = {
+        row['app_id']: row['rec_id']
+        for row in database_read(
+            "SELECT rec_id, app_id FROM medrecords WHERE pat_id = ? AND app_id IS NOT NULL",
+            (pat_id,), client_key=client_key
+        )
+    }
+    for appointment in appointments:
+        appointment['is_past'] = str(appointment.get('appointment_date') or '') < now_value
+        appointment['summary_rec_id'] = summaries_by_appointment.get(appointment.get('app_id'))
     notes = Medicalnotes()
     pat_mednotes = notes.getnotebypatient(pat_id)    
     length = len(pat_mednotes)
@@ -1509,74 +1517,6 @@ def patient_folder_Load():
     if not patientdata:
         abort(404)
     return render_template('patientform.html',Translate_data=Translate_data,user=user,patient=patientdata[0],patientdata=patientdata,messages=messages,appointments=appointments,pat_mednotes=pat_mednotes,tasksfiles=tasksfiles, alert="")
-
-@app.route('/patient/<int:pat_id>/summary.docx', methods=['GET'])
-@flask_login.login_required
-def export_patient_summary(pat_id):
-    """Download a clean Word summary containing client details and session notes."""
-    client_key = session['client_key']
-    patients = database_read(
-        "SELECT * FROM patient WHERE pat_id = ?",
-        (pat_id,),
-        client_key=client_key
-    )
-    if not patients:
-        abort(404)
-
-    notes = database_read(
-        "SELECT create_date, body FROM medrecords WHERE pat_id = ? ORDER BY create_date DESC",
-        (pat_id,),
-        client_key=client_key
-    )
-    patient = patients[0]
-    document = Document()
-    styles = document.styles
-    styles['Normal'].font.name = 'Aptos'
-    styles['Normal'].font.size = Pt(11)
-
-    document.add_heading('Therapy summary', 0)
-    document.add_heading(
-        f"{patient.get('pat_first_name', '')} {patient.get('pat_last_name', '')}".strip(),
-        level=1
-    )
-    details = document.add_table(rows=0, cols=2)
-    details.style = 'Light Shading Accent 1'
-    for label, value in (
-        ('Client ID', patient.get('pat_insurance_no', '')),
-        ('Date of birth', patient.get('pat_dob', '')),
-        ('Phone', patient.get('pat_ph_no', '')),
-        ('Email', patient.get('pat_email', '')),
-        ('Address', patient.get('pat_address', '')),
-    ):
-        row = details.add_row().cells
-        row[0].text = label
-        row[1].text = str(value or '')
-
-    document.add_heading('Session notes', level=1)
-    if not notes:
-        document.add_paragraph('No session notes have been recorded.')
-    for note in notes:
-        document.add_heading(str(note.get('create_date') or 'Session'), level=2)
-        body = note.get('body') or ''
-        try:
-            content_html = json.loads(body).get('content', '')
-        except (TypeError, ValueError, AttributeError):
-            content_html = body
-        note_text = BeautifulSoup(str(content_html), 'html.parser').get_text('\n', strip=True)
-        document.add_paragraph(note_text or 'No note content.')
-
-    output = io.BytesIO()
-    document.save(output)
-    output.seek(0)
-    safe_name = secure_filename(
-        f"{patient.get('pat_first_name', 'client')}_{patient.get('pat_last_name', '')}_therapy_summary.docx"
-    )
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=safe_name or 'therapy_summary.docx',
-        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
 
 @app.route("/patientform", methods=["POST"])
 @flask_login.login_required
@@ -1607,8 +1547,14 @@ def patientnotes_page():
         med = Medicalnote()
         mednote = med.get(noteid)
     pat_id = data['id']
-    apps = Appointments()
-    appointments = apps.get() 
+    appointments = database_read(
+        """SELECT a.*, m.rec_id AS summary_rec_id
+           FROM appointment a
+           LEFT JOIN medrecords m ON m.app_id = a.app_id AND m.pat_id = a.pat_id
+           WHERE a.pat_id = ? AND a.appointment_date < DATETIME('now','localtime')
+           ORDER BY a.appointment_date DESC""",
+        (pat_id,), client_key=client_key
+    )
     notes = Medicalnotes()
     pat_mednotes = notes.getnotebypatient(pat_id)
     #TEST GET ONLY TEXT
@@ -1644,6 +1590,9 @@ def medicalnote_page():
     appointments = apps.get() 
     texteditor = ""
     pat_mednotes=""
+    selected_app_id = request.args.get('app_id', type=int)
+    if selected_app_id and not any(row['app_id'] == selected_app_id for row in appointments):
+        abort(400)
     if request.args.get('noteid'):
         noteid = request.args.get('noteid', type=int)
         med = Medicalnote()
@@ -1655,9 +1604,10 @@ def medicalnote_page():
             abort(404)
         texteditor = json.loads(pat_mednotes[0]['body'] or '{}')
         session['textineditor'] = texteditor.get('content', '')
+        selected_app_id = pat_mednotes[0].get('app_id') or selected_app_id
     else:
         session['textineditor'] = " "
-    return render_template('medicalnote.html',Translate_data=Translate_data,user=user,patient=patients[0],appointments=appointments,pat_mednotes=pat_mednotes,texteditor=texteditor)
+    return render_template('medicalnote.html',Translate_data=Translate_data,user=user,patient=patients[0],appointments=appointments,pat_mednotes=pat_mednotes,texteditor=texteditor,selected_app_id=selected_app_id)
 
 @app.route("/medicalnote" , methods=['POST'])
 @flask_login.login_required
@@ -1667,24 +1617,39 @@ def updatemedicalnote():
     client_key = session['client_key']
     id = data['pat_id']
     contentbdy = data['content']
+    app_id = data.get('app_id') or None
+    if app_id:
+        appointment = database_read(
+            "SELECT app_id FROM appointment WHERE app_id = ? AND pat_id = ?",
+            (app_id, id), client_key=client_key
+        )
+        if not appointment:
+            abort(400)
     if 'noteid' in request.values:
         noteid = request.values['noteid']
         #update
         print("update:", noteid)
         now = datetime.datetime.now().strftime("%Y-%m-%d")
-        sql = "UPDATE medrecords SET pat_id = ?, create_date = ?, body = ? WHERE rec_id = ?"
-        ok = database_write(sql, (id, now, contentbdy, noteid))
+        sql = "UPDATE medrecords SET pat_id = ?, app_id = ?, create_date = ?, body = ? WHERE rec_id = ? AND pat_id = ?"
+        ok = database_write(sql, (id, app_id, now, contentbdy, noteid, id))
         if ok == 1:
-            return render_template('medicalnote.html',user=user,data=data)
+            return jsonify({'ok': True, 'rec_id': int(noteid)})
         else:
             return "ERROR"
     else:
         #New   
         now = datetime.datetime.now().strftime("%Y-%m-%d")
-        sql = "INSERT INTO medrecords (pat_id, create_date, body) VALUES (?, ?, ?)"
-        ok = database_write(sql, (id, now, contentbdy))
+        if app_id:
+            existing = database_read(
+                "SELECT rec_id FROM medrecords WHERE pat_id = ? AND app_id = ? LIMIT 1",
+                (id, app_id), client_key=client_key
+            )
+            if existing:
+                return jsonify({'error': 'A summary already exists for this appointment.', 'rec_id': existing[0]['rec_id']}), 409
+        sql = "INSERT INTO medrecords (pat_id, app_id, create_date, body) VALUES (?, ?, ?, ?)"
+        ok = database_write(sql, (id, app_id, now, contentbdy))
         if ok == 1:
-            return render_template('medicalnote.html',user=user,data=data)
+            return jsonify({'ok': True})
         else:
             return "ERROR"
 

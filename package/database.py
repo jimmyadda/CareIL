@@ -61,6 +61,7 @@ class DatabaseManager:
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
+        self.ensure_session_summary_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
@@ -138,6 +139,19 @@ class DatabaseManager:
         }
         if 'google_event_id' not in appointment_columns:
             conn.execute("ALTER TABLE appointment ADD COLUMN google_event_id TEXT")
+        conn.commit()
+
+    @staticmethod
+    def ensure_session_summary_schema(conn):
+        """Allow a session summary to reference its clinic appointment."""
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(medrecords)").fetchall()
+        }
+        if columns and 'app_id' not in columns:
+            conn.execute("ALTER TABLE medrecords ADD COLUMN app_id INTEGER")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_medrecords_appointment ON medrecords(app_id)"
+        )
         conn.commit()
 
     @staticmethod
@@ -250,9 +264,11 @@ class DatabaseManager:
         CREATE TABLE IF NOT EXISTS medrecords (
             rec_id INTEGER PRIMARY KEY AUTOINCREMENT,
             pat_id INTEGER NOT NULL,
+            app_id INTEGER,
             create_date DATE NOT NULL,
             body TEXT,
-            FOREIGN KEY(pat_id) REFERENCES patient(pat_id)
+            FOREIGN KEY(pat_id) REFERENCES patient(pat_id),
+            FOREIGN KEY(app_id) REFERENCES appointment(app_id)
         );
 
         CREATE TABLE IF NOT EXISTS recordstamplates (

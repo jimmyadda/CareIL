@@ -84,6 +84,11 @@
     .patient-context strong { display: block; color: #35411f; font-size: 18px; }
     .patient-context span { color: #64706b; }
     button.editor-button.direction-button { width: auto; min-width: 54px; padding: 0 10px; font-weight: 700; }
+    .appointment-link-field { margin:18px; padding:14px 18px; border:1px solid #dfe5d1; border-radius:14px; background:#fff; }
+    .appointment-link-field label { display:block; margin-bottom:7px; }
+    .dictation-button { width:auto !important; min-width:150px !important; padding:0 12px !important; }
+    .dictation-button.is-listening { color:#fff !important; background:#b75f5f !important; border-color:#a04d4d !important; }
+    .dictation-status { display:inline-block; min-height:20px; margin:6px 8px; color:#64706b; font-weight:650; }
 </style>
    <link rel="manifest" href="/static/manifest.webmanifest">
    <meta name="theme-color" content="#708238">
@@ -96,6 +101,21 @@
         <strong><i class="fa fa-user-o" aria-hidden="true"></i> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</strong>
         <span>ID: {{ patient['pat_insurance_no'] or patient['pat_id'] }}{% if patient['pat_ph_no'] %} · {{ patient['pat_ph_no'] }}{% endif %}{% if patient['pat_email'] %} · {{ patient['pat_email'] }}{% endif %}</span>
         <input id="patient_select" type="hidden" name="pat_id" value="{{ patient['pat_id'] }}">
+        <a class="btn btn-default" href="/patientform?id={{ patient['pat_id'] }}#appointments"><i class="fa fa-arrow-left" aria-hidden="true"></i> <span key="tabAppointments" class="translate EN">Appointments</span></a>
+    </div>
+
+    <div class="appointment-link-field">
+      <label key="linkedAppointment" class="translate EN" for="linkedAppointment">Related appointment</label>
+      <select id="linkedAppointment" class="form-control">
+        {% if appointments %}
+        <option value="" key="selectPastAppointment" class="translate EN">Select a previous appointment</option>
+        {% for appointment in appointments %}
+        <option value="{{ appointment['app_id'] }}" {% if selected_app_id == appointment['app_id'] %}selected{% elif appointment['summary_rec_id'] %}disabled{% endif %}>{{ appointment['appointment_date'] }}{% if appointment['summary_rec_id'] and selected_app_id != appointment['app_id'] %} ✓{% endif %}</option>
+        {% endfor %}
+        {% else %}
+        <option value="" key="noPastAppointments" class="translate EN" disabled selected>No previous appointments</option>
+        {% endif %}
+      </select>
     </div>
 
 <div class="editor-toolbar" >
@@ -110,6 +130,8 @@
     <button type="button" class="editor-button" onclick="execCommand('justifyRight')" title="Align right" aria-label="Align right"><i class="fa fa-align-right" aria-hidden="true"></i></button>
     <button type="button" class="editor-button direction-button" onclick="setEditorDirection('ltr')" title="Left-to-right text">LTR</button>
     <button type="button" class="editor-button direction-button" onclick="setEditorDirection('rtl')" title="Right-to-left text">RTL</button>
+    <button type="button" id="dictationButton" class="editor-button dictation-button"><i class="fa fa-microphone" aria-hidden="true"></i> <span key="dictateHebrew" class="translate EN">Dictate in Hebrew</span></button>
+    <span id="dictationStatus" class="dictation-status" aria-live="polite"></span>
 
     <input id="foreColor" type="color">
     <input id="hiliteColor" type="color">
@@ -204,11 +226,16 @@
     f.append("noteid",noteid)
     }
     f.append("pat_id",id)
+    f.append("app_id",document.getElementById('linkedAppointment').value)
     f.append("content",JSON.stringify({content}));
     fetch("/medicalnote",{
     "method": "POST",
     "body":f,       
-    }).then(response => response.text()).then(data => {
+    }).then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to save text');
+        return data;
+    }).then(data => {
                                 //Get LAng
                                 var my_lang = sessionStorage.getItem("lang");
                         if(my_lang=="HE"){
@@ -222,6 +249,68 @@
         alert('Failed to save text');
     });
    }
+
+   (function setupHebrewDictation() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const button = document.getElementById('dictationButton');
+      const status = document.getElementById('dictationStatus');
+      const label = button.querySelector('span');
+      const hebrew = function () { return sessionStorage.getItem('lang') === 'HE'; };
+      const copy = function (en, he) { return hebrew() ? he : en; };
+      if (!SpeechRecognition) {
+        button.disabled = true;
+        status.textContent = copy('Hebrew dictation is not supported in this browser. Use Chrome or Edge.', 'הכתבה בעברית אינה נתמכת בדפדפן זה. השתמשו ב-Chrome או Edge.');
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'he-IL';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      let listening = false;
+      let savedRange = null;
+
+      function rememberCaret() {
+        const selection = window.getSelection();
+        if (selection.rangeCount && document.getElementById('editor').contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
+      }
+      function insertTranscript(text) {
+        const editor = document.getElementById('editor');
+        editor.focus();
+        const selection = window.getSelection();
+        if (savedRange) {
+          selection.removeAllRanges(); selection.addRange(savedRange);
+        } else {
+          const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false); selection.removeAllRanges(); selection.addRange(range);
+        }
+        document.execCommand('insertText', false, text + ' ');
+        rememberCaret();
+      }
+      document.getElementById('editor').addEventListener('keyup', rememberCaret);
+      document.getElementById('editor').addEventListener('mouseup', rememberCaret);
+      recognition.onresult = function (event) {
+        let finalText = '', interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+          else interimText += event.results[i][0].transcript;
+        }
+        if (finalText) insertTranscript(finalText);
+        status.textContent = interimText || copy('Listening in Hebrew…', 'מקשיב בעברית…');
+      };
+      recognition.onend = function () {
+        if (listening) { try { recognition.start(); } catch (error) {} }
+        else { button.classList.remove('is-listening'); label.textContent = copy('Dictate in Hebrew', 'הכתבה בעברית'); status.textContent = ''; }
+      };
+      recognition.onerror = function (event) {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') listening = false;
+        status.textContent = copy('Microphone access is required for dictation.', 'נדרשת הרשאת מיקרופון לצורך הכתבה.');
+      };
+      button.addEventListener('click', function () {
+        listening = !listening;
+        if (listening) {
+          rememberCaret(); button.classList.add('is-listening'); label.textContent = copy('Stop dictation', 'עצירת הכתבה'); status.textContent = copy('Listening in Hebrew…', 'מקשיב בעברית…'); recognition.start();
+        } else { recognition.stop(); }
+      });
+   })();
    
 
   function getPatient(id) {
@@ -347,8 +436,7 @@ document.getElementById('saveTemplate').addEventListener('click', async () => {
 <script>
     window.onunload = refreshParent;
     function refreshParent() {
-        window.opener.location.reload();
-        window.close();
+        if (window.opener && !window.opener.closed) window.opener.location.reload();
     }
 </script>
 <script src="/static/modern-clinic.js?v=19"></script>
@@ -392,6 +480,14 @@ document.getElementById('saveTemplate').addEventListener('click', async () => {
   
   </script>
   <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
+
+  <script>
+    (function () {
+      var language = sessionStorage.getItem('lang') === 'HE' ? 'HE' : 'EN';
+      document.title = language === 'HE' ? 'סיכום פגישה - CareIL' : 'Session summary - CareIL';
+      translate_DOM_element('translate', Translate_jsonData, language === 'HE' ? 'EN' : 'HE', language);
+    })();
+  </script>
 
 
   <script>

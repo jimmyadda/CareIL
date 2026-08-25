@@ -49,7 +49,8 @@ A mobile-first Flask application for a single-therapist clinic. It manages clien
 - Therapist profile replaces add/delete doctor management.
 - Configurable booking days, opening hours, and session duration.
 - Client bookings are restricted to availability and existing appointments.
-- Word summary export from the client record.
+- Per-client Details, Docs, Questionnaires and Appointments workspace.
+- Session summaries can be linked to completed appointments and dictated in Hebrew in supported browsers.
 - Secrets moved to environment variables; debug mode is disabled by default.
 - Minimal dependency list and sensitive runtime data excluded from source control.
 

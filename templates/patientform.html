@@ -51,11 +51,18 @@
             font-weight: 400;
             line-height: 1;
       }
-.HE 
+    .HE 
 {
   float: none;
   text-align: right;
 }
+    .patient-tabs { display:flex; gap:8px; margin:18px auto 24px; padding:7px; max-width:980px; border:1px solid #dfe5d1; border-radius:15px; background:#fff; }
+    .patient-tab { flex:1; min-height:44px; border:0; border-radius:11px; background:transparent; color:#355e3b; font-weight:750; }
+    .patient-tab.is-active { background:var(--clinic-gradient); color:#102a1c; }
+    .patient-tab-panel[hidden] { display:none !important; }
+    .questionnaire-empty { max-width:980px; margin:0 auto; padding:30px; text-align:center; border:1px dashed #bfc9b4; border-radius:18px; background:#fff; color:#64706b; }
+    .appointment-actions { display:flex; flex-wrap:wrap; gap:7px; }
+    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } }
     </style>
 
 
@@ -99,31 +106,35 @@
         <!-- START Language list-->
 
         <!-- END Language list    -->
-        Client Details
+        <span key="clientDetails" class="translate EN">Client details</span>
         <small data-localize="dashboard.WELCOME"></small>
-         <div class="pull-right">
+         <div class="pull-right patient-tab-panel" data-patient-panel="details">
            <div class="btn-group">
              {% if patientdata %}
-             <a class="btn btn-default" href="/patient/{{ patientdata[0]['pat_id'] }}/summary.docx">
-               <i class="fa fa-file-word-o" aria-hidden="true"></i> Export Word summary
-             </a>
              <button type="button" class="btn btn-primary" onclick="sendPortalLink()">
-               <i class="fa fa-envelope-o" aria-hidden="true"></i> Send portal link
+               <i class="fa fa-envelope-o" aria-hidden="true"></i> <span key="sendPortalLink" class="translate EN">Send portal link</span>
              </button>
              <button type="button" class="btn btn-default" onclick="copyPortalLink()">
-               <i class="fa fa-link" aria-hidden="true"></i> Copy portal link
+               <i class="fa fa-link" aria-hidden="true"></i> <span key="copyPortalLink" class="translate EN">Copy portal link</span>
              </button>
              <button type="button" class="btn btn-default portal-revoke-button" onclick="revokePortalLinks()">
-               <i class="fa fa-ban" aria-hidden="true"></i> Revoke links
+               <i class="fa fa-ban" aria-hidden="true"></i> <span key="revokePortalLinks" class="translate EN">Revoke links</span>
              </button>
              {% endif %}
            </div>
         </div>
      </div>
 
+     <nav class="patient-tabs" aria-label="Client record sections">
+       <button type="button" class="patient-tab is-active" data-tab="details"><span key="tabDetails" class="translate EN">Details</span></button>
+       <button type="button" class="patient-tab" data-tab="docs"><span key="tabDocs" class="translate EN">Docs</span></button>
+       <button type="button" class="patient-tab" data-tab="questionnaires"><span key="tabQuestionnaires" class="translate EN">Questionnaires</span></button>
+       <button type="button" class="patient-tab" data-tab="appointments"><span key="tabAppointments" class="translate EN">Appointments</span></button>
+     </nav>
+
     <div class="main">
 
-    <table id="maintbl"> 
+    <table id="maintbl" class="patient-tab-panel" data-patient-panel="details"> 
         <form method="POST" id="patientDetail" enctype="multipart/form-data" action="/patientform">
             <tr>
                 <td>
@@ -233,7 +244,7 @@
     </table> 
     
     <br>
-    <div class="form-group patient-files-card">
+    <div class="form-group patient-files-card patient-tab-panel" data-patient-panel="docs" hidden>
         <br>
         <label key="patfiles" class="col-lg-2 control-label translate EN">Client attachments :</label>
         <br>
@@ -249,14 +260,21 @@
                 </table>
         </div>
 
+        <section class="patient-tab-panel" data-patient-panel="questionnaires" data-patient-id="{{ patient['pat_id'] }}" hidden>
+          <div class="questionnaire-empty">
+            <h3 key="questionnairesTitle" class="translate EN">Questionnaires</h3>
+            <p key="questionnairesEmpty" class="translate EN">No questionnaires have been added for this client yet.</p>
+          </div>
+        </section>
+
           <!-- Records section-->
-          <section>
+          <section class="patient-tab-panel" data-patient-panel="appointments" hidden>
             <!-- Page content-->
             <div class="content-wrapper" style="width: 85%;">
-               <div key="mednotetitle" class="content-heading">
+               <div class="content-heading">
                   <!-- START Language list-->
                   <!-- END Language list    -->
-                 Session Summaries
+                 <span key="mednotetitle" class="translate EN">Session summaries</span>
                   <small data-localize="dashboard.WELCOME"></small>
                    <div id="pullcss1" class="pull-right">
                      <div class="btn-group">
@@ -275,6 +293,7 @@
                                        <th key="patfullname" class="translate EN" style="width:25%">Client</th>
                                        <th key="desc" class="translate EN" style="width:35%">Desc</th>
                                        <th key="patnotedate" class="translate EN" style="width: 10%;">Date</th>
+                                       <th key="linkedAppointment" class="translate EN" style="width:15%">Related appointment</th>
                                          <th style="width:15%"></th>
                                          <th style="width:15%"></th>
                                          <th style="width:15%"></th>
@@ -287,6 +306,7 @@
                                      <td>{{ note['pat_first_name'] }} {{ note['pat_last_name'] }}</td>
                                      <td>{{ note['text'][:50] }}</td>                
                                      <td>{{ note['create_date'] }}</td>  
+                                     <td>{{ note['appointment_date'] or '—' }}</td>
                                       <td><button key="editbtn" class="btn-xs btn btn-info btn-editrecord translate EN" type="button">Edit</button> &nbsp;
                                      <button  key="deletebtn" class="btn-xs btn btn-danger delete-btnrecord translate EN" type="button">Delete</button></td> 
                                      <td name="id" class="noteid" style="display: none;">{{ note['rec_id'] }}</td>
@@ -302,7 +322,7 @@
             </div>
          </section>
 
-         <section>
+         <section class="patient-tab-panel" data-patient-panel="appointments" hidden>
             <!-- Page content-->
             <div class="content-wrapper" style="width: 85%;">
                <div class="content-heading">
@@ -327,12 +347,28 @@
                                  <thead>
                                     <tr>
                                        <th key="appdate" class="translate EN" style="width:15%">Appointment Date</th>
+                                       <th key="appointmentStatus" class="translate EN" style="width:15%">Status</th>
+                                       <th key="appointmentActions" class="translate EN" style="width:25%">Actions</th>
                                     </tr>
                                  </thead>
                                  <tbody>
                                     {% for appointment in appointments %}
                                     <tr>
-                                      <td>{{ appointment['appointment_date'] }}</td>                
+                                      <td>{{ appointment['appointment_date'] }}</td>
+                                      <td><span class="translate EN" key="{{ 'pastAppointment' if appointment['is_past'] else 'upcomingAppointment' }}">{{ 'Past' if appointment['is_past'] else 'Upcoming' }}</span></td>
+                                      <td>
+                                        <div class="appointment-actions">
+                                        {% if appointment['is_past'] %}
+                                          {% if appointment['summary_rec_id'] %}
+                                          <a class="btn btn-default" href="/medicalnote?id={{ patient['pat_id'] }}&noteid={{ appointment['summary_rec_id'] }}&app_id={{ appointment['app_id'] }}"><span key="editSummary" class="translate EN">Edit summary</span></a>
+                                          {% else %}
+                                          <a class="btn btn-primary" href="/medicalnote?id={{ patient['pat_id'] }}&app_id={{ appointment['app_id'] }}"><span key="summarizeAppointment" class="translate EN">Summarize appointment</span></a>
+                                          {% endif %}
+                                        {% else %}
+                                          <span key="notCompletedYet" class="translate EN">Not completed yet</span>
+                                        {% endif %}
+                                        </div>
+                                      </td>
                                     </tr>
                                     {% endfor %} 
                                  </tbody>
@@ -446,7 +482,7 @@
 
     function sendPortalLink() {
         portalInvitationRequest('send').then(function () {
-            $.notify('Secure portal link sent successfully', {status: 'success'});
+            $.notify(sessionStorage.getItem('lang') === 'HE' ? 'הקישור המאובטח לפורטל נשלח בהצלחה' : 'Secure portal link sent successfully', {status: 'success'});
         }).catch(function (error) {
             $.notify(error.message, {status: 'danger'});
         });
@@ -456,21 +492,21 @@
         portalInvitationRequest('copy').then(function (result) {
             return navigator.clipboard.writeText(result.url);
         }).then(function () {
-            $.notify('Secure portal link copied', {status: 'success'});
+            $.notify(sessionStorage.getItem('lang') === 'HE' ? 'הקישור המאובטח לפורטל הועתק' : 'Secure portal link copied', {status: 'success'});
         }).catch(function (error) {
             $.notify(error.message, {status: 'danger'});
         });
     }
 
     function revokePortalLinks() {
-        if (!window.confirm('Revoke all unused portal links for this client?')) return;
+        if (!window.confirm(sessionStorage.getItem('lang') === 'HE' ? 'לבטל את כל קישורי הפורטל שטרם נוצלו עבור מטופל זה?' : 'Revoke all unused portal links for this client?')) return;
         const patientId = new URLSearchParams(window.location.search).get('id');
         fetch('/api/patients/' + encodeURIComponent(patientId) + '/portal-invitations/revoke', {
             method: 'POST'
         }).then(async function (response) {
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Could not revoke portal links.');
-            $.notify(result.revoked + ' portal link(s) revoked', {status: 'success'});
+            $.notify(sessionStorage.getItem('lang') === 'HE' ? result.revoked + ' קישורים בוטלו' : result.revoked + ' portal link(s) revoked', {status: 'success'});
         }).catch(function (error) {
             $.notify(error.message, {status: 'danger'});
         });
@@ -528,7 +564,31 @@
   <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
   <script src="/static/js/medicalnote.js?v=2"></script>
    <script src="/static/js/disabledatetime.js?v=5"></script>
-   <script src="/static/js/appointmentpatientform.js?v=11"></script>
+<script src="/static/js/appointmentpatientform.js?v=11"></script>
+<script>
+(function () {
+  document.title = sessionStorage.getItem('lang') === 'HE' ? 'CareIL - פרטי המטופל' : 'CareIL - Client details';
+  function showPatientTab(name) {
+    document.querySelectorAll('[data-patient-panel]').forEach(function (panel) {
+      panel.hidden = panel.getAttribute('data-patient-panel') !== name;
+    });
+    document.querySelectorAll('.patient-tab').forEach(function (button) {
+      var active = button.getAttribute('data-tab') === name;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search + '#' + name);
+    }
+  }
+  document.querySelectorAll('.patient-tab').forEach(function (button) {
+    button.addEventListener('click', function () { showPatientTab(button.getAttribute('data-tab')); });
+  });
+  var requestedTab = window.location.hash.slice(1);
+  showPatientTab(['details','docs','questionnaires','appointments'].indexOf(requestedTab) >= 0 ? requestedTab : 'details');
+  window.showPatientTab = showPatientTab;
+})();
+</script>
    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
    
    

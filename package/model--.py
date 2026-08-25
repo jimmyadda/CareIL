@@ -57,9 +57,11 @@ def initialize_database_schema(conn):
     cursor.execute('''CREATE TABLE IF NOT EXISTS medrecords
     (rec_id INTEGER PRIMARY KEY AUTOINCREMENT,
     pat_id INTEGER NOT NULL,
+    app_id INTEGER,
     create_date DATE NOT NULL,
     body TEXT,
-    FOREIGN KEY(pat_id) REFERENCES patient(pat_id));''')
+    FOREIGN KEY(pat_id) REFERENCES patient(pat_id),
+    FOREIGN KEY(app_id) REFERENCES appointment(app_id));''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS Patientfiles
     (pat_id TEXT,
