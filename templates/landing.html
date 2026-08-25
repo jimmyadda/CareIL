@@ -17,7 +17,7 @@
   <link rel="icon" href="/static/favicon.ico">
   <link rel="stylesheet" href="/static/landing.css?v=2">
   <link rel="stylesheet" href="/static/landing-footer.css?v=1">
-  <link rel="stylesheet" href="/static/landing-bilingual.css?v=1">
+  <link rel="stylesheet" href="/static/landing-bilingual.css?v=2">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"CareIL","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.careil.net/","description":{{ t.description|tojson }}}</script>
 </head>
 <body>
@@ -26,7 +26,7 @@
     <nav aria-label="{{ t.nav_aria }}">
       <a href="#features">{{ t.features_link }}</a><a href="#preview">{{ t.preview_link }}</a>
       <a class="lang-toggle" href="{{ '/' if lang == 'he' else '/he' }}" lang="{{ 'en' if lang == 'he' else 'he' }}" dir="{{ 'ltr' if lang == 'he' else 'rtl' }}">{{ t.language }}</a>
-      <a href="/login">{{ t.login }}</a><a class="nav-cta" href="/register">{{ t.start }}</a>
+      <a class="login-link" href="/login">{{ t.login }}</a><a class="nav-cta" href="/register">{{ t.start }}</a>
     </nav>
   </header>
   <main>

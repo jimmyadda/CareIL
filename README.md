@@ -4,6 +4,8 @@
 
 The searchable public site is available in English at `/` and in Hebrew at `/he`. The language control switches between server-rendered pages with matching RTL/LTR layouts, translated metadata and localized legal links.
 
+The mobile header keeps separate Log in/Sign up (`כניסה`/`הרשמה`) controls visible alongside the language toggle.
+
 On mobile, client-card actions use compact proportional widths so longer Hebrew labels remain readable.
 
 ## Legal and consent pages (v37)

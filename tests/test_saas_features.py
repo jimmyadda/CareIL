@@ -37,6 +37,8 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn(b'Calm clinic management for therapists', response.data)
         self.assertIn(b'/demo/start', response.data)
         self.assertIn(b'href="/he"', response.data)
+        self.assertIn(b'class="login-link" href="/login">Log in', response.data)
+        self.assertIn(b'class="nav-cta" href="/register">Sign up', response.data)
         self.assertNotIn('X-Robots-Tag', response.headers)
 
     def test_hebrew_landing_page_is_rtl_searchable_and_translated(self):
@@ -44,6 +46,8 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'lang="he" dir="rtl"', response.data)
         self.assertIn('עבודת הקליניקה שלך'.encode('utf-8'), response.data)
+        self.assertIn('class="login-link" href="/login">כניסה'.encode('utf-8'), response.data)
+        self.assertIn('class="nav-cta" href="/register">הרשמה'.encode('utf-8'), response.data)
         self.assertIn(b'hreflang="he"', response.data)
         self.assertIn(b'href="/"', response.data)
         self.assertNotIn('X-Robots-Tag', response.headers)
