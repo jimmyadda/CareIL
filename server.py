@@ -1078,6 +1078,12 @@ def _google_calendar_redirect_uri():
     return os.environ.get('GOOGLE_REDIRECT_URI') or url_for('google_calendar_callback', _external=True)
 
 
+def _google_calendar_return_path(value):
+    """Allow OAuth to return only to known local CareIL pages."""
+    allowed = {'/calendar', '/admin/google-calendar', '/admin/adminPanel'}
+    return value if value in allowed else '/admin/google-calendar'
+
+
 @app.route('/admin/google-calendar')
 @admin_only
 def google_calendar_settings():
@@ -1094,10 +1100,13 @@ def google_calendar_settings():
 def google_calendar_connect():
     if not google_calendar_is_configured():
         return redirect(url_for('google_calendar_settings', error='Google credentials are not configured'))
+    return_path = _google_calendar_return_path(request.args.get('next'))
+    session['google_oauth_return'] = return_path
     try:
         flow = create_oauth_flow(_google_calendar_redirect_uri())
         authorization_url, state = flow.authorization_url(
-            access_type='offline', include_granted_scopes='true', prompt='consent'
+            access_type='offline', include_granted_scopes='true',
+            prompt='select_account consent'
         )
     except ImportError:
         return redirect(url_for('google_calendar_settings', error='Install the Google Calendar dependencies first'))
@@ -1120,6 +1129,9 @@ def google_calendar_callback():
     except Exception:
         current_app.logger.exception('Initial Google Calendar sync failed')
         synced = 0
+    return_path = _google_calendar_return_path(session.pop('google_oauth_return', None))
+    if return_path == '/calendar':
+        return redirect(url_for('calendar_page', connected='1', synced=synced))
     return redirect(url_for('google_calendar_settings', connected='1', synced=synced))
 
 
@@ -1134,10 +1146,8 @@ def google_calendar_sync_now():
             error='Google Calendar credentials are not configured yet.'
         ))
     if not google_calendar_connection_status(user['client_key'], user['userid']):
-        return redirect(url_for(
-            'google_calendar_settings',
-            error='Connect Google Calendar before synchronizing appointments.'
-        ))
+        destination = '/calendar' if return_to_calendar else '/admin/google-calendar'
+        return redirect(url_for('google_calendar_connect', next=destination))
     try:
         synced = sync_all_google_appointments(user['client_key'])
         if return_to_calendar:

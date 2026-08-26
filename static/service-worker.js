@@ -1,4 +1,4 @@
-const CACHE_NAME = "careil-shell-v47";
+const CACHE_NAME = "careil-shell-v48";
 const SHELL = [
   "/static/modern-clinic.css",
   "/static/modern-clinic.js",

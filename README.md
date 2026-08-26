@@ -87,6 +87,8 @@ Before public production use, add CSRF protection, rate limiting, encrypted back
 
 Confirmed appointments are created in the connected primary calendar. Updates and deletions are synchronized too. Client-requested appointments are not synchronized until the therapist approves them. Refresh tokens are encrypted with `THERAPY_SECRET_KEY`; changing that key requires reconnecting Google Calendar.
 
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are CareIL-wide application credentials and belong in Railway service variables, not tenant databases or browser forms. Each therapist uses the Connect button to choose their own Google account; only that account's encrypted refresh token is stored in the therapist's separate tenant database. The Calendar Sync button opens Google's account chooser automatically when no account is connected and acts as a catch-up sync after connection.
+
 Google Calendar and appointment-email end times use the session duration saved under **Clinic settings → Booking availability**. It is not duplicated in `.env`.
 
 ## Transactional email on Railway
