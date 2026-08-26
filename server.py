@@ -2228,6 +2228,10 @@ def get_portal():
     apps = Appointments()
     appointments = apps.getappointmentsbypatient(pat_id)
     allappointments = apps.get()
+    pendingappointments = database_read(
+        "SELECT appointment_date FROM pendingappointment WHERE status=0",
+        client_key=client_key,
+    )
     portal_questionnaires = database_read(
         """SELECT questionnaire_id, title, instructions, questions_json, status,
                   assigned_at, completed_at
@@ -2243,7 +2247,7 @@ def get_portal():
     session['patientdata'] = patientdata
     return render_template(
         'portal.html', patientdata=patientdata, patientmessages=patientmessages,
-        allappointments=allappointments, appointments=appointments,
+        allappointments=allappointments + pendingappointments, appointments=appointments,
         appointment_dates=appointment_dates, pending_count=pending_count,
         portal_questionnaires=portal_questionnaires, alert=""
     )
@@ -2354,8 +2358,12 @@ def chekappointmentdate():
         return "ERROR"
 
     appoinmentindate = database_read(
-        "SELECT app_id FROM appointment WHERE appointment_date = ? LIMIT 1",
-        (datetocheck,),
+        """SELECT app_id FROM appointment WHERE appointment_date = ?
+           UNION ALL
+           SELECT app_id FROM pendingappointment
+           WHERE appointment_date = ? AND status = 0
+           LIMIT 1""",
+        (datetocheck, datetocheck),
         client_key=client_key
     )
     if len(appoinmentindate) >= 1:

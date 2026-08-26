@@ -307,3 +307,11 @@ Prioritize these before treating the app as production-ready:
 - Keep portal output strictly client-safe.
 - After changes, validate Python syntax, JavaScript syntax, JSON files, database migration behavior, and ZIP integrity.
 - Produce a small update ZIP when practical and a clean full-source ZIP for milestone releases.
+# Appointment request workflow verification (v51)
+
+- Portal availability excludes both confirmed appointments and all pending requests.
+- The server repeats the availability and collision check inside an atomic transaction.
+- Pending requests remain outside the CareIL and Google calendars until approved.
+- Approval creates the confirmed appointment, syncs it to Google Calendar, and emails the client.
+- Decline preserves the request as an audit record and emails the client without creating an appointment.
+- Confirmation email calendar data uses the approved start time, clinic session duration, Asia/Jerusalem timezone, a Google Calendar link, and an attached ICS file.

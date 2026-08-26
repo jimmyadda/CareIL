@@ -239,7 +239,11 @@
         const button = this;
         button.disabled = true;
         const appointmentDate = form.elements.appointment_date.value;
-        const payload = {pat_id: form.elements.pat_id.value, appointment_date: appointmentDate};
+        const payload = {
+          pat_id: form.elements.pat_id.value,
+          appointment_date: appointmentDate,
+          language: (sessionStorage.getItem('lang') || 'EN').toUpperCase()
+        };
         const check = new FormData();
         check.append('pat_id', payload.pat_id);
         check.append('appointmentdate', payload.appointment_date);

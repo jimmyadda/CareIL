@@ -219,7 +219,7 @@ swal({
                     },
                     {
                         mRender: function (o) {
-                            return '<button  key="deletebtn" class="btn-xs btn btn-danger pendingdel translate EN" type="button">Delete</button>';;
+                            return '<button key="declinebtn" class="btn-xs btn btn-danger pendingdel translate EN" type="button">Decline</button>';
                         }
                     }
             ]
@@ -245,8 +245,7 @@ swal({
                     }
                     else
                     {
-                        addAppointment(data);
-                        //deleteapprovedAppointment(data.app_id);
+                        approveRequestAppointment(data.app_id);
                     }
                 }
                 else{
@@ -271,6 +270,25 @@ swal({
 
 
     }
+
+    function approveRequestAppointment(id) {
+        $.ajax({
+            url: "appointmentrequestapi/" + id,
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({action: "approve"})
+        }).done(function (response) {
+            var lang = sessionStorage.getItem("lang");
+            var message = lang === "HE" ? "הפגישה אושרה והמטופל קיבל הודעה" : "Appointment accepted and the client was notified";
+            if (response.email_sent === false) {
+                message = lang === "HE" ? "הפגישה אושרה, אך שליחת המייל נכשלה" : "Appointment accepted, but the email could not be sent";
+            }
+            swal(lang === "HE" ? "בוצע" : "Done", message, response.email_sent === false ? "warning" : "success");
+            window.setTimeout(function () { location.reload(); }, 700);
+        }).fail(function (xhr) {
+            swal("Oops...", (xhr.responseJSON && xhr.responseJSON.error) || "The request could not be approved.", "error");
+        });
+    }
     
  function deleterequestAppointment(id) {
         var settings = {
@@ -284,28 +302,16 @@ swal({
             }
         }
 swal({
-    title: "Are you sure?",
-    text: "You will not be able to recover this data",
+    title: "Decline this request?",
+    text: "The client will be notified by email.",
     type: "warning",
     showCancelButton: true,
     confirmButtonColor: "#DD6B55",
-    confirmButtonText: "Yes, delete it!",
+    confirmButtonText: "Yes, decline it",
     closeOnConfirm: false
 }, function() {
-                                 //send mmessage to patient portal
-                                 let f = new FormData();
-                                 f.append("app_id",id)
-                     
-                                 fetch("/postmsg",{
-                                 "method": "POST",
-                                 "body":f,       
-                                 }).then(response => response.text()).then(data => { 
-                                    console.log(data);          
-                                 });
-
-                                 
  $.ajax(settings).done(function (response) {
-   swal("Deleted!", "Appointment Request has been deleted.", "success");
+   swal("Declined", response.msg || "The request was declined and the client was notified.", response.email_sent === false ? "warning" : "success");
 
 
             table.destroy();

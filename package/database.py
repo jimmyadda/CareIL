@@ -61,11 +61,24 @@ class DatabaseManager:
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
+        self.ensure_pending_appointment_schema(conn)
         self.ensure_session_summary_schema(conn)
         self.ensure_clinical_forms_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_pending_appointment_schema(conn):
+        """Keep the portal request language for decision notifications."""
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(pendingappointment)").fetchall()
+        }
+        if columns and 'language' not in columns:
+            conn.execute(
+                "ALTER TABLE pendingappointment ADD COLUMN language TEXT NOT NULL DEFAULT 'EN'"
+            )
+            conn.commit()
 
     @staticmethod
     def ensure_legal_acceptance_schema(conn):
@@ -351,6 +364,7 @@ class DatabaseManager:
             "doc_id"	INTEGER NOT NULL,
             "appointment_date"	DATE NOT NULL,
             "status"	INTEGER DEFAULT 0,
+            "language" TEXT NOT NULL DEFAULT 'EN',
             FOREIGN KEY("doc_id") REFERENCES "doctor"("doc_id"),
             FOREIGN KEY("pat_id") REFERENCES "patient"("pat_id"),
             PRIMARY KEY("app_id" AUTOINCREMENT)); 
