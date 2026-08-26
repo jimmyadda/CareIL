@@ -25,6 +25,7 @@ import datetime
 import uuid
 import hashlib
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_restful import Resource, Api
 from mail import get_Mail_settings, send_notification, update_Mail_setting
 from package.decorators import admin_only
@@ -66,6 +67,7 @@ from package.Auth2fa import store_verification_code,verify_code
 load_dotenv()
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 api = Api(app)
 # Routes API
@@ -1121,7 +1123,11 @@ def google_calendar_callback():
     if not expected_state or request.args.get('state') != expected_state:
         abort(400, description='Invalid Google OAuth state')
     flow = create_oauth_flow(_google_calendar_redirect_uri(), state=expected_state)
-    flow.fetch_token(authorization_response=request.url)
+    public_callback_url = _google_calendar_redirect_uri()
+    authorization_response = public_callback_url
+    if request.query_string:
+        authorization_response += '?' + request.query_string.decode('utf-8')
+    flow.fetch_token(authorization_response=authorization_response)
     user = flask_login.current_user.get_dict()
     save_google_calendar_connection(user['client_key'], user['userid'], flow.credentials)
     try:
