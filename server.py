@@ -3,6 +3,7 @@ from collections import defaultdict
 from email import encoders
 from email.mime.base import MIMEBase
 import hmac
+import html
 import pathlib
 from pydoc import text
 import random
@@ -1473,6 +1474,31 @@ def patient_folder_Load():
     user = flask_login.current_user.get_dict()    
     patientdata = database_read(f"select * from patient where pat_id= '{id}';",client_key=client_key)
     tasksfiles = database_read(f"select * from Patientfiles where pat_id= '{id}';",client_key=client_key) #id = pat_id
+    diagnosis_types = database_read(
+        "SELECT diagnosis_type_id, name FROM diagnosis_types ORDER BY name",
+        client_key=client_key
+    )
+    patient_diagnoses = database_read(
+        """SELECT pd.diagnosis_id, pd.diagnosed_on, pd.notes, dt.name
+           FROM patient_diagnoses pd
+           JOIN diagnosis_types dt ON dt.diagnosis_type_id = pd.diagnosis_type_id
+           WHERE pd.pat_id = ? ORDER BY COALESCE(pd.diagnosed_on, pd.created_at) DESC""",
+        (id,), client_key=client_key
+    )
+    questionnaire_templates = database_read(
+        "SELECT template_id, title, instructions, questions_json FROM questionnaire_templates ORDER BY title",
+        client_key=client_key
+    )
+    patient_questionnaires = database_read(
+        """SELECT questionnaire_id, title, status, assigned_at, completed_at, answers_json
+           FROM patient_questionnaires WHERE pat_id = ? ORDER BY assigned_at DESC""",
+        (id,), client_key=client_key
+    )
+    for questionnaire in patient_questionnaires:
+        try:
+            questionnaire['response'] = json.loads(questionnaire.get('answers_json') or '{}')
+        except (TypeError, ValueError):
+            questionnaire['response'] = {}
     data = request.values
     if 'id' in request.values:
      id = request.values['id']
@@ -1516,7 +1542,14 @@ def patient_folder_Load():
     print("patientdata",patientdata)
     if not patientdata:
         abort(404)
-    return render_template('patientform.html',Translate_data=Translate_data,user=user,patient=patientdata[0],patientdata=patientdata,messages=messages,appointments=appointments,pat_mednotes=pat_mednotes,tasksfiles=tasksfiles, alert="")
+    return render_template(
+        'patientform.html', Translate_data=Translate_data, user=user,
+        patient=patientdata[0], patientdata=patientdata, messages=messages,
+        appointments=appointments, pat_mednotes=pat_mednotes, tasksfiles=tasksfiles,
+        diagnosis_types=diagnosis_types, patient_diagnoses=patient_diagnoses,
+        questionnaire_templates=questionnaire_templates,
+        patient_questionnaires=patient_questionnaires, alert=""
+    )
 
 @app.route("/patientform", methods=["POST"])
 @flask_login.login_required
@@ -1533,6 +1566,138 @@ def update_patien():
         return render_template('patientform.html',user=user,patient=patientdata,message=message)
     else:
        return "ERROR"
+
+@app.route('/api/patients/<int:pat_id>/diagnoses', methods=['POST'])
+@flask_login.login_required
+@admin_only
+def add_patient_diagnosis(pat_id):
+    client_key = session['client_key']
+    payload = request.get_json(silent=True) or {}
+    diagnosis_type_id = payload.get('diagnosis_type_id')
+    new_type = str(payload.get('new_type') or '').strip()
+    if not diagnosis_type_id and not new_type:
+        return jsonify({'error': 'Select or enter a diagnosis type.'}), 400
+    manager = DatabaseManager(client_key)
+    conn = manager.connect_to_db(client_key)
+    try:
+        if not conn.execute("SELECT 1 FROM patient WHERE pat_id = ?", (pat_id,)).fetchone():
+            return jsonify({'error': 'Patient not found.'}), 404
+        if new_type:
+            conn.execute("INSERT OR IGNORE INTO diagnosis_types(name) VALUES (?)", (new_type,))
+            row = conn.execute(
+                "SELECT diagnosis_type_id FROM diagnosis_types WHERE name = ? COLLATE NOCASE",
+                (new_type,)
+            ).fetchone()
+            diagnosis_type_id = row['diagnosis_type_id']
+        else:
+            row = conn.execute(
+                "SELECT diagnosis_type_id FROM diagnosis_types WHERE diagnosis_type_id = ?",
+                (diagnosis_type_id,)
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Diagnosis type not found.'}), 404
+        cursor = conn.execute(
+            """INSERT INTO patient_diagnoses
+               (pat_id, diagnosis_type_id, diagnosed_on, notes) VALUES (?, ?, ?, ?)""",
+            (pat_id, diagnosis_type_id, payload.get('diagnosed_on') or None,
+             str(payload.get('notes') or '').strip() or None)
+        )
+        conn.commit()
+        return jsonify({'ok': True, 'diagnosis_id': cursor.lastrowid})
+    finally:
+        conn.close()
+
+@app.route('/api/patients/<int:pat_id>/diagnoses/<int:diagnosis_id>', methods=['DELETE'])
+@flask_login.login_required
+@admin_only
+def delete_patient_diagnosis(pat_id, diagnosis_id):
+    updated = database_write(
+        "DELETE FROM patient_diagnoses WHERE diagnosis_id = ? AND pat_id = ?",
+        (diagnosis_id, pat_id)
+    )
+    if updated != 1:
+        return jsonify({'error': 'Diagnosis not found.'}), 404
+    return jsonify({'ok': True})
+
+@app.route('/api/patients/<int:pat_id>/questionnaires', methods=['POST'])
+@flask_login.login_required
+@admin_only
+def assign_patient_questionnaire(pat_id):
+    client_key = session['client_key']
+    payload = request.get_json(silent=True) or {}
+    template_id = payload.get('template_id') or None
+    title = str(payload.get('title') or '').strip()
+    instructions = str(payload.get('instructions') or '').strip()
+    questions = payload.get('questions') or []
+    questions = [str(question).strip() for question in questions if str(question).strip()]
+    manager = DatabaseManager(client_key)
+    conn = manager.connect_to_db(client_key)
+    try:
+        patient = conn.execute(
+            "SELECT pat_id, pat_first_name, pat_last_name, pat_email FROM patient WHERE pat_id = ?",
+            (pat_id,)
+        ).fetchone()
+        if not patient:
+            return jsonify({'error': 'Patient not found.'}), 404
+        if template_id:
+            template = conn.execute(
+                "SELECT * FROM questionnaire_templates WHERE template_id = ?", (template_id,)
+            ).fetchone()
+            if not template:
+                return jsonify({'error': 'Questionnaire template not found.'}), 404
+            title = template['title']
+            instructions = template.get('instructions') or ''
+            questions_json = template['questions_json']
+        else:
+            if not title or not questions:
+                return jsonify({'error': 'Enter a title and at least one question.'}), 400
+            questions_json = json.dumps(questions, ensure_ascii=False)
+            if payload.get('save_template'):
+                try:
+                    cursor = conn.execute(
+                        """INSERT INTO questionnaire_templates
+                           (title, instructions, questions_json, created_by) VALUES (?, ?, ?, ?)""",
+                        (title, instructions or None, questions_json,
+                         flask_login.current_user.get_id())
+                    )
+                    template_id = cursor.lastrowid
+                except sqlite3.IntegrityError:
+                    return jsonify({'error': 'A questionnaire template with this title already exists.'}), 409
+        cursor = conn.execute(
+            """INSERT INTO patient_questionnaires
+               (pat_id, template_id, title, instructions, questions_json)
+               VALUES (?, ?, ?, ?, ?)""",
+            (pat_id, template_id, title, instructions or None, questions_json)
+        )
+        questionnaire_id = cursor.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+
+    sent = False
+    if payload.get('send'):
+        if not patient.get('pat_email'):
+            return jsonify({'error': 'Questionnaire assigned, but the patient has no email address.',
+                            'questionnaire_id': questionnaire_id}), 400
+        token, expires_at = _create_portal_invitation(
+            pat_id, client_key, flask_login.current_user.get_id(), lifetime_minutes=10080
+        )
+        portal_url = url_for('portal_invitation_access', token=token, _external=True)
+        patient_name = html.escape(' '.join(filter(None, [patient.get('pat_first_name'), patient.get('pat_last_name')])))
+        safe_title = html.escape(title)
+        subject = 'CareIL | Questionnaire available in your secure portal'
+        body = (email_brand_header() + f'<p>Hello {patient_name},</p>'
+                f'<p>A new questionnaire, <strong>{safe_title}</strong>, is waiting for you.</p>'
+                f'<p><a href="{portal_url}">Open the secure portal and complete it</a></p>'
+                f'<p>This one-time link is valid for 7 days and expires at {expires_at} UTC.</p>')
+        try:
+            _send_patient_email(client_key, patient['pat_email'], subject, body)
+            sent = True
+        except Exception:
+            current_app.logger.exception('Failed to send questionnaire invitation')
+            return jsonify({'error': 'Questionnaire assigned, but the email could not be sent.',
+                            'questionnaire_id': questionnaire_id}), 502
+    return jsonify({'ok': True, 'questionnaire_id': questionnaire_id, 'sent': sent})
 
 @app.route("/patientnotes" , methods=['GET'])
 @flask_login.login_required
@@ -1586,8 +1751,14 @@ def medicalnote_page():
     patients = database_read("SELECT * FROM patient WHERE pat_id = ?", (pat_id,), client_key=client_key)
     if not patients:
         abort(404)
-    apps = Appointments()
-    appointments = apps.get() 
+    appointments = database_read(
+        """SELECT a.*, m.rec_id AS summary_rec_id
+           FROM appointment a
+           LEFT JOIN medrecords m ON m.app_id = a.app_id AND m.pat_id = a.pat_id
+           WHERE a.pat_id = ? AND a.appointment_date < DATETIME('now','localtime')
+           ORDER BY a.appointment_date DESC""",
+        (pat_id,), client_key=client_key
+    )
     texteditor = ""
     pat_mednotes=""
     selected_app_id = request.args.get('app_id', type=int)
@@ -1620,7 +1791,9 @@ def updatemedicalnote():
     app_id = data.get('app_id') or None
     if app_id:
         appointment = database_read(
-            "SELECT app_id FROM appointment WHERE app_id = ? AND pat_id = ?",
+            """SELECT app_id FROM appointment
+               WHERE app_id = ? AND pat_id = ?
+                 AND appointment_date < DATETIME('now','localtime')""",
             (app_id, id), client_key=client_key
         )
         if not appointment:
@@ -1809,6 +1982,30 @@ def _create_portal_invitation(pat_id, client_key, created_by, lifetime_minutes=3
     finally:
         conn.close()
     return token, expires_at
+
+def _send_patient_email(client_key, recipient, subject, body):
+    """Send a branded patient email using Resend or the clinic SMTP fallback."""
+    if resend_is_configured():
+        return send_resend_email(
+            recipient, subject, body,
+            attachments=[careil_logo_attachment(os.path.dirname(__file__))]
+        )
+    settings = get_Mail_settings(client_key)
+    sender = str(settings.get('MAIL_USERNAME') or '')
+    if not sender:
+        raise RuntimeError('Mail settings are not configured')
+    message = MIMEMultipart('related')
+    message['From'] = sender
+    message['To'] = recipient
+    message['Subject'] = subject
+    message.attach(MIMEText(body, 'html', _charset='utf-8'))
+    attach_email_logo(message)
+    port = int(settings.get('MAIL_PORT') or 587)
+    with smtplib.SMTP(settings['MAIL_SERVER'], port) as smtp:
+        if str(settings.get('MAIL_USE_TLS', 'True')).lower() in ('1', 'true', 'yes'):
+            smtp.starttls()
+        smtp.login(sender, settings['MAIL_PASSWORD'])
+        smtp.sendmail(sender, recipient, message.as_string().encode('utf-8'))
 
 def _find_portal_invitation(token):
     """Find an opaque invitation without exposing the tenant key in its URL."""
@@ -2005,9 +2202,69 @@ def get_portal():
     apps = Appointments()
     appointments = apps.getappointmentsbypatient(pat_id)
     allappointments = apps.get()
+    portal_questionnaires = database_read(
+        """SELECT questionnaire_id, title, instructions, questions_json, status,
+                  assigned_at, completed_at
+           FROM patient_questionnaires WHERE pat_id = ? ORDER BY assigned_at DESC""",
+        (pat_id,), client_key=client_key
+    )
+    for questionnaire in portal_questionnaires:
+        try:
+            questionnaire['questions'] = json.loads(questionnaire.get('questions_json') or '[]')
+        except (TypeError, ValueError):
+            questionnaire['questions'] = []
     pending_count = len(patientmessages)
     session['patientdata'] = patientdata
-    return render_template('portal.html',patientdata=patientdata,patientmessages=patientmessages,allappointments=allappointments,appointments=appointments,appointment_dates=appointment_dates,pending_count=pending_count,alert="")
+    return render_template(
+        'portal.html', patientdata=patientdata, patientmessages=patientmessages,
+        allappointments=allappointments, appointments=appointments,
+        appointment_dates=appointment_dates, pending_count=pending_count,
+        portal_questionnaires=portal_questionnaires, alert=""
+    )
+
+@app.route('/portal/questionnaires/<int:questionnaire_id>/submit', methods=['POST'])
+def portal_submit_questionnaire(questionnaire_id):
+    pat_id = session.get('portal_pat_id') if session.get('portal_authenticated') else None
+    client_key = session.get('client_key')
+    if not pat_id or not client_key:
+        return jsonify({'error': 'Portal session expired'}), 401
+    rows = database_read(
+        """SELECT questionnaire_id, questions_json, status
+           FROM patient_questionnaires WHERE questionnaire_id = ? AND pat_id = ?""",
+        (questionnaire_id, pat_id), client_key=client_key
+    )
+    if not rows:
+        abort(404)
+    if rows[0]['status'] == 'completed':
+        return jsonify({'error': 'This questionnaire was already submitted.'}), 409
+    try:
+        questions = json.loads(rows[0]['questions_json'] or '[]')
+    except (TypeError, ValueError):
+        questions = []
+    respondent_name = str(request.form.get('respondent_name') or '').strip()
+    if not respondent_name or request.form.get('declaration') != 'yes':
+        return jsonify({'error': 'Name and confirmation are required.'}), 400
+    answers = []
+    for index, question in enumerate(questions):
+        answer = str(request.form.get(f'answer_{index}') or '').strip()
+        if not answer:
+            return jsonify({'error': 'Please answer every question.'}), 400
+        answers.append({'question': question, 'answer': answer})
+    response_record = {
+        'answers': answers,
+        'respondent_name': respondent_name,
+        'declaration_accepted': True,
+        'submitted_user_agent': request.headers.get('User-Agent', '')[:500]
+    }
+    updated = database_write(
+        """UPDATE patient_questionnaires
+           SET answers_json = ?, status = 'completed', completed_at = CURRENT_TIMESTAMP
+           WHERE questionnaire_id = ? AND pat_id = ? AND status = 'assigned'""",
+        (json.dumps(response_record, ensure_ascii=False), questionnaire_id, pat_id)
+    )
+    if updated != 1:
+        return jsonify({'error': 'Questionnaire could not be submitted.'}), 409
+    return jsonify({'ok': True})
 
 @app.route('/portal/messages/<int:message_id>/read', methods=['POST'])
 def portal_mark_message_read(message_id):

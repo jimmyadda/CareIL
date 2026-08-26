@@ -62,6 +62,7 @@ class DatabaseManager:
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
         self.ensure_session_summary_schema(conn)
+        self.ensure_clinical_forms_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
@@ -152,6 +153,57 @@ class DatabaseManager:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_medrecords_appointment ON medrecords(app_id)"
         )
+        conn.commit()
+
+    @staticmethod
+    def ensure_clinical_forms_schema(conn):
+        """Create patient diagnoses and secure questionnaire storage."""
+        conn.executescript('''
+        CREATE TABLE IF NOT EXISTS diagnosis_types (
+            diagnosis_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS patient_diagnoses (
+            diagnosis_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pat_id INTEGER NOT NULL,
+            diagnosis_type_id INTEGER NOT NULL,
+            diagnosed_on DATE,
+            notes TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pat_id) REFERENCES patient(pat_id),
+            FOREIGN KEY (diagnosis_type_id) REFERENCES diagnosis_types(diagnosis_type_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_diagnoses_patient
+            ON patient_diagnoses(pat_id);
+
+        CREATE TABLE IF NOT EXISTS questionnaire_templates (
+            template_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            instructions TEXT,
+            questions_json TEXT NOT NULL,
+            created_by TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(title),
+            FOREIGN KEY (created_by) REFERENCES accounts(userid)
+        );
+        CREATE TABLE IF NOT EXISTS patient_questionnaires (
+            questionnaire_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pat_id INTEGER NOT NULL,
+            template_id INTEGER,
+            title TEXT NOT NULL,
+            instructions TEXT,
+            questions_json TEXT NOT NULL,
+            answers_json TEXT,
+            status TEXT NOT NULL DEFAULT 'assigned',
+            assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
+            FOREIGN KEY (pat_id) REFERENCES patient(pat_id),
+            FOREIGN KEY (template_id) REFERENCES questionnaire_templates(template_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_questionnaires_patient
+            ON patient_questionnaires(pat_id, status);
+        ''')
         conn.commit()
 
     @staticmethod

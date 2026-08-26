@@ -39,7 +39,7 @@ See [`LEGAL_LAUNCH_CHECKLIST.md`](LEGAL_LAUNCH_CHECKLIST.md) for the operator de
 
 Project decisions, implementation history, deployment notes, and future-work context are maintained in [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md). Read it before continuing development.
 
-A mobile-first Flask application for a single-therapist clinic. It manages clients, appointments, session notes, files, messages, online appointment requests, and Word summaries.
+A mobile-first Flask application for a single-therapist clinic. It manages clients, appointments, session summaries, files, messages, questionnaires, diagnoses, and online appointment requests.
 
 ## What changed in this version
 
@@ -50,6 +50,8 @@ A mobile-first Flask application for a single-therapist clinic. It manages clien
 - Configurable booking days, opening hours, and session duration.
 - Client bookings are restricted to availability and existing appointments.
 - Per-client Details, Docs, Questionnaires and Appointments workspace.
+- Reusable questionnaire templates can be assigned and emailed through the secure patient portal; completed answers return to the patient record.
+- Reusable diagnosis types and patient-specific diagnosis history are available under Details.
 - Session summaries can be linked to completed appointments and dictated in Hebrew in supported browsers.
 - Secrets moved to environment variables; debug mode is disabled by default.
 - Minimal dependency list and sensitive runtime data excluded from source control.

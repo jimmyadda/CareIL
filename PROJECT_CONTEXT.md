@@ -79,6 +79,8 @@ Some database and source identifiers still use legacy names such as `doctor`, `p
 - Portal message actions must authorize against the portal session and client ID.
 - Clients should not see internal uploaded files or therapy/session notes.
 - The portal may show appointments, contact data, therapist messages, and appointment-request controls.
+- Patient questionnaires are created or selected from reusable templates inside each patient record, assigned to that patient, and optionally emailed through a one-time secure portal link. Submitted answers and respondent attestation return only to the same patient record.
+- Diagnosis types are reusable inside one tenant database; diagnosis rows, dates, and notes are patient-specific.
 
 ### Scheduling and availability
 
@@ -94,6 +96,7 @@ Some database and source identifiers still use legacy names such as `doctor`, `p
 - Disabled/booked states must refresh both when clicking a date and when navigating the picker with Previous/Next arrows.
 - This applies to the portal, `/patientform`, and `/appointment` flows.
 - Requested portal appointments remain pending until therapist approval.
+- Session-summary appointment selectors must contain only completed appointments belonging to the currently loaded patient, and the server must validate the same relationship when saving.
 
 ### Google Calendar
 

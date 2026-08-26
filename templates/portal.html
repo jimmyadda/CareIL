@@ -55,6 +55,11 @@
     .modal-footer { padding:16px 24px; }
     .form-control { min-height:44px; border-color:var(--line); border-radius:10px; }
     .portal-note { margin-top:12px; color:var(--muted); font-size:13px; }
+    .portal-questionnaire { margin-top:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:#fbfcf9; }
+    .portal-questionnaire label { display:block; margin:12px 0 6px; font-weight:700; }
+    .portal-questionnaire textarea,.portal-questionnaire input[type="text"] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; }
+    .portal-questionnaire textarea { min-height:90px; resize:vertical; }
+    .portal-questionnaire .declaration { display:flex; align-items:flex-start; gap:8px; font-weight:500; }
     .datetimepicker .datetimepicker-hours span.disabled,.datetimepicker .datetimepicker-hours span.booked-hour,.datetimepicker .datetimepicker-hours span.disabled:hover { color:#969d99 !important; background:#e2e5e0 !important; cursor:not-allowed !important; text-decoration:line-through; opacity:.72; }
     @media (max-width:760px) {
       .portal-nav-inner,.portal-hero { align-items:flex-start; }
@@ -133,6 +138,34 @@
         <div class="empty-state">You have no unread messages.</div>
         {% endif %}
       </section>
+
+      <section class="portal-card portal-card--wide">
+        <h2><i class="fa fa-list-alt" aria-hidden="true"></i> Questionnaires</h2>
+        {% set pending_questionnaires = portal_questionnaires | selectattr('status', 'equalto', 'assigned') | list %}
+        {% if pending_questionnaires %}
+          {% for questionnaire in pending_questionnaires %}
+          <form class="portal-questionnaire" data-questionnaire-id="{{ questionnaire['questionnaire_id'] }}">
+            <h3>{{ questionnaire['title'] }}</h3>
+            {% if questionnaire['instructions'] %}<p dir="auto">{{ questionnaire['instructions'] }}</p>{% endif %}
+            {% for question in questionnaire['questions'] %}
+            <label for="q-{{ questionnaire['questionnaire_id'] }}-{{ loop.index0 }}" dir="auto">{{ loop.index }}. {{ question }}</label>
+            <textarea id="q-{{ questionnaire['questionnaire_id'] }}-{{ loop.index0 }}" name="answer_{{ loop.index0 }}" dir="auto" required></textarea>
+            {% endfor %}
+            <label for="respondent-{{ questionnaire['questionnaire_id'] }}">Full name / שם מלא</label>
+            <input id="respondent-{{ questionnaire['questionnaire_id'] }}" name="respondent_name" type="text" required>
+            <label class="declaration"><input name="declaration" type="checkbox" value="yes" required> I confirm that these answers are mine and are accurate / אני מאשר/ת שאלו תשובותיי והן נכונות</label>
+            <button type="submit" class="portal-button">Submit questionnaire / שליחת שאלון</button>
+            <p class="portal-note questionnaire-result" aria-live="polite"></p>
+          </form>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">No questionnaires are waiting for completion / אין שאלונים הממתינים למילוי</div>
+        {% endif %}
+        {% set completed_questionnaires = portal_questionnaires | selectattr('status', 'equalto', 'completed') | list %}
+        {% if completed_questionnaires %}
+        <p class="portal-note">Completed / הושלמו: {% for questionnaire in completed_questionnaires %}{{ questionnaire['title'] }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        {% endif %}
+      </section>
     </div>
   </main>
 
@@ -180,6 +213,24 @@
             if (item) item.remove();
             if (!document.querySelector('.message-item')) window.location.reload();
           }).catch(function (error) { button.disabled = false; window.alert(error.message); });
+      });
+      $('.portal-questionnaire').on('submit', function (event) {
+        event.preventDefault();
+        const form = this;
+        const result = form.querySelector('.questionnaire-result');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        fetch('/portal/questionnaires/' + encodeURIComponent(form.dataset.questionnaireId) + '/submit', {
+          method: 'POST', body: new FormData(form)
+        }).then(async function (response) {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Could not submit questionnaire.');
+          result.textContent = 'Submitted successfully / השאלון נשלח בהצלחה';
+          window.setTimeout(function () { window.location.reload(); }, 900);
+        }).catch(function (error) {
+          result.textContent = error.message;
+          button.disabled = false;
+        });
       });
 
       $('#submitAppointment').on('click', async function () {

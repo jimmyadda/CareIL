@@ -60,9 +60,18 @@
     .patient-tab { flex:1; min-height:44px; border:0; border-radius:11px; background:transparent; color:#355e3b; font-weight:750; }
     .patient-tab.is-active { background:var(--clinic-gradient); color:#102a1c; }
     .patient-tab-panel[hidden] { display:none !important; }
-    .questionnaire-empty { max-width:980px; margin:0 auto; padding:30px; text-align:center; border:1px dashed #bfc9b4; border-radius:18px; background:#fff; color:#64706b; }
+    .clinical-card { max-width:980px; margin:18px auto; padding:24px; border:1px solid #dfe5d1; border-radius:18px; background:#fff; color:#35443d; }
+    .clinical-card h3 { margin:0 0 18px; font-weight:800; }
+    .clinical-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
+    .clinical-form-grid .wide { grid-column:1/-1; }
+    .clinical-card label { display:block; margin-bottom:6px; color:#355e3b; font-weight:700; }
+    .clinical-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
+    .clinical-table { width:100%; margin-top:20px; }
+    .clinical-table th,.clinical-table td { padding:10px; border-bottom:1px solid #e7eadf; vertical-align:top; }
+    .status-pill { display:inline-block; padding:4px 9px; border-radius:999px; background:#edf2e9; font-weight:700; }
+    .questionnaire-answer { margin:7px 0; padding:9px; border-inline-start:3px solid #8ba17d; background:#f7f8f4; }
     .appointment-actions { display:flex; flex-wrap:wrap; gap:7px; }
-    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } }
+    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } .clinical-form-grid { grid-template-columns:1fr; } .clinical-form-grid .wide { grid-column:auto; } .clinical-table { display:block; overflow-x:auto; } }
     </style>
 
 
@@ -242,6 +251,46 @@
     <input type="hidden" name="userid" value="{{ user.userid }}">
         </form>
     </table> 
+
+    <section class="clinical-card patient-tab-panel" data-patient-panel="details">
+      <h3><span key="diagnosesTitle" class="translate EN">Diagnoses</span></h3>
+      <div class="clinical-form-grid">
+        <div>
+          <label for="diagnosisType" key="diagnosisType" class="translate EN">Diagnosis type</label>
+          <select id="diagnosisType" class="form-control">
+            <option value="" key="selectDiagnosis" class="translate EN">Select a saved diagnosis</option>
+            {% for diagnosis_type in diagnosis_types %}
+            <option value="{{ diagnosis_type['diagnosis_type_id'] }}">{{ diagnosis_type['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="newDiagnosisType" key="newDiagnosisType" class="translate EN">Or add a new diagnosis type</label>
+          <input id="newDiagnosisType" class="form-control" type="text">
+        </div>
+        <div>
+          <label for="diagnosedOn" key="diagnosedOn" class="translate EN">Diagnosis date</label>
+          <input id="diagnosedOn" class="form-control" type="date">
+        </div>
+        <div>
+          <label for="diagnosisNotes" key="diagnosisNotes" class="translate EN">Notes</label>
+          <input id="diagnosisNotes" class="form-control" type="text">
+        </div>
+      </div>
+      <div class="clinical-actions">
+        <button type="button" class="btn btn-primary" id="addDiagnosis"><span key="addDiagnosis" class="translate EN">Add diagnosis</span></button>
+      </div>
+      {% if patient_diagnoses %}
+      <table class="clinical-table">
+        <thead><tr><th key="diagnosisType" class="translate EN">Diagnosis type</th><th key="diagnosedOn" class="translate EN">Date</th><th key="diagnosisNotes" class="translate EN">Notes</th><th></th></tr></thead>
+        <tbody>
+          {% for diagnosis in patient_diagnoses %}
+          <tr><td>{{ diagnosis['name'] }}</td><td>{{ diagnosis['diagnosed_on'] or '—' }}</td><td>{{ diagnosis['notes'] or '—' }}</td><td><button type="button" class="btn btn-danger btn-xs delete-diagnosis" data-diagnosis-id="{{ diagnosis['diagnosis_id'] }}"><span key="deletebtn" class="translate EN">Delete</span></button></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
     
     <br>
     <div class="form-group patient-files-card patient-tab-panel" data-patient-panel="docs" hidden>
@@ -260,11 +309,62 @@
                 </table>
         </div>
 
-        <section class="patient-tab-panel" data-patient-panel="questionnaires" data-patient-id="{{ patient['pat_id'] }}" hidden>
-          <div class="questionnaire-empty">
-            <h3 key="questionnairesTitle" class="translate EN">Questionnaires</h3>
-            <p key="questionnairesEmpty" class="translate EN">No questionnaires have been added for this client yet.</p>
+        <section class="patient-tab-panel clinical-card" data-patient-panel="questionnaires" data-patient-id="{{ patient['pat_id'] }}" hidden>
+          <h3 key="questionnairesTitle" class="translate EN">Questionnaires</h3>
+          <div class="clinical-form-grid">
+            <div class="wide">
+              <label for="questionnaireTemplate" key="questionnaireTemplate" class="translate EN">Saved questionnaire template</label>
+              <select id="questionnaireTemplate" class="form-control">
+                <option value="" key="createNewQuestionnaire" class="translate EN">Create a new questionnaire</option>
+                {% for template in questionnaire_templates %}
+                <option value="{{ template['template_id'] }}">{{ template['title'] }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="questionnaireTitle" key="questionnaireTitle" class="translate EN">Questionnaire title</label>
+              <input id="questionnaireTitle" class="form-control" type="text">
+            </div>
+            <div>
+              <label for="questionnaireInstructions" key="questionnaireInstructions" class="translate EN">Instructions</label>
+              <input id="questionnaireInstructions" class="form-control" type="text">
+            </div>
+            <div class="wide">
+              <label for="questionnaireQuestions" key="questionnaireQuestions" class="translate EN">Questions, one per line</label>
+              <textarea id="questionnaireQuestions" class="form-control" rows="7"></textarea>
+            </div>
+            <label class="wide"><input id="saveQuestionnaireTemplate" type="checkbox"> <span key="saveQuestionnaireTemplate" class="translate EN">Save as a reusable template</span></label>
           </div>
+          <div class="clinical-actions">
+            <button type="button" class="btn btn-default" id="assignQuestionnaire"><span key="assignQuestionnaire" class="translate EN">Assign without email</span></button>
+            <button type="button" class="btn btn-primary" id="sendQuestionnaire"><span key="assignAndSendQuestionnaire" class="translate EN">Assign and send to patient</span></button>
+          </div>
+          {% if patient_questionnaires %}
+          <table class="clinical-table">
+            <thead><tr><th key="questionnaireTitle" class="translate EN">Questionnaire</th><th key="questionnaireStatus" class="translate EN">Status</th><th key="assignedAt" class="translate EN">Assigned</th><th key="completedAt" class="translate EN">Completed</th></tr></thead>
+            <tbody>
+              {% for questionnaire in patient_questionnaires %}
+              <tr>
+                <td>
+                  <strong>{{ questionnaire['title'] }}</strong>
+                  {% if questionnaire['response'].get('answers') %}
+                  <details><summary key="viewAnswers" class="translate EN">View answers</summary>
+                    {% for answer in questionnaire['response']['answers'] %}
+                    <div class="questionnaire-answer"><strong>{{ answer['question'] }}</strong><br>{{ answer['answer'] }}</div>
+                    {% endfor %}
+                    <small><span key="respondent" class="translate EN">Respondent</span>: {{ questionnaire['response'].get('respondent_name', '—') }}</small>
+                  </details>
+                  {% endif %}
+                </td>
+                <td><span class="status-pill translate EN" key="{{ 'completedQuestionnaire' if questionnaire['status'] == 'completed' else 'assignedQuestionnaire' }}">{{ 'Completed' if questionnaire['status'] == 'completed' else 'Assigned' }}</span></td>
+                <td>{{ questionnaire['assigned_at'] }}</td><td>{{ questionnaire['completed_at'] or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p key="questionnairesEmpty" class="translate EN">No questionnaires have been added for this client yet.</p>
+          {% endif %}
         </section>
 
           <!-- Records section-->
@@ -511,6 +611,80 @@
             $.notify(error.message, {status: 'danger'});
         });
     }
+
+    (function setupClinicalForms() {
+        const patientId = {{ patient['pat_id'] }};
+        const templates = {{ questionnaire_templates | tojson }};
+        const isHebrew = function () { return sessionStorage.getItem('lang') === 'HE'; };
+        const notify = function (en, he, status) {
+            $.notify(isHebrew() ? he : en, {status: status || 'success'});
+        };
+
+        document.getElementById('addDiagnosis').addEventListener('click', function () {
+            fetch('/api/patients/' + patientId + '/diagnoses', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    diagnosis_type_id: document.getElementById('diagnosisType').value || null,
+                    new_type: document.getElementById('newDiagnosisType').value,
+                    diagnosed_on: document.getElementById('diagnosedOn').value,
+                    notes: document.getElementById('diagnosisNotes').value
+                })
+            }).then(async function (response) {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not add diagnosis.');
+                window.location.hash = 'details'; window.location.reload();
+            }).catch(function (error) { notify(error.message, error.message, 'danger'); });
+        });
+
+        document.querySelectorAll('.delete-diagnosis').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!window.confirm(isHebrew() ? 'למחוק אבחנה זו?' : 'Delete this diagnosis?')) return;
+                fetch('/api/patients/' + patientId + '/diagnoses/' + button.dataset.diagnosisId, {method:'DELETE'})
+                    .then(async function (response) {
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error || 'Could not delete diagnosis.');
+                        window.location.hash = 'details'; window.location.reload();
+                    }).catch(function (error) { notify(error.message, error.message, 'danger'); });
+            });
+        });
+
+        const templateSelect = document.getElementById('questionnaireTemplate');
+        templateSelect.addEventListener('change', function () {
+            const selected = templates.find(function (item) { return String(item.template_id) === templateSelect.value; });
+            if (!selected) return;
+            document.getElementById('questionnaireTitle').value = selected.title || '';
+            document.getElementById('questionnaireInstructions').value = selected.instructions || '';
+            try {
+                document.getElementById('questionnaireQuestions').value = JSON.parse(selected.questions_json || '[]').join('\n');
+            } catch (error) {
+                document.getElementById('questionnaireQuestions').value = '';
+            }
+        });
+
+        function assignQuestionnaire(send) {
+            const questions = document.getElementById('questionnaireQuestions').value
+                .split(/\r?\n/).map(function (value) { return value.trim(); }).filter(Boolean);
+            fetch('/api/patients/' + patientId + '/questionnaires', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    template_id: templateSelect.value || null,
+                    title: document.getElementById('questionnaireTitle').value,
+                    instructions: document.getElementById('questionnaireInstructions').value,
+                    questions: questions,
+                    save_template: document.getElementById('saveQuestionnaireTemplate').checked,
+                    send: send
+                })
+            }).then(async function (response) {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not assign questionnaire.');
+                notify(send ? 'Questionnaire assigned and sent.' : 'Questionnaire assigned.',
+                       send ? 'השאלון שויך ונשלח למטופל.' : 'השאלון שויך למטופל.');
+                window.setTimeout(function () { window.location.hash = 'questionnaires'; window.location.reload(); }, 500);
+            }).catch(function (error) { notify(error.message, error.message, 'danger'); });
+        }
+        document.getElementById('assignQuestionnaire').addEventListener('click', function () { assignQuestionnaire(false); });
+        document.getElementById('sendQuestionnaire').addEventListener('click', function () { assignQuestionnaire(true); });
+    })();
 
     function openpatienfiles(){
 
