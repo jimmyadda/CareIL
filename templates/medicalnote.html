@@ -254,14 +254,22 @@
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const button = document.getElementById('dictationButton');
       const status = document.getElementById('dictationStatus');
+      const browserBrands = navigator.userAgentData && navigator.userAgentData.brands
+        ? navigator.userAgentData.brands.map(function (item) { return item.brand; })
+        : [];
+      const isGoogleChrome = browserBrands.length
+        ? browserBrands.indexOf('Google Chrome') !== -1
+        : /(?:Chrome|CriOS)\//.test(navigator.userAgent) && !/(?:Edg|EdgiOS|OPR|SamsungBrowser)\//.test(navigator.userAgent);
+
+      if (!isGoogleChrome || !SpeechRecognition) {
+        button.hidden = true;
+        status.hidden = true;
+        return;
+      }
+
       const label = button.querySelector('span');
       const hebrew = function () { return sessionStorage.getItem('lang') === 'HE'; };
       const copy = function (en, he) { return hebrew() ? he : en; };
-      if (!SpeechRecognition) {
-        button.disabled = true;
-        status.textContent = copy('Hebrew dictation is not supported in this browser. Use Chrome or Edge.', 'הכתבה בעברית אינה נתמכת בדפדפן זה. השתמשו ב-Chrome או Edge.');
-        return;
-      }
       const recognition = new SpeechRecognition();
       recognition.lang = 'he-IL';
       recognition.continuous = true;
