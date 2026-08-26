@@ -1105,7 +1105,10 @@ def google_calendar_connect():
     return_path = _google_calendar_return_path(request.args.get('next'))
     session['google_oauth_return'] = return_path
     try:
-        flow = create_oauth_flow(_google_calendar_redirect_uri())
+        code_verifier = secrets.token_urlsafe(64)
+        flow = create_oauth_flow(
+            _google_calendar_redirect_uri(), code_verifier=code_verifier
+        )
         authorization_url, state = flow.authorization_url(
             access_type='offline', include_granted_scopes='true',
             prompt='select_account consent'
@@ -1113,6 +1116,7 @@ def google_calendar_connect():
     except ImportError:
         return redirect(url_for('google_calendar_settings', error='Install the Google Calendar dependencies first'))
     session['google_oauth_state'] = state
+    session['google_oauth_code_verifier'] = code_verifier
     return redirect(authorization_url)
 
 
@@ -1120,9 +1124,15 @@ def google_calendar_connect():
 @admin_only
 def google_calendar_callback():
     expected_state = session.pop('google_oauth_state', None)
+    code_verifier = session.pop('google_oauth_code_verifier', None)
     if not expected_state or request.args.get('state') != expected_state:
         abort(400, description='Invalid Google OAuth state')
-    flow = create_oauth_flow(_google_calendar_redirect_uri(), state=expected_state)
+    if not code_verifier:
+        abort(400, description='Google OAuth session expired. Please connect again.')
+    flow = create_oauth_flow(
+        _google_calendar_redirect_uri(), state=expected_state,
+        code_verifier=code_verifier
+    )
     public_callback_url = _google_calendar_redirect_uri()
     authorization_response = public_callback_url
     if request.query_string:

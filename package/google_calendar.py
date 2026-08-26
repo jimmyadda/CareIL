@@ -25,10 +25,14 @@ def _client_config():
     }
 
 
-def create_oauth_flow(redirect_uri, state=None):
+def create_oauth_flow(redirect_uri, state=None, code_verifier=None):
     from google_auth_oauthlib.flow import Flow
 
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
+    flow = Flow.from_client_config(
+        _client_config(), scopes=SCOPES, state=state,
+        code_verifier=code_verifier,
+        autogenerate_code_verifier=False,
+    )
     flow.redirect_uri = redirect_uri
     return flow
 
