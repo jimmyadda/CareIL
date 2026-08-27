@@ -58,6 +58,7 @@ class DatabaseManager:
 
         conn = sqlite3.connect(db_path)
         self.ensure_account_verification_schema(conn)
+        self.ensure_access_request_schema(conn)
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
@@ -67,6 +68,35 @@ class DatabaseManager:
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_access_request_schema(conn):
+        """Create the central approval queue used before tenant provisioning."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS access_requests (
+                request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL COLLATE NOCASE,
+                phone TEXT,
+                clinic_name TEXT,
+                note TEXT,
+                language TEXT NOT NULL DEFAULT 'en',
+                status TEXT NOT NULL DEFAULT 'pending',
+                token_hash TEXT,
+                token_expires_at DATETIME,
+                approved_at DATETIME,
+                declined_at DATETIME,
+                used_at DATETIME,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                requester_ip TEXT,
+                user_agent TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_access_requests_status
+                ON access_requests(status, created_at);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_access_requests_token
+                ON access_requests(token_hash) WHERE token_hash IS NOT NULL;
+        ''')
+        conn.commit()
 
     @staticmethod
     def ensure_pending_appointment_schema(conn):
@@ -97,6 +127,29 @@ class DatabaseManager:
             );
             CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user
                 ON legal_acceptances(userid, document_type, document_version);
+
+            CREATE TABLE IF NOT EXISTS access_requests (
+                request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL COLLATE NOCASE,
+                phone TEXT,
+                clinic_name TEXT,
+                note TEXT,
+                language TEXT NOT NULL DEFAULT 'en',
+                status TEXT NOT NULL DEFAULT 'pending',
+                token_hash TEXT,
+                token_expires_at DATETIME,
+                approved_at DATETIME,
+                declined_at DATETIME,
+                used_at DATETIME,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                requester_ip TEXT,
+                user_agent TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_access_requests_status
+                ON access_requests(status, created_at);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_access_requests_token
+                ON access_requests(token_hash) WHERE token_hash IS NOT NULL;
         ''')
         account_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(accounts)").fetchall()

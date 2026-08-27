@@ -21,8 +21,8 @@
             <p>Please register to continue</p>
             <form action="/register" method="POST">
                   <div>
-                    <input type="text" name="name" placeholder="name" required/>
-                    <input type="email" name="email" class="email" placeholder="email" required/>
+                    <input type="text" name="name" value="{{ invitation['full_name'] }}" readonly required/>
+                    <input type="email" name="email" class="email" value="{{ invitation['email'] }}" readonly required/>
                     <input type="text" name="userid" placeholder="userid" required/>
                     <input type="password" name="password" placeholder="password" required/>
                     <input type="hidden" name="legal_language" value="en"/>

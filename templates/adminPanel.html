@@ -55,6 +55,17 @@
             </div>
             <div class="card-body">
                 <div class="row g-4">
+                    {% if careil_owner %}
+                    <div class="col-md-6">
+                        <div class="card border-secondary text-center shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">CareIL Access Requests</h5>
+                                <p class="card-text">Approve or decline new therapist access before a clinic workspace is created.</p>
+                                <a href="/careil-admin/access-requests" class="btn btn-primary">Review Access Requests</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     <!-- Button: Update Clinic Information -->
                     <div class="col-md-6">
                         <div class="card border-secondary text-center shadow-sm">

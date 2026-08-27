@@ -94,3 +94,15 @@ Google Calendar and appointment-email end times use the session duration saved u
 ## Transactional email on Railway
 
 Railway deployments send verification, appointment, portal-link, and welcome emails through Resend's HTTPS API. Configure `RESEND_API_KEY` and `CAREIL_FROM_EMAIL` as Railway service variables. Gmail SMTP remains available only as a local fallback when the Resend variables are absent.
+## Controlled registration
+
+Public users request access at `/request-access`. The CareIL owner reviews requests at
+`/careil-admin/access-requests`. Configure the existing owner account in Railway:
+
+```env
+CAREIL_OWNER_USERID=your-existing-login-userid
+CAREIL_OWNER_EMAIL=your-notification-email@example.com
+```
+
+Approval sends a private, single-use registration link valid for seven days. A clinic
+database is created only when the approved person completes registration.

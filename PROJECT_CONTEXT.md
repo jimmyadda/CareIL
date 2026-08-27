@@ -315,3 +315,13 @@ Prioritize these before treating the app as production-ready:
 - Approval creates the confirmed appointment, syncs it to Google Calendar, and emails the client.
 - Decline preserves the request as an audit record and emails the client without creating an appointment.
 - Confirmation email calendar data uses the approved start time, clinic session duration, Asia/Jerusalem timezone, a Google Calendar link, and an attached ICS file.
+# Controlled access and tenant provisioning (v52)
+
+- Public sign-up now goes to `/request-access`; it stores a pending request only in the central default database.
+- A pending request does not create a therapist account or tenant database.
+- The CareIL owner reviews requests at `/careil-admin/access-requests`.
+- Approval emails a cryptographically random, single-use registration link that expires after seven days.
+- Only the SHA-256 token hash is stored. The raw token is removed from the browser URL after validation.
+- Direct, expired, invalid, declined, and previously used `/register` access returns HTTP 403.
+- The tenant database is provisioned only after the approved applicant submits the registration form.
+- Railway must define `CAREIL_OWNER_USERID` and `CAREIL_OWNER_EMAIL` for owner authorization and notifications.

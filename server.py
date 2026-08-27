@@ -423,13 +423,225 @@ def landing_hebrew_page():
         return redirect('/')
     return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
 
+
+def _access_token_hash(token):
+    return hashlib.sha256(str(token).encode('utf-8')).hexdigest()
+
+
+def _central_database():
+    return db_manager.connect_to_db(Globalsetting['DEFAULT_CLIENT_KEY'])
+
+
+def _approved_access_request(token):
+    if not token:
+        return None
+    conn = _central_database()
+    try:
+        return conn.execute(
+            """SELECT * FROM access_requests
+               WHERE token_hash=? AND status='approved' AND used_at IS NULL
+                 AND token_expires_at > CURRENT_TIMESTAMP LIMIT 1""",
+            (_access_token_hash(token),),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _careil_owner():
+    if not flask_login.current_user.is_authenticated:
+        return False
+    user = flask_login.current_user.get_dict()
+    allowed_ids = {
+        value.strip().lower() for value in (
+            os.environ.get('CAREIL_OWNER_USERIDS', '') + ',' + os.environ.get('CAREIL_OWNER_USERID', '')
+        ).split(',')
+        if value.strip()
+    }
+    allowed_emails = {
+        value.strip().lower() for value in (
+            os.environ.get('CAREIL_OWNER_EMAILS', '') + ',' + os.environ.get('CAREIL_OWNER_EMAIL', '')
+        ).split(',')
+        if value.strip()
+    }
+    return ((user.get('userid') or '').lower() in allowed_ids
+            or (user.get('email') or '').lower() in allowed_emails)
+
+
+def _access_csrf_token():
+    if not session.get('access_admin_csrf'):
+        session['access_admin_csrf'] = secrets.token_urlsafe(32)
+    return session['access_admin_csrf']
+
+
+def _send_access_email(recipient, subject, content):
+    return send_resend_email(
+        recipient,
+        subject,
+        email_brand_header() + content,
+        attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+    )
+
+
+@app.route('/request-access', methods=['GET', 'POST'])
+def request_access():
+    language = 'he' if request.values.get('lang') == 'he' else 'en'
+    if request.method == 'GET':
+        return render_template('request-access.html', lang=language, submitted=False, alert='')
+
+    full_name = request.form.get('full_name', '').strip()
+    email = request.form.get('email', '').strip().lower()
+    phone = request.form.get('phone', '').strip()
+    clinic_name = request.form.get('clinic_name', '').strip()
+    note = request.form.get('note', '').strip()
+    if not full_name or not email or '@' not in email:
+        return render_template(
+            'request-access.html', lang=language, submitted=False,
+            alert='Please provide your name and a valid email address.',
+        ), 400
+
+    conn = _central_database()
+    try:
+        recent_ip_count = conn.execute(
+            """SELECT COUNT(*) AS count FROM access_requests
+               WHERE requester_ip=? AND created_at >= datetime('now','-1 day')""",
+            (_visitor_ip_address(),),
+        ).fetchone()['count']
+        if recent_ip_count >= 5:
+            return render_template(
+                'request-access.html', lang=language, submitted=False,
+                alert='Too many requests were submitted. Please try again tomorrow.',
+            ), 429
+        existing = conn.execute(
+            """SELECT request_id FROM access_requests
+               WHERE email=? AND status IN ('pending','approved') AND used_at IS NULL
+               ORDER BY request_id DESC LIMIT 1""",
+            (email,),
+        ).fetchone()
+        if not existing:
+            conn.execute(
+                """INSERT INTO access_requests
+                   (full_name,email,phone,clinic_name,note,language,requester_ip,user_agent)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (full_name, email, phone, clinic_name, note, language,
+                 _visitor_ip_address(), request.headers.get('User-Agent', '')[:500]),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    owner_email = os.environ.get('CAREIL_OWNER_EMAIL', '').strip()
+    if owner_email and resend_is_configured() and not existing:
+        try:
+            _send_access_email(
+                owner_email, 'CareIL | New access request',
+                f'<p>A new CareIL access request was received from <strong>{html.escape(full_name)}</strong> '
+                f'({html.escape(email)}).</p><p><a href="{url_for("careil_access_requests", _external=True)}">Review request</a></p>',
+            )
+        except Exception:
+            current_app.logger.exception('Could not notify CareIL owner about access request')
+    return render_template('request-access.html', lang=language, submitted=True, alert='')
+
+
+@app.route('/careil-admin/access-requests')
+@flask_login.login_required
+def careil_access_requests():
+    if not _careil_owner():
+        abort(403)
+    conn = _central_database()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM access_requests ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+    return render_template(
+        'access-requests-admin.html', requests=rows,
+        csrf_token=_access_csrf_token(), message=request.args.get('message', ''),
+    )
+
+
+@app.route('/careil-admin/access-requests/<int:request_id>/<action>', methods=['POST'])
+@flask_login.login_required
+def careil_access_request_action(request_id, action):
+    if not _careil_owner():
+        abort(403)
+    if not hmac.compare_digest(request.form.get('csrf_token', ''), session.get('access_admin_csrf', '')):
+        abort(400)
+    if action not in {'approve', 'decline'}:
+        abort(404)
+    conn = _central_database()
+    try:
+        row = conn.execute(
+            "SELECT * FROM access_requests WHERE request_id=? AND used_at IS NULL",
+            (request_id,),
+        ).fetchone()
+        if not row:
+            return redirect(url_for('careil_access_requests', message='Request is no longer available.'))
+        if action == 'decline':
+            conn.execute(
+                "UPDATE access_requests SET status='declined', declined_at=CURRENT_TIMESTAMP, token_hash=NULL, token_expires_at=NULL WHERE request_id=?",
+                (request_id,),
+            )
+            conn.commit()
+            try:
+                _send_access_email(
+                    row['email'], 'CareIL | Access request update',
+                    '<p>Thank you for your interest in CareIL. Your access request was not approved at this time.</p>',
+                )
+            except Exception:
+                current_app.logger.exception('Could not send access decline email')
+            return redirect(url_for('careil_access_requests', message='Request declined.'))
+
+        raw_token = secrets.token_urlsafe(48)
+        expires = (_utc_now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            """UPDATE access_requests SET status='approved', token_hash=?, token_expires_at=?,
+                      approved_at=CURRENT_TIMESTAMP, declined_at=NULL WHERE request_id=?""",
+            (_access_token_hash(raw_token), expires, request_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    registration_url = url_for('registration_page', token=raw_token, _external=True)
+    try:
+        _send_access_email(
+            row['email'], 'CareIL | Your registration was approved',
+            f'<p>Hello {html.escape(row["full_name"])},</p><p>Your CareIL access request was approved.</p>'
+            f'<p><a href="{registration_url}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#588157;color:white;text-decoration:none">Create your CareIL account</a></p>'
+            '<p>This private registration link is valid for seven days and can be used once.</p>',
+        )
+    except Exception:
+        current_app.logger.exception('Could not send approved registration link')
+        return redirect(url_for('careil_access_requests', message='Approved, but email delivery failed. Approve again to issue a new link.'))
+    return redirect(url_for('careil_access_requests', message='Approved and registration link sent.'))
+
 @app.route("/register", methods=['GET'])
 def registration_page():
-    return render_template('register.html',alert="", verification_step=0, email_step=0)
+    supplied_token = request.args.get('token', '')
+    if supplied_token:
+        invitation = _approved_access_request(supplied_token)
+        if not invitation:
+            return render_template('registration-forbidden.html'), 403
+        session['approved_registration_token'] = supplied_token
+        return redirect(url_for('registration_page'))
+    token = session.get('approved_registration_token', '')
+    invitation = _approved_access_request(token)
+    if not invitation:
+        return render_template('registration-forbidden.html'), 403
+    return render_template(
+        'register.html', alert="", verification_step=0, email_step=0,
+        invitation=invitation, registration_token=token,
+    )
 
 @app.route("/register", methods=['POST'])
 def registration_request():
+    registration_token = session.get('approved_registration_token', '')
+    invitation = _approved_access_request(registration_token)
+    if not invitation:
+        return render_template('registration-forbidden.html'), 403
     form = dict(request.values)
+    form['name'] = invitation['full_name']
+    form['email'] = invitation['email']
     required_legal = ('accept_privacy', 'accept_terms', 'accept_dpa')
     if not all(request.form.get(field) == 'yes' for field in required_legal):
         return render_template(
@@ -437,6 +649,8 @@ def registration_request():
             alert='You must accept the Privacy Policy, Terms of Service and Data Processing Agreement.',
             verification_step=0,
             email_step=0,
+            invitation=invitation,
+            registration_token=registration_token,
         ), 400
     folderid="0"
     if 'folderid' in request.values:
@@ -471,6 +685,17 @@ def registration_request():
         session['formData'] = form
         print('ok:' ,ok)
         if ok == 1: 
+            central_conn = _central_database()
+            try:
+                central_conn.execute(
+                    """UPDATE access_requests SET status='registered', used_at=CURRENT_TIMESTAMP,
+                              token_hash=NULL WHERE request_id=? AND token_hash=? AND used_at IS NULL""",
+                    (invitation['request_id'], _access_token_hash(registration_token)),
+                )
+                central_conn.commit()
+            finally:
+                central_conn.close()
+            session.pop('approved_registration_token', None)
             logger.info("New User Created: "+ form['name'])
             session['pending_verification_userid'] = form['userid']
             session['verification_step'] = 0
@@ -1268,7 +1493,7 @@ def update_clinic_info():
 @app.route('/admin/adminPanel', methods=['GET'])
 @admin_only
 def admin_panel():
-    return render_template('adminPanel.html')
+    return render_template('adminPanel.html', careil_owner=_careil_owner())
 
 def _availability_settings(client_key):
     defaults = {

@@ -21,9 +21,14 @@ class RegistrationFlowTest(unittest.TestCase):
     @patch.object(server.flask_login, 'login_user')
     @patch.object(server, 'ensure_single_therapist')
     @patch.object(server, 'create_account', return_value=1)
+    @patch.object(server, '_approved_access_request', return_value={
+        'request_id': 7, 'full_name': 'Jimmy Adda', 'email': 'jimmy@example.com'
+    })
     def test_registration_does_not_log_in_before_verification(
-        self, create_account, ensure_single_therapist, login_user
+        self, approved_access, create_account, ensure_single_therapist, login_user
     ):
+        with self.client.session_transaction() as browser_session:
+            browser_session['approved_registration_token'] = 'approved-token'
         with tempfile.TemporaryDirectory() as temp_dir, \
                 patch.object(server.db_manager, 'get_db_path', return_value=os.path.join(temp_dir, 'new.db')), \
                 patch.object(server.db_manager, 'create_client_database'), \
@@ -43,15 +48,22 @@ class RegistrationFlowTest(unittest.TestCase):
         self.assertIn(b'/enter_email', response.data)
         login_user.assert_not_called()
 
-    def test_registration_rejects_missing_required_legal_acceptance(self):
+    @patch.object(server, '_approved_access_request', return_value={
+        'request_id': 7, 'full_name': 'Jimmy Adda', 'email': 'jimmy@example.com'
+    })
+    def test_registration_rejects_missing_required_legal_acceptance(self, approved_access):
+        with self.client.session_transaction() as browser_session:
+            browser_session['approved_registration_token'] = 'approved-token'
         response = self.client.post('/register', data={
-            'name': 'Jimmy Adda',
-            'email': 'jimmy@example.com',
-            'userid': 'Jimmy',
-            'password': 'test-password',
+            'userid': 'Jimmy', 'password': 'test-password',
         })
         self.assertEqual(response.status_code, 400)
         self.assertIn(b'Privacy Policy', response.data)
+
+    def test_registration_without_approved_token_is_forbidden(self):
+        response = self.client.get('/register')
+        self.assertEqual(response.status_code, 403)
+        self.assertIn(b'Private registration link required', response.data)
 
     @patch.object(server, 'database_read')
     def test_unverified_account_cannot_log_in(self, database_read):

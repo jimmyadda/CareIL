@@ -27,14 +27,14 @@
     <nav aria-label="{{ t.nav_aria }}">
       <a href="#features">{{ t.features_link }}</a><a href="#preview">{{ t.preview_link }}</a>
       <a class="lang-toggle" href="{{ '/' if lang == 'he' else '/he' }}" lang="{{ 'en' if lang == 'he' else 'he' }}" dir="{{ 'ltr' if lang == 'he' else 'rtl' }}">{{ t.language }}</a>
-      <a class="login-link" href="/login">{{ t.login }}</a><a class="nav-cta" href="/register">{{ t.start }}</a>
+      <a class="login-link" href="/login">{{ t.login }}</a><a class="nav-cta" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ t.start }}</a>
     </nav>
   </header>
   <main>
     <section class="hero">
       <div class="hero-copy">
         <span class="eyebrow">{{ t.eyebrow }}</span><h1>{{ t.hero_title }}<br><em>{{ t.hero_emphasis }}</em></h1><p>{{ t.hero_text }}</p>
-        <div class="hero-actions"><a class="button primary" href="/register">{{ t.create_clinic }}</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">{{ t.demo }}</button></form></div>
+        <div class="hero-actions"><a class="button primary" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ t.create_clinic }}</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">{{ t.demo }}</button></form></div>
         {% if demo_error %}<p style="color:#9c221d;font-weight:700;">{{ demo_error }}</p>{% endif %}<p class="microcopy">{{ t.demo_note }}</p>
       </div>
       <div class="hero-product" aria-label="{{ t.preview_aria }}">
@@ -49,7 +49,7 @@
       <div class="device-grid"><figure class="desktop-shot product-screenshot"><img src="/static/img/product-dashboard.webp?v=1" width="1128" height="676" loading="lazy" alt="{{ t.desktop_alt }}"></figure><figure class="phone-shot product-screenshot phone-real"><img src="/static/img/product-clients-mobile.webp?v=1" width="520" height="920" loading="lazy" alt="{{ t.mobile_alt }}"></figure></div>
     </section>
     <section class="hebrew-callout"><span class="eyebrow">{{ t.callout_eyebrow }}</span><h2>{{ t.callout_title }}</h2><p>{{ t.callout_text }}</p></section>
-    <section class="final-cta"><img src="/static/img/therapy-hands-logo.png" alt="CareIL"><h2>{{ t.final_title }}</h2><div class="hero-actions"><a class="button primary" href="/register">{{ t.create_account }}</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">{{ t.open_demo }}</button></form></div></section>
+    <section class="final-cta"><img src="/static/img/therapy-hands-logo.png" alt="CareIL"><h2>{{ t.final_title }}</h2><div class="hero-actions"><a class="button primary" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ t.create_account }}</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">{{ t.open_demo }}</button></form></div></section>
   </main>
   {% set legal_prefix = '/he/legal/' if lang == 'he' else '/legal/' %}
   <footer><a class="brand small" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="" width="36">CareIL</a><p>Care Israel · Care I Love</p><div class="footer-links"><a href="{{ legal_prefix }}privacy">{{ t.privacy }}</a><a href="{{ legal_prefix }}terms">{{ t.terms }}</a><a href="{{ legal_prefix }}accessibility">{{ t.accessibility }}</a><a href="{{ legal_prefix }}cookies">{{ t.cookies }}</a><a href="/login">{{ t.login }}</a><a href="mailto:support@careil.net">{{ t.contact }}</a></div></footer>
