@@ -47,6 +47,14 @@ from package.google_calendar import (
     save_connection as save_google_calendar_connection,
     sync_all_upcoming as sync_all_google_appointments,
 )
+from package.morning import (
+    MorningError,
+    PAYMENT_TYPES as MORNING_PAYMENT_TYPES,
+    connection_status as morning_connection_status,
+    disconnect as disconnect_morning,
+    issue_receipt as issue_morning_receipt,
+    save_connection as save_morning_connection,
+)
 from package.email_service import (
     careil_logo_attachment,
     encoded_attachment,
@@ -941,6 +949,18 @@ def robots_txt():
     body = "User-agent: *\nAllow: /$\nDisallow: /admin/\nDisallow: /portal/\nDisallow: /login\nDisallow: /register\nSitemap: https://www.careil.net/sitemap.xml\n"
     return current_app.response_class(body, mimetype='text/plain')
 
+
+@app.route('/apple-touch-icon.png')
+@app.route('/apple-touch-icon-precomposed.png')
+def apple_touch_icon():
+    """Serve the iOS home-screen icon at Apple's conventional root paths."""
+    return send_from_directory(
+        os.path.join(app.root_path, 'static', 'img'),
+        'apple-touch-icon.png',
+        mimetype='image/png',
+        max_age=86400,
+    )
+
 @app.route('/legal/<document_key>')
 @app.route('/he/legal/<document_key>')
 def legal_document(document_key):
@@ -1409,6 +1429,80 @@ def google_calendar_disconnect():
     return redirect(url_for('google_calendar_settings', disconnected='1'))
 
 
+def _morning_csrf_token():
+    if not session.get('morning_csrf'):
+        session['morning_csrf'] = secrets.token_urlsafe(32)
+    return session['morning_csrf']
+
+
+def _valid_morning_csrf():
+    return hmac.compare_digest(
+        request.form.get('csrf_token', ''), session.get('morning_csrf', '')
+    )
+
+
+@app.route('/admin/morning', methods=['GET', 'POST'])
+@admin_only
+def morning_settings():
+    user = flask_login.current_user.get_dict()
+    client_key = user['client_key']
+    if request.method == 'POST':
+        if not _valid_morning_csrf():
+            abort(400)
+        client_id = request.form.get('client_id', '').strip()
+        client_secret = request.form.get('client_secret', '').strip()
+        environment = request.form.get('environment', 'production')
+        if not client_id or not client_secret:
+            return redirect(url_for('morning_settings', error='Enter both Morning API key values.'))
+        try:
+            save_morning_connection(client_key, client_id, client_secret, environment)
+        except MorningError as error:
+            current_app.logger.warning('Morning connection failed: %s', error)
+            return redirect(url_for('morning_settings', error=str(error)))
+        return redirect(url_for('morning_settings', connected='1'))
+    return render_template(
+        'morning-settings.html', user=user,
+        connected=morning_connection_status(client_key),
+        csrf_token=_morning_csrf_token(),
+    )
+
+
+@app.route('/admin/morning/disconnect', methods=['POST'])
+@admin_only
+def morning_disconnect():
+    if not _valid_morning_csrf():
+        abort(400)
+    user = flask_login.current_user.get_dict()
+    disconnect_morning(user['client_key'])
+    return redirect(url_for('morning_settings', disconnected='1'))
+
+
+@app.route('/patients/<int:pat_id>/appointments/<int:app_id>/receipt', methods=['POST'])
+@flask_login.login_required
+def create_appointment_receipt(pat_id, app_id):
+    if not _valid_morning_csrf():
+        abort(400)
+    user = flask_login.current_user.get_dict()
+    try:
+        result = issue_morning_receipt(
+            user['client_key'], pat_id, app_id,
+            request.form.get('amount'),
+            request.form.get('payment_type', type=int),
+            request.form.get('payment_date', ''),
+            'he' if request.form.get('language') == 'he' else 'en',
+        )
+        flash(
+            'Receipt issued successfully' + (f' (#{result["number"]})' if result.get('number') else '') + '.',
+            'success',
+        )
+    except MorningError as error:
+        flash(str(error), 'danger')
+    except Exception:
+        current_app.logger.exception('Morning receipt creation failed')
+        flash('The receipt could not be issued. Please try again or check Morning Settings.', 'danger')
+    return redirect(url_for('patient_folder_Load', id=pat_id) + '#appointments')
+
+
 @app.route('/admin/mail-settings', methods=['GET', 'POST'])
 @admin_only
 def mail_settings():
@@ -1772,6 +1866,16 @@ def patient_folder_Load():
     for appointment in appointments:
         appointment['is_past'] = str(appointment.get('appointment_date') or '') < now_value
         appointment['summary_rec_id'] = summaries_by_appointment.get(appointment.get('app_id'))
+    receipts_by_appointment = {
+        row['app_id']: row
+        for row in database_read(
+            """SELECT app_id, document_number, document_url, amount, status
+               FROM morning_receipts WHERE pat_id = ?""",
+            (pat_id,), client_key=client_key
+        )
+    }
+    for appointment in appointments:
+        appointment['receipt'] = receipts_by_appointment.get(appointment.get('app_id'))
     notes = Medicalnotes()
     pat_mednotes = notes.getnotebypatient(pat_id)    
     length = len(pat_mednotes)
@@ -1799,7 +1903,11 @@ def patient_folder_Load():
         appointments=appointments, pat_mednotes=pat_mednotes, tasksfiles=tasksfiles,
         diagnosis_types=diagnosis_types, patient_diagnoses=patient_diagnoses,
         questionnaire_templates=questionnaire_templates,
-        patient_questionnaires=patient_questionnaires, alert=""
+        patient_questionnaires=patient_questionnaires,
+        morning_connected=bool(morning_connection_status(client_key)),
+        morning_payment_types=MORNING_PAYMENT_TYPES,
+        morning_csrf_token=_morning_csrf_token(),
+        today=datetime.date.today().isoformat(), alert=""
     )
 
 @app.route("/patientform", methods=["POST"])

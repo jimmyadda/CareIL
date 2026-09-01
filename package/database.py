@@ -62,12 +62,51 @@ class DatabaseManager:
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
+        self.ensure_morning_schema(conn)
         self.ensure_pending_appointment_schema(conn)
         self.ensure_session_summary_schema(conn)
         self.ensure_clinical_forms_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_morning_schema(conn):
+        """Store one encrypted Morning connection and issued receipts per clinic."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS morning_connections (
+                connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
+                client_id_encrypted TEXT NOT NULL,
+                client_secret_encrypted TEXT NOT NULL,
+                environment TEXT NOT NULL DEFAULT 'production',
+                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS morning_receipts (
+                receipt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_id INTEGER NOT NULL UNIQUE,
+                pat_id INTEGER NOT NULL,
+                morning_document_id TEXT,
+                document_number INTEGER,
+                document_url TEXT,
+                amount REAL NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'ILS',
+                payment_type INTEGER NOT NULL,
+                payment_date TEXT NOT NULL,
+                session_date TEXT NOT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                error_message TEXT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                issued_at DATETIME,
+                FOREIGN KEY (app_id) REFERENCES appointment(app_id),
+                FOREIGN KEY (pat_id) REFERENCES patient(pat_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_morning_receipts_patient
+                ON morning_receipts(pat_id, created_at);
+        ''')
+        conn.commit()
 
     @staticmethod
     def ensure_access_request_schema(conn):

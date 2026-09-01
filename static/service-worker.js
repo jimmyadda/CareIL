@@ -1,9 +1,10 @@
-const CACHE_NAME = "careil-shell-v50";
+const CACHE_NAME = "careil-shell-v54";
 const SHELL = [
   "/static/modern-clinic.css",
   "/static/modern-clinic.js",
   "/static/img/therapy-hands-logo.png",
-  "/static/img/app-icon-192.png",
+  "/static/img/app-icon-192.png?v=2",
+  "/static/img/apple-touch-icon.png?v=2",
   "/static/favicon.ico"
 ];
 

@@ -77,6 +77,9 @@
 
 
    <link rel="manifest" href="/static/manifest.webmanifest">
+   <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2">
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-title" content="CareIL">
    <meta name="theme-color" content="#708238">
    <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
 </head>
@@ -110,6 +113,12 @@
         <!-- END Search form-->
      </nav>
      <!-- END Top Navbar-->
+
+     {% with notifications = get_flashed_messages(with_categories=true) %}
+       {% for category, notification in notifications %}
+       <div class="alert alert-{{ category }}" style="max-width:980px;margin:16px auto;">{{ notification }}</div>
+       {% endfor %}
+     {% endwith %}
 
      <div class="content-heading">
         <!-- START Language list-->
@@ -464,6 +473,17 @@
                                           {% else %}
                                           <a class="btn btn-primary" href="/medicalnote?id={{ patient['pat_id'] }}&app_id={{ appointment['app_id'] }}"><span key="summarizeAppointment" class="translate EN">Summarize appointment</span></a>
                                           {% endif %}
+                                          {% if appointment['receipt'] and appointment['receipt']['status'] == 'issued' %}
+                                            {% if appointment['receipt']['document_url'] %}
+                                            <a class="btn btn-success" href="{{ appointment['receipt']['document_url'] }}" target="_blank" rel="noopener">Receipt #{{ appointment['receipt']['document_number'] }}</a>
+                                            {% else %}
+                                            <span class="status-pill">Receipt #{{ appointment['receipt']['document_number'] }}</span>
+                                            {% endif %}
+                                          {% elif morning_connected %}
+                                          <button type="button" class="btn btn-success" data-toggle="modal" data-target="#receiptModal{{ appointment['app_id'] }}">Issue receipt</button>
+                                          {% else %}
+                                          <a class="btn btn-default" href="/admin/morning">Connect Morning</a>
+                                          {% endif %}
                                         {% else %}
                                           <span key="notCompletedYet" class="translate EN">Not completed yet</span>
                                         {% endif %}
@@ -478,6 +498,29 @@
                      </div>
                   </div>
          {% endif %}
+
+         {% for appointment in appointments %}
+         {% if appointment['is_past'] and not (appointment['receipt'] and appointment['receipt']['status'] == 'issued') %}
+         <div id="receiptModal{{ appointment['app_id'] }}" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="receiptTitle{{ appointment['app_id'] }}">
+           <div class="modal-dialog" role="document"><div class="modal-content">
+             <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="receiptTitle{{ appointment['app_id'] }}" class="modal-title">Issue Morning receipt</h4></div>
+             <form method="post" action="/patients/{{ patient['pat_id'] }}/appointments/{{ appointment['app_id'] }}/receipt">
+               <div class="modal-body">
+                 <input type="hidden" name="csrf_token" value="{{ morning_csrf_token }}">
+                 <p><strong>Client:</strong> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</p>
+                 <p><strong>Session:</strong> {{ appointment['appointment_date'] }}</p>
+                 <div class="form-group"><label>Amount (ILS)</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div>
+                 <div class="form-group"><label>Payment method</label><select class="form-control" name="payment_type" required>{% for code, label in morning_payment_types.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+                 <div class="form-group"><label>Payment date</label><input class="form-control" name="payment_date" type="date" max="{{ today }}" value="{{ today }}" required></div>
+                 <div class="form-group"><label>Receipt language</label><select class="form-control" name="language"><option value="he">עברית</option><option value="en">English</option></select></div>
+                 <p class="help-block">The receipt item will include the session date. Morning will email the signed receipt to the client's saved email address.</p>
+               </div>
+               <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Issue receipt</button></div>
+             </form>
+           </div></div>
+         </div>
+         {% endif %}
+         {% endfor %}
             <!-- Add appointment new -->
             <div id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" class="modal fade">
                         <div class="modal-dialog">

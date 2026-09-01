@@ -26,6 +26,9 @@
     <link rel="stylesheet" href="../static/app/css/app.css" id="maincss">
 
    <link rel="manifest" href="/static/manifest.webmanifest">
+   <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2">
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-title" content="CareIL">
    <meta name="theme-color" content="#708238">
    <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
 </head>
@@ -114,6 +117,16 @@
                                 <h5 class="card-title">Google Calendar</h5>
                                 <p class="card-text">Automatically synchronize confirmed appointments with the therapist’s calendar.</p>
                                 <a href="/google-calendar/connect?next=/admin/google-calendar" class="btn btn-primary">Connect Google Calendar</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card border-secondary text-center shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">Morning Receipts</h5>
+                                <p class="card-text">Connect the clinic's Morning account and issue receipts from completed appointments.</p>
+                                <a href="/admin/morning" class="btn btn-primary">Configure Morning</a>
                             </div>
                         </div>
                     </div>
