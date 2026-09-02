@@ -106,6 +106,28 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn('מדיניות פרטיות'.encode('utf-8'), hebrew.data)
         self.assertNotIn('X-Robots-Tag', english.headers)
 
+    def test_hebrew_content_and_faq_are_public_and_searchable(self):
+        articles = self.client.get('/he/articles')
+        faq = self.client.get('/he/faq')
+        article = self.client.get('/he/articles/nihul-klinika-pratit')
+        sitemap = self.client.get('/sitemap.xml')
+        self.assertEqual(articles.status_code, 200)
+        self.assertEqual(faq.status_code, 200)
+        self.assertEqual(article.status_code, 200)
+        self.assertNotIn('X-Robots-Tag', articles.headers)
+        self.assertNotIn('X-Robots-Tag', faq.headers)
+        self.assertIn(b'FAQPage', faq.data)
+        self.assertIn('איך לנהל קליניקה פרטית'.encode('utf-8'), article.data)
+        self.assertIn(b'/he/articles/nihul-klinika-pratit', sitemap.data)
+
+    def test_hebrew_landing_title_and_footer_branding(self):
+        response = self.client.get('/he')
+        self.assertIn('CareIL | ניהול קליניקה למטפלים'.encode('utf-8'), response.data)
+        self.assertIn(b'Care Israel', response.data)
+        self.assertNotIn(b'Care I Love', response.data)
+        self.assertIn(b'/he/articles', response.data)
+        self.assertIn(b'/he/faq', response.data)
+
     def test_expired_demo_cleanup_only_removes_demo_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)

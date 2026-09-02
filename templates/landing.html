@@ -28,7 +28,7 @@
   <header class="site-header">
     <a class="brand" href="{{ '/he' if lang == 'he' else '/' }}" aria-label="CareIL home"><img src="/static/img/therapy-hands-logo.png" alt="" width="52" height="52"><span>CareIL</span></a>
     <nav aria-label="{{ t.nav_aria }}">
-      <a href="#features">{{ t.features_link }}</a><a href="#preview">{{ t.preview_link }}</a>
+      <a href="#features">{{ t.features_link }}</a><a href="#preview">{{ t.preview_link }}</a>{% if lang == 'he' %}<a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a>{% endif %}
       <a class="lang-toggle" href="{{ '/' if lang == 'he' else '/he' }}" lang="{{ 'en' if lang == 'he' else 'he' }}" dir="{{ 'ltr' if lang == 'he' else 'rtl' }}">{{ t.language }}</a>
       <a class="login-link" href="/login">{{ t.login }}</a><a class="nav-cta" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ t.start }}</a>
     </nav>
@@ -55,6 +55,6 @@
     <section class="final-cta"><img src="/static/img/therapy-hands-logo.png" alt="CareIL"><h2>{{ t.final_title }}</h2><div class="hero-actions"><a class="button primary" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ t.create_account }}</a><form action="/demo/start" method="post"><button class="button secondary" type="submit">{{ t.open_demo }}</button></form></div></section>
   </main>
   {% set legal_prefix = '/he/legal/' if lang == 'he' else '/legal/' %}
-  <footer><a class="brand small" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="" width="36">CareIL</a><p>Care Israel · Care I Love</p><div class="footer-links"><a href="{{ legal_prefix }}privacy">{{ t.privacy }}</a><a href="{{ legal_prefix }}terms">{{ t.terms }}</a><a href="{{ legal_prefix }}accessibility">{{ t.accessibility }}</a><a href="{{ legal_prefix }}cookies">{{ t.cookies }}</a><a href="/login">{{ t.login }}</a><a href="mailto:support@careil.net">{{ t.contact }}</a></div></footer>
+  <footer><a class="brand small" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="" width="36">CareIL</a><p>Care Israel</p><div class="footer-links">{% if lang == 'he' %}<a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a>{% endif %}<a href="{{ legal_prefix }}privacy">{{ t.privacy }}</a><a href="{{ legal_prefix }}terms">{{ t.terms }}</a><a href="{{ legal_prefix }}accessibility">{{ t.accessibility }}</a><a href="{{ legal_prefix }}cookies">{{ t.cookies }}</a><a href="/login">{{ t.login }}</a><a href="mailto:support@careil.net">{{ t.contact }}</a></div></footer>
 </body>
 </html>

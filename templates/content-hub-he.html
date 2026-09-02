@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>מדריכים לניהול קליניקה למטפלים | CareIL</title>
+  <meta name="description" content="מאמרים ומדריכים מעשיים בעברית על ניהול קליניקה פרטית, תיעוד טיפולי דיגיטלי, פרטיות, יומן פגישות ובקשות תור למטפלים.">
+  <meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net/he/articles">
+  <meta property="og:title" content="מדריכים לניהול קליניקה למטפלים | CareIL"><meta property="og:description" content="ידע מעשי שעוזר לנהל את המעטפת של הקליניקה בצורה מסודרת וברורה."><meta property="og:url" content="https://www.careil.net/he/articles"><meta property="og:type" content="website">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1">
+</head>
+<body>
+  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
+  <main class="content-wrap"><section class="content-hero"><span class="eyebrow">המרחב המקצועי של CareIL</span><h1>מדריכים לניהול קליניקה</h1><p>ידע מעשי למטפלות ולמטפלים שרוצים לצמצם את העומס האדמיניסטרטיבי, לשמור על סדר ולפנות יותר מקום לעבודה הטיפולית.</p></section>
+  <section class="article-grid" aria-label="מאמרים">{% for slug, article in articles.items() %}<a class="article-card" href="/he/articles/{{ slug }}"><small>{{ article.eyebrow }} · {{ article.reading_time }}</small><h2>{{ article.title }}</h2><p>{{ article.description }}</p><span>לקריאת המאמר ←</span></a>{% endfor %}</section></main>
+  <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/he/faq">שאלות נפוצות</a> · <a href="/he/legal/privacy">פרטיות</a> · <a href="mailto:support@careil.net">יצירת קשר</a></span></footer>
+</body></html>

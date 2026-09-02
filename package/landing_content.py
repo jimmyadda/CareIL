@@ -37,7 +37,7 @@ LANDING_CONTENT = {
         "privacy": "Privacy", "terms": "Terms", "accessibility": "Accessibility", "cookies": "Cookies", "contact": "Contact",
     },
     "he": {
-        "title": "CareIL | ניהול קליניקה רגוע למטפלים",
+        "title": "CareIL | ניהול קליניקה למטפלים",
         "description": "CareIL מסייעת למטפלים עצמאיים לנהל לקוחות, פגישות, סיכומי טיפול, קישורי פורטל מאובטחים וכן Google Calendar בעברית ובאנגלית.",
         "og_description": "הלקוחות, היומן והעבודה הטיפולית שלך במרחב אחד רגוע ומאובטח.",
         "nav_aria": "ניווט ראשי", "features_link": "תכונות", "preview_link": "תצוגה מקדימה",

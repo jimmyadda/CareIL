@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ article.title }} | CareIL</title><meta name="description" content="{{ article.description }}"><meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net/he/articles/{{ slug }}">
+  <meta property="og:title" content="{{ article.title }} | CareIL"><meta property="og:description" content="{{ article.description }}"><meta property="og:url" content="https://www.careil.net/he/articles/{{ slug }}"><meta property="og:type" content="article">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1">
+  <script type="application/ld+json">{{ schema|tojson }}</script>
+</head>
+<body>
+  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
+  <main class="content-wrap"><article class="article"><div class="breadcrumbs"><a href="/he">ראשי</a> / <a href="/he/articles">מאמרים</a> / {{ article.eyebrow }}</div><span class="eyebrow">{{ article.eyebrow }} · {{ article.reading_time }}</span><h1>{{ article.title }}</h1><p class="lead">{{ article.intro }}</p>
+  {% for heading, paragraphs in article.sections %}<section><h2>{{ heading }}</h2>{% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}</section>{% endfor %}
+  <aside class="takeaways"><h2>בקצרה</h2><ul>{% for item in article.takeaways %}<li>{{ item }}</li>{% endfor %}</ul></aside>
+  <div class="article-cta"><h2>רוצים לראות איך זה נראה בפועל?</h2><p>אפשר לפתוח את הדמו של CareIL ולהתנסות בסביבת קליניקה לדוגמה, ללא מידע אמיתי של מטופלים.</p><form action="/demo/start" method="post"><button class="button" type="submit">התנסות בדמו</button></form></div></article></main>
+  <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/he/articles">כל המאמרים</a> · <a href="/he/faq">שאלות נפוצות</a> · <a href="/he/legal/privacy">פרטיות</a></span></footer>
+</body></html>
