@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><title>Verify sign-in | CareIL</title>
+  <link rel="icon" href="/static/favicon.ico"><link rel="stylesheet" href="/static/login.css?v=2"><link rel="stylesheet" href="/static/modern-clinic.css?v=19">
+</head>
+<body><main class="container">
+  <h1 class="icon-tasker">CareIL</h1>
+  <h2>Verify your sign-in</h2>
+  <p>We sent a six-character code to your verified email{% if email %}: <strong>{{ email }}</strong>{% endif %}. The code is valid for five minutes.</p>
+  <p dir="rtl">שלחנו קוד בן שישה תווים לכתובת האימייל המאומתת שלך. הקוד תקף לחמש דקות.</p>
+  {% if alert %}<p class="alert">{{ alert }}</p>{% endif %}
+  <form action="/login/verify" method="post">
+    <input name="verification_code" inputmode="text" autocomplete="one-time-code" maxlength="6" required autofocus placeholder="Verification code">
+    <input type="submit" value="Verify and sign in" class="icon-login">
+  </form>
+  <p class="small"><a href="/login">Start again</a></p>
+</main>{% include '_cookie_notice.html' %}</body></html>

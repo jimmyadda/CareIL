@@ -9,7 +9,7 @@
   <script type="application/ld+json">{{ schema|tojson }}</script>
 </head>
 <body>
-  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
+  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/he/plans">מחירים</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
   <main class="content-wrap"><section class="content-hero"><span class="eyebrow">שאלות נפוצות</span><h1>מה חשוב לדעת על CareIL?</h1><p>תשובות ברורות על ניהול המטופלים, היומן, הפורטל, המסמכים והחיבור לשירותים נוספים.</p></section><section class="faq-list">{% for question, answer in faq %}<details class="faq-item"{% if loop.first %} open{% endif %}><summary>{{ question }}</summary><p>{{ answer }}</p></details>{% endfor %}</section></main>
   <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/he/articles">מאמרים</a> · <a href="/he/legal/privacy">פרטיות</a> · <a href="mailto:support@careil.net">יצירת קשר</a></span></footer>
-</body></html>
+{% set lang = 'he' %}{% include '_cookie_notice.html' %}</body></html>

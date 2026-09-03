@@ -294,7 +294,7 @@ def careil_workspace_lifecycle():
 
 @app.after_request
 def protect_private_pages_from_indexing(response):
-    public_paths = {'/', '/he', '/robots.txt', '/sitemap.xml'}
+    public_paths = {'/', '/he', '/plans', '/he/plans', '/robots.txt', '/sitemap.xml'}
     public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
     public_content = request.path == '/he/faq' or request.path.startswith('/he/articles')
     if (request.path not in public_paths and not public_legal and not public_content
@@ -308,7 +308,7 @@ def require_current_legal_acceptance():
         'legal_document', 'legal_acceptance', 'logout_page', 'service_worker',
         'robots_txt', 'sitemap_xml', 'restore_deleted_account',
         'restore_account_after_login', 'hebrew_articles', 'hebrew_article',
-        'hebrew_faq',
+        'hebrew_faq', 'plans_page',
     }
     if request.endpoint in allowed or request.path.startswith('/static/'):
         return None
@@ -435,6 +435,13 @@ def landing_hebrew_page():
     return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
 
 
+@app.route('/plans')
+@app.route('/he/plans')
+def plans_page():
+    lang = 'he' if request.path.startswith('/he/') else 'en'
+    return render_template('plans.html', lang=lang)
+
+
 @app.route('/he/articles')
 def hebrew_articles():
     return render_template('content-hub-he.html', articles=HEBREW_ARTICLES)
@@ -533,8 +540,14 @@ def _send_access_email(recipient, subject, content):
 @app.route('/request-access', methods=['GET', 'POST'])
 def request_access():
     language = 'he' if request.values.get('lang') == 'he' else 'en'
+    preferred_plan = request.values.get('plan', 'basic').strip().lower()
+    if preferred_plan not in {'basic', 'professional'}:
+        preferred_plan = 'basic'
     if request.method == 'GET':
-        return render_template('request-access.html', lang=language, submitted=False, alert='')
+        return render_template(
+            'request-access.html', lang=language, submitted=False, alert='',
+            preferred_plan=preferred_plan,
+        )
 
     full_name = request.form.get('full_name', '').strip()
     email = request.form.get('email', '').strip().lower()
@@ -568,9 +581,9 @@ def request_access():
         if not existing:
             conn.execute(
                 """INSERT INTO access_requests
-                   (full_name,email,phone,clinic_name,note,language,requester_ip,user_agent)
-                   VALUES(?,?,?,?,?,?,?,?)""",
-                (full_name, email, phone, clinic_name, note, language,
+                   (full_name,email,phone,clinic_name,note,language,preferred_plan,requester_ip,user_agent)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (full_name, email, phone, clinic_name, note, language, preferred_plan,
                  _visitor_ip_address(), request.headers.get('User-Agent', '')[:500]),
             )
             conn.commit()
@@ -583,7 +596,8 @@ def request_access():
             _send_access_email(
                 owner_email, 'CareIL | New access request',
                 f'<p>A new CareIL access request was received from <strong>{html.escape(full_name)}</strong> '
-                f'({html.escape(email)}).</p><p><a href="{url_for("careil_access_requests", _external=True)}">Review request</a></p>',
+                f'({html.escape(email)}).</p><p>Preferred plan: <strong>{html.escape(preferred_plan.title())}</strong></p>'
+                f'<p><a href="{url_for("careil_access_requests", _external=True)}">Review request</a></p>',
             )
         except Exception:
             current_app.logger.exception('Could not notify CareIL owner about access request')
@@ -796,19 +810,70 @@ def login_request():
                         verification_step=0,
                         email_step=1,
                     )
-                user = load_user(formid)                 
-                logger.info(f"Login successfull - '{formid}'  date: {str(datetime.datetime.now())}")
-                # Store client_key in the session
-                session['client_key'] = user.client_key            
-                ensure_single_therapist(client_key, users[0])
-                flask_login.login_user(user)
-                return redirect('/')                        
+                verification_code = ''.join(
+                    secrets.choice(string.ascii_uppercase + string.digits)
+                    for _ in range(6)
+                )
+                expiration_time = datetime.datetime.now() + datetime.timedelta(minutes=5)
+                store_verification_code(client_key, verification_code, expiration_time)
+                if not send_login_verification_code(users[0]['email'], verification_code):
+                    session.pop('client_key', None)
+                    return render_template(
+                        '/login.html',
+                        alert='The sign-in code could not be sent. Please try again.',
+                    ), 503
+                session['pending_login_userid'] = formid
+                session['pending_login_client_key'] = client_key
+                session['pending_login_attempts'] = 0
+                return render_template(
+                    'login-2fa.html', email=users[0]['email'], alert=''
+                )
             else: #password incorrect
                 logger.info(f"Login Failed - '{formid}'  date: {str(datetime.datetime.now())}")
                 return render_template('/login.html',alert = "Invalid user/password. please try again.") 
         else: #user name does not exist
             logger.info(f"Login Failed - '{formid}'  date: {str(datetime.datetime.now())}")
             return render_template('/login.html',alert = "Invalid user/password. please try again.")
+
+
+@app.route('/login/verify', methods=['POST'])
+def verify_login_code():
+    userid = session.get('pending_login_userid')
+    client_key = session.get('pending_login_client_key')
+    entered_code = request.form.get('verification_code', '').strip().upper()
+    if not userid or not client_key:
+        flash('Your sign-in session expired. Please enter your password again.', 'warning')
+        return redirect(url_for('login_page'))
+    session['client_key'] = client_key
+    attempts = int(session.get('pending_login_attempts', 0)) + 1
+    session['pending_login_attempts'] = attempts
+    if attempts > 5:
+        session.pop('pending_login_userid', None)
+        session.pop('pending_login_client_key', None)
+        session.pop('pending_login_attempts', None)
+        session.pop('client_key', None)
+        flash('Too many verification attempts. Please sign in again.', 'warning')
+        return redirect(url_for('login_page'))
+    if not entered_code or not verify_code(client_key, entered_code):
+        return render_template(
+            'login-2fa.html', email='',
+            alert='Incorrect or expired code. Please sign in again to receive a new code.'
+        ), 400
+    user = load_user(userid)
+    if not user:
+        session.clear()
+        return redirect(url_for('login_page'))
+    accounts = database_read(
+        'SELECT * FROM accounts WHERE userid=?', (userid,), client_key=client_key
+    )
+    if accounts:
+        ensure_single_therapist(client_key, accounts[0])
+    flask_login.login_user(user)
+    session.pop('pending_login_userid', None)
+    session.pop('pending_login_client_key', None)
+    session.pop('pending_login_attempts', None)
+    logger.info(f"Login successful after 2FA - '{userid}' date: {datetime.datetime.now()}")
+    return redirect('/')
         
 
 @app.route('/enter_email', methods=['POST'])
@@ -1061,6 +1126,7 @@ def legal_acceptance():
 def sitemap_xml():
     urls = [
         'https://www.careil.net/', 'https://www.careil.net/he',
+        'https://www.careil.net/plans', 'https://www.careil.net/he/plans',
         'https://www.careil.net/he/articles', 'https://www.careil.net/he/faq',
     ]
     urls.extend(
@@ -1915,13 +1981,33 @@ def patient_folder_Load():
     receipts_by_appointment = {
         row['app_id']: row
         for row in database_read(
-            """SELECT app_id, document_number, document_url, amount, status
+            """SELECT app_id, document_number, document_url, amount, payment_type,
+                      payment_date, session_date, description, status, error_message, issued_at
                FROM morning_receipts WHERE pat_id = ?""",
             (pat_id,), client_key=client_key
         )
     }
     for appointment in appointments:
         appointment['receipt'] = receipts_by_appointment.get(appointment.get('app_id'))
+    payment_rows = sorted(
+        receipts_by_appointment.values(),
+        key=lambda row: (row.get('payment_date') or row.get('session_date') or ''),
+        reverse=True,
+    )
+    for payment in payment_rows:
+        payment['payment_method'] = MORNING_PAYMENT_TYPES.get(
+            payment.get('payment_type'), 'Other'
+        )
+    issued_payments = [row for row in payment_rows if row.get('status') == 'issued']
+    payment_summary = {
+        'total': sum(float(row.get('amount') or 0) for row in issued_payments),
+        'receipt_count': len(issued_payments),
+        'without_receipt': sum(
+            1 for appointment in appointments
+            if appointment.get('is_past')
+            and not (appointment.get('receipt') and appointment['receipt'].get('status') == 'issued')
+        ),
+    }
     notes = Medicalnotes()
     pat_mednotes = notes.getnotebypatient(pat_id)    
     length = len(pat_mednotes)
@@ -1952,6 +2038,7 @@ def patient_folder_Load():
         patient_questionnaires=patient_questionnaires,
         morning_connected=bool(morning_connection_status(client_key)),
         morning_payment_types=MORNING_PAYMENT_TYPES,
+        payment_rows=payment_rows, payment_summary=payment_summary,
         morning_csrf_token=_morning_csrf_token(),
         today=datetime.date.today().isoformat(), alert=""
     )
@@ -2804,6 +2891,41 @@ def send_verification_code(email, verification_code):
         return True
     except Exception as e:
         print(f"Failed to send email: {e}")
+        return False
+
+
+def send_login_verification_code(email, verification_code):
+    """Send the second-factor code after a correct password."""
+    subject = 'CareIL | Sign-in verification code'
+    text = (
+        f'Your CareIL sign-in code is: {verification_code}. '
+        'The code is valid for 5 minutes. If you did not try to sign in, ignore this email.'
+    )
+    html_body = (
+        email_brand_header()
+        + '<p>Your CareIL sign-in code / קוד הכניסה שלך ל־CareIL:</p>'
+        + f'<p style="font-size:26px;font-weight:700;letter-spacing:5px;">{verification_code}</p>'
+        + '<p>The code is valid for 5 minutes / הקוד תקף למשך 5 דקות.</p>'
+        + '<p>If you did not try to sign in, you can ignore this email.</p>'
+    )
+    try:
+        if resend_is_configured():
+            send_resend_email(
+                email, subject, html_body, text=text,
+                attachments=[careil_logo_attachment(os.path.dirname(__file__))],
+            )
+        else:
+            message = Message(
+                subject,
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email],
+                body=text,
+                html=html_body,
+            )
+            mail.send(message)
+        return True
+    except Exception as error:
+        logger.warning('Could not send login verification code: %s', error)
         return False
 
 

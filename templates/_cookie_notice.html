@@ -1,0 +1,14 @@
+<aside class="cookie-notice" data-cookie-notice lang="{{ lang|default('en') }}" dir="{{ 'rtl' if lang|default('en') == 'he' else 'ltr' }}" hidden aria-label="{{ 'הודעת עוגיות' if lang|default('en') == 'he' else 'Cookie notice' }}">
+  <p>
+    {% if lang|default('en') == 'he' %}
+      CareIL משתמשת בעוגיות חיוניות הנדרשות לכניסה מאובטחת ולהפעלת המערכת.
+      <a href="/he/legal/cookies">למדיניות העוגיות</a>
+    {% else %}
+      CareIL uses essential cookies required for secure sign-in and operation of the service.
+      <a href="/legal/cookies">Cookie Policy</a>
+    {% endif %}
+  </p>
+  <button type="button" data-cookie-dismiss>{{ 'הבנתי' if lang|default('en') == 'he' else 'Got it' }}</button>
+</aside>
+<link rel="stylesheet" href="/static/cookie-notice.css?v=1">
+<script src="/static/cookie-notice.js?v=1" defer></script>

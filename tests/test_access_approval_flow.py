@@ -26,6 +26,7 @@ class AccessApprovalFlowTest(unittest.TestCase):
                     'email': 'new@example.com',
                     'phone': '0500000000',
                     'clinic_name': 'New Clinic',
+                    'plan': 'professional',
                     'lang': 'en',
                 })
                 self.assertEqual(response.status_code, 200)
@@ -35,6 +36,7 @@ class AccessApprovalFlowTest(unittest.TestCase):
                 database_files = [name for name in os.listdir(manager.base_db_path) if name.endswith('.db')]
             self.assertEqual(saved['status'], 'pending')
             self.assertEqual(saved['email'], 'new@example.com')
+            self.assertEqual(saved['preferred_plan'], 'professional')
             self.assertEqual(database_files, ['CareIL_default_client.db'])
 
     def test_only_approved_unexpired_unused_hash_opens_registration(self):

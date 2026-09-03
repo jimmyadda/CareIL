@@ -17,6 +17,7 @@
     {% if alert %}<p class="alert">{{ alert }}</p>{% endif %}
     <form method="post" action="/request-access">
       <input type="hidden" name="lang" value="{{ lang }}">
+      <label>{{ 'חבילה מבוקשת' if lang == 'he' else 'Preferred plan' }}<select name="plan"><option value="basic"{% if preferred_plan == 'basic' %} selected{% endif %}>Basic — ₪59</option><option value="professional"{% if preferred_plan == 'professional' %} selected{% endif %}>Professional — ₪89</option></select></label>
       <label>{{ 'שם מלא' if lang == 'he' else 'Full name' }}<input name="full_name" required></label>
       <label>{{ 'אימייל' if lang == 'he' else 'Email' }}<input type="email" name="email" required></label>
       <label>{{ 'טלפון' if lang == 'he' else 'Phone' }}<input type="tel" name="phone"></label>
@@ -26,4 +27,4 @@
     </form>
     <p><a href="/request-access{{ '' if lang == 'he' else '?lang=he' }}">{{ 'English' if lang == 'he' else 'עברית' }}</a> · <a href="/login">{{ 'כניסה למשתמשים קיימים' if lang == 'he' else 'Existing user login' }}</a></p>
   {% endif %}
-</section></main></body></html>
+</section></main>{% include '_cookie_notice.html' %}</body></html>

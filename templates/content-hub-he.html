@@ -9,8 +9,8 @@
   <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1">
 </head>
 <body>
-  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
+  <header class="content-header"><a class="content-brand" href="/he"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="ניווט ראשי"><a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a><a href="/he/plans">מחירים</a><a href="/login">כניסה</a><a class="cta" href="/request-access?lang=he">בקשת גישה</a></nav></header>
   <main class="content-wrap"><section class="content-hero"><span class="eyebrow">המרחב המקצועי של CareIL</span><h1>מדריכים לניהול קליניקה</h1><p>ידע מעשי למטפלות ולמטפלים שרוצים לצמצם את העומס האדמיניסטרטיבי, לשמור על סדר ולפנות יותר מקום לעבודה הטיפולית.</p></section>
   <section class="article-grid" aria-label="מאמרים">{% for slug, article in articles.items() %}<a class="article-card" href="/he/articles/{{ slug }}"><small>{{ article.eyebrow }} · {{ article.reading_time }}</small><h2>{{ article.title }}</h2><p>{{ article.description }}</p><span>לקריאת המאמר ←</span></a>{% endfor %}</section></main>
   <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/he/faq">שאלות נפוצות</a> · <a href="/he/legal/privacy">פרטיות</a> · <a href="mailto:support@careil.net">יצירת קשר</a></span></footer>
-</body></html>
+{% set lang = 'he' %}{% include '_cookie_notice.html' %}</body></html>

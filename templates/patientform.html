@@ -68,10 +68,13 @@
     .clinical-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
     .clinical-table { width:100%; margin-top:20px; }
     .clinical-table th,.clinical-table td { padding:10px; border-bottom:1px solid #e7eadf; vertical-align:top; }
+    .payment-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:18px 0 26px; }
+    .payment-stat { padding:18px; border:1px solid #dfe5d1; border-radius:14px; background:#f8faf5; }
+    .payment-stat strong { display:block; margin-top:7px; font-size:24px; color:#355e3b; }
     .status-pill { display:inline-block; padding:4px 9px; border-radius:999px; background:#edf2e9; font-weight:700; }
     .questionnaire-answer { margin:7px 0; padding:9px; border-inline-start:3px solid #8ba17d; background:#f7f8f4; }
     .appointment-actions { display:flex; flex-wrap:wrap; gap:7px; }
-    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } .clinical-form-grid { grid-template-columns:1fr; } .clinical-form-grid .wide { grid-column:auto; } .clinical-table { display:block; overflow-x:auto; } }
+    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } .clinical-form-grid { grid-template-columns:1fr; } .clinical-form-grid .wide { grid-column:auto; } .clinical-table { display:block; overflow-x:auto; } .payment-summary { grid-template-columns:1fr; } }
     </style>
 
 
@@ -148,6 +151,7 @@
        <button type="button" class="patient-tab" data-tab="docs"><span key="tabDocs" class="translate EN">Docs</span></button>
        <button type="button" class="patient-tab" data-tab="questionnaires"><span key="tabQuestionnaires" class="translate EN">Questionnaires</span></button>
        <button type="button" class="patient-tab" data-tab="appointments"><span key="tabAppointments" class="translate EN">Appointments</span></button>
+       <button type="button" class="patient-tab" data-tab="payments"><span key="tabPayments" class="translate EN">Payments</span></button>
      </nav>
 
     <div class="main">
@@ -374,6 +378,24 @@
           {% else %}
           <p key="questionnairesEmpty" class="translate EN">No questionnaires have been added for this client yet.</p>
           {% endif %}
+        </section>
+
+        <section class="clinical-card patient-tab-panel" data-patient-panel="payments" hidden>
+          <h3><span key="paymentsTitle" class="translate EN">Payments and receipts</span></h3>
+          <div class="payment-summary">
+            <div class="payment-stat"><span key="paymentsTotal" class="translate EN">Total documented payments</span><strong>₪{{ '%.2f'|format(payment_summary['total']) }}</strong></div>
+            <div class="payment-stat"><span key="receiptsIssued" class="translate EN">Receipts issued</span><strong>{{ payment_summary['receipt_count'] }}</strong></div>
+            <div class="payment-stat"><span key="sessionsWithoutReceipt" class="translate EN">Past sessions without receipt</span><strong>{{ payment_summary['without_receipt'] }}</strong></div>
+          </div>
+          {% if payment_rows %}
+          <table class="clinical-table">
+            <thead><tr><th key="paymentDate" class="translate EN">Payment date</th><th key="sessionDate" class="translate EN">Session date</th><th key="paymentAmount" class="translate EN">Amount</th><th key="paymentMethod" class="translate EN">Method</th><th key="paymentStatus" class="translate EN">Status</th><th key="receiptDocument" class="translate EN">Receipt</th></tr></thead>
+            <tbody>{% for payment in payment_rows %}<tr>
+              <td>{{ payment['payment_date'] or '—' }}</td><td>{{ payment['session_date'] or '—' }}</td><td>₪{{ '%.2f'|format(payment['amount']) }}</td><td>{{ payment['payment_method'] }}</td><td>{{ payment['status']|title }}</td><td>{% if payment['status'] == 'issued' and payment['document_url'] %}<a class="btn btn-success btn-xs" href="{{ payment['document_url'] }}" target="_blank" rel="noopener">#{{ payment['document_number'] }}</a>{% elif payment['document_number'] %}#{{ payment['document_number'] }}{% else %}—{% endif %}</td>
+            </tr>{% endfor %}</tbody>
+          </table>
+          {% else %}<p key="paymentsEmpty" class="translate EN">No payments have been documented for this client yet.</p>{% endif %}
+          <p class="help-block"><span key="paymentsScope" class="translate EN">This list includes receipts issued through CareIL. Documents created directly in Morning require a separate synchronization.</span></p>
         </section>
 
           <!-- Records section-->
@@ -802,7 +824,7 @@
     button.addEventListener('click', function () { showPatientTab(button.getAttribute('data-tab')); });
   });
   var requestedTab = window.location.hash.slice(1);
-  showPatientTab(['details','docs','questionnaires','appointments'].indexOf(requestedTab) >= 0 ? requestedTab : 'details');
+  showPatientTab(['details','docs','questionnaires','appointments','payments'].indexOf(requestedTab) >= 0 ? requestedTab : 'details');
   window.showPatientTab = showPatientTab;
 })();
 </script>

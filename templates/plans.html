@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'he' else 'ltr' }}">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ 'חבילות ומחירים | CareIL' if lang == 'he' else 'Plans and pricing | CareIL' }}</title>
+  <meta name="description" content="{{ 'חבילות CareIL לניהול קליניקה: Basic ו־Professional עם Google Calendar והפקת קבלות דרך Morning.' if lang == 'he' else 'CareIL clinic management plans: Basic and Professional with Google Calendar and Morning receipt tools.' }}">
+  <meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net{{ '/he/plans' if lang == 'he' else '/plans' }}">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/plans"><link rel="alternate" hreflang="he" href="https://www.careil.net/he/plans">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/plans.css?v=1">
+</head>
+<body>
+  <header class="plans-header"><a class="brand" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav><a href="{{ '/plans' if lang == 'he' else '/he/plans' }}">{{ 'English' if lang == 'he' else 'עברית' }}</a><a href="/login">{{ 'כניסה' if lang == 'he' else 'Log in' }}</a></nav></header>
+  <main>
+    <section class="plans-intro"><span>{{ 'חבילות פשוטות וברורות' if lang == 'he' else 'Simple, clear plans' }}</span><h1>{{ 'החבילה שמתאימה לקליניקה שלך' if lang == 'he' else 'Choose what fits your clinic' }}</h1><p>{{ 'אימות דו־שלבי ושמירה על הרשומות הקיימות כלולים בכל חבילה.' if lang == 'he' else 'Two-factor authentication and continued access to existing records are included in every plan.' }}</p></section>
+    <section class="plan-grid">
+      <article class="plan-card"><p class="plan-name">Basic</p><p class="price"><b>₪59</b><span>{{ 'לחודש' if lang == 'he' else 'per month' }}</span></p><ul>
+        <li>{{ 'אימות דו־שלבי באמצעות אימייל' if lang == 'he' else 'Email two-factor authentication' }}</li><li>{{ 'ניהול מטופלים ורשומות טיפוליות' if lang == 'he' else 'Client and therapeutic records' }}</li><li>{{ 'יומן, פגישות וסיכומי מפגש' if lang == 'he' else 'Calendar, appointments and session summaries' }}</li><li>{{ 'פורטל מטופל ובקשות תור' if lang == 'he' else 'Client portal and appointment requests' }}</li><li>{{ 'אחסון קבצים בנפח 1GB' if lang == 'he' else '1 GB file storage' }}</li><li>{{ 'עד 5 שאלונים פעילים' if lang == 'he' else 'Up to 5 active questionnaires' }}</li>
+      </ul><a class="button secondary" href="/request-access?plan=basic{{ '&lang=he' if lang == 'he' else '' }}">{{ 'בקשת גישה' if lang == 'he' else 'Request access' }}</a></article>
+      <article class="plan-card featured"><div class="badge">{{ 'מומלץ' if lang == 'he' else 'Recommended' }}</div><p class="plan-name">Professional</p><p class="price"><b>₪89</b><span>{{ 'לחודש' if lang == 'he' else 'per month' }}</span></p><ul>
+        <li>{{ 'כל מה שכלול בחבילת Basic' if lang == 'he' else 'Everything in Basic' }}</li><li>{{ 'סנכרון אוטומטי עם Google Calendar' if lang == 'he' else 'Automatic Google Calendar synchronization' }}</li><li>{{ 'שאלונים ללא הגבלת כמות' if lang == 'he' else 'Unlimited questionnaires' }}</li><li>{{ 'אחסון קבצים בנפח 5GB' if lang == 'he' else '5 GB file storage' }}</li><li>{{ 'הפקת קבלות דרך Morning' if lang == 'he' else 'Issue receipts through Morning' }}</li><li>{{ 'תיעוד ומעקב אחר תשלומים שהוזנו' if lang == 'he' else 'Record and track entered payments' }}</li>
+      </ul><a class="button primary" href="/request-access?plan=professional{{ '&lang=he' if lang == 'he' else '' }}">{{ 'בחירת Professional' if lang == 'he' else 'Choose Professional' }}</a></article>
+    </section>
+    <section class="comparison" aria-labelledby="comparison-title">
+      <h2 id="comparison-title">{{ 'השוואה מלאה בין החבילות' if lang == 'he' else 'Full plan comparison' }}</h2>
+      <div class="table-scroll"><table>
+        <thead><tr><th>{{ 'תכונה' if lang == 'he' else 'Feature' }}</th><th>Basic<br><small>₪59 / {{ 'חודש' if lang == 'he' else 'month' }}</small></th><th>Professional<br><small>₪89 / {{ 'חודש' if lang == 'he' else 'month' }}</small></th></tr></thead>
+        <tbody>
+          {% set rows = [
+            ('תיקי מטופלים', 'Patient records', 'ללא הגבלה', 'Unlimited', 'ללא הגבלה', 'Unlimited'),
+            ('יומן וסיכומי פגישות', 'Calendar and appointment summaries', 'כלול', 'Yes', 'כלול', 'Yes'),
+            ('מסמכים ותמונות', 'Documents and images', '1GB', '1 GB', '5GB', '5 GB'),
+            ('פורטל מטופל', 'Patient portal', 'כלול', 'Yes', 'כלול', 'Yes'),
+            ('בקשות תור', 'Appointment requests', 'כלול', 'Yes', 'כלול', 'Yes'),
+            ('שאלונים', 'Questionnaires', 'עד 5 פעילים', 'Up to 5 active', 'ללא הגבלה', 'Unlimited'),
+            ('סנכרון Google Calendar', 'Google Calendar synchronization', 'לא כלול', 'No', 'כלול', 'Yes'),
+            ('קבלות באמצעות Morning', 'Morning receipts', 'לא כלול', 'No', 'כלול', 'Yes'),
+            ('אימיילים תפעוליים אוטומטיים', 'Automatic transactional emails', 'כלול', 'Included', 'כלול', 'Included'),
+            ('תזכורות אוטומטיות עתידיות', 'Future automated reminders', 'לא כלול', 'No', 'כלול', 'Yes')
+          ] %}
+          {% for he_feature, en_feature, he_basic, en_basic, he_pro, en_pro in rows %}<tr><th>{{ he_feature if lang == 'he' else en_feature }}</th><td>{{ he_basic if lang == 'he' else en_basic }}</td><td class="pro-value">{{ he_pro if lang == 'he' else en_pro }}</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+    </section>
+    <p class="plans-note">{{ 'החיבור ל־Morning דורש חשבון Morning מתאים. בשלב זה ההצטרפות והשיוך לחבילה מתבצעים לאחר אישור בקשת הגישה.' if lang == 'he' else 'Morning integration requires an eligible Morning account. For now, plan assignment is completed after your access request is approved.' }}</p>
+  </main>
+  <footer><span>CareIL · Care Israel</span><a href="{{ '/he/legal/terms' if lang == 'he' else '/legal/terms' }}">{{ 'תנאי שימוש' if lang == 'he' else 'Terms' }}</a><a href="{{ '/he/legal/cookies' if lang == 'he' else '/legal/cookies' }}">{{ 'עוגיות' if lang == 'he' else 'Cookies' }}</a></footer>
+  {% include '_cookie_notice.html' %}
+</body></html>

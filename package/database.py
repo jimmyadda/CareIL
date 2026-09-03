@@ -135,6 +135,13 @@ class DatabaseManager:
             CREATE UNIQUE INDEX IF NOT EXISTS idx_access_requests_token
                 ON access_requests(token_hash) WHERE token_hash IS NOT NULL;
         ''')
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(access_requests)").fetchall()
+        }
+        if columns and 'preferred_plan' not in columns:
+            conn.execute(
+                "ALTER TABLE access_requests ADD COLUMN preferred_plan TEXT NOT NULL DEFAULT 'basic'"
+            )
         conn.commit()
 
     @staticmethod

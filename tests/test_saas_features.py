@@ -128,6 +128,19 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn(b'/he/articles', response.data)
         self.assertIn(b'/he/faq', response.data)
 
+    def test_bilingual_plans_and_essential_cookie_notice(self):
+        english = self.client.get('/plans')
+        hebrew = self.client.get('/he/plans')
+        self.assertEqual(english.status_code, 200)
+        self.assertEqual(hebrew.status_code, 200)
+        self.assertIn(b'Full plan comparison', english.data)
+        self.assertIn('השוואה מלאה בין החבילות'.encode('utf-8'), hebrew.data)
+        self.assertIn(b'Automatic transactional emails', english.data)
+        self.assertIn(b'Issue receipts through Morning', english.data)
+        self.assertIn(b'/request-access?plan=professional', english.data)
+        self.assertIn(b'data-cookie-notice', english.data)
+        self.assertNotIn(b'Accept all', english.data)
+
     def test_expired_demo_cleanup_only_removes_demo_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)

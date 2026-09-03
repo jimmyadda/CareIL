@@ -91,6 +91,54 @@ class RegistrationFlowTest(unittest.TestCase):
         self.assertIn(b'/enter_email', response.data)
         self.assertIn(b'Please verify your email', response.data)
 
+    @patch.object(server.flask_login, 'login_user')
+    @patch.object(server, 'send_login_verification_code', return_value=True)
+    @patch.object(server, 'store_verification_code')
+    @patch.object(server, 'database_read')
+    def test_verified_password_requires_second_factor(
+        self, database_read, store_code, send_code, login_user
+    ):
+        salt = 'test-salt'
+        password = 'test-password'
+        database_read.return_value = [{
+            'userid': 'Jimmy', 'salt': salt,
+            'password': hashlib.pbkdf2_hmac(
+                'sha256', password.encode(), salt.encode(), 10000
+            ).hex(),
+            'email': 'jimmy@example.com', 'name': 'Jimmy Adda',
+            'client_key': 'client_test', 'email_verified': 1,
+        }]
+        response = self.client.post('/login', data={
+            'userid': 'Jimmy', 'password': password,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'action="/login/verify"', response.data)
+        send_code.assert_called_once()
+        login_user.assert_not_called()
+
+    @patch.object(server.flask_login, 'login_user')
+    @patch.object(server, 'ensure_single_therapist')
+    @patch.object(server, 'database_read', return_value=[{'userid': 'Jimmy'}])
+    @patch.object(server, 'load_user')
+    @patch.object(server, 'verify_code', return_value=True)
+    def test_valid_second_factor_completes_login(
+        self, verify_code, load_user, database_read, ensure_therapist, login_user
+    ):
+        load_user.return_value = User(
+            'Jimmy', 'jimmy@example.com', 'Jimmy Adda', 'client_test'
+        )
+        with self.client.session_transaction() as browser_session:
+            browser_session['client_key'] = 'client_test'
+            browser_session['pending_login_userid'] = 'Jimmy'
+            browser_session['pending_login_client_key'] = 'client_test'
+            browser_session['pending_login_attempts'] = 0
+        response = self.client.post('/login/verify', data={
+            'verification_code': 'ABC123',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers['Location'].endswith('/'))
+        login_user.assert_called_once_with(load_user.return_value)
+
     @patch.object(server, 'send_verification_code', return_value=True)
     @patch.object(server, 'store_verification_code')
     @patch.object(server, 'database_write')
