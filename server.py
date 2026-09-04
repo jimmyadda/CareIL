@@ -82,6 +82,7 @@ from package.legal_documents import (
 )
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
+from package.content_en import ENGLISH_ARTICLES, ENGLISH_FAQ
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -311,7 +312,9 @@ def careil_workspace_lifecycle():
 def protect_private_pages_from_indexing(response):
     public_paths = {'/', '/he', '/plans', '/he/plans', '/robots.txt', '/sitemap.xml'}
     public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
-    public_content = request.path == '/he/faq' or request.path.startswith('/he/articles')
+    public_content = (request.path in ('/faq', '/he/faq')
+                      or request.path.startswith('/articles')
+                      or request.path.startswith('/he/articles'))
     if (request.path not in public_paths and not public_legal and not public_content
             and not request.path.startswith('/static/')):
         response.headers['X-Robots-Tag'] = 'noindex, nofollow'
@@ -462,6 +465,11 @@ def hebrew_articles():
     return render_template('content-hub-he.html', articles=HEBREW_ARTICLES)
 
 
+@app.route('/articles')
+def english_articles():
+    return render_template('content-hub-en.html', articles=ENGLISH_ARTICLES)
+
+
 @app.route('/he/articles/<slug>')
 def hebrew_article(slug):
     article = HEBREW_ARTICLES.get(slug)
@@ -478,6 +486,22 @@ def hebrew_article(slug):
     return render_template('article-he.html', article=article, slug=slug, schema=schema)
 
 
+@app.route('/articles/<slug>')
+def english_article(slug):
+    article = ENGLISH_ARTICLES.get(slug)
+    if not article:
+        abort(404)
+    schema = {
+        '@context': 'https://schema.org', '@type': 'Article',
+        'headline': article['title'], 'description': article['description'],
+        'inLanguage': 'en',
+        'mainEntityOfPage': f'https://www.careil.net/articles/{slug}',
+        'author': {'@type': 'Organization', 'name': 'CareIL'},
+        'publisher': {'@type': 'Organization', 'name': 'CareIL'},
+    }
+    return render_template('article-en.html', article=article, slug=slug, schema=schema)
+
+
 @app.route('/he/faq')
 def hebrew_faq():
     schema = {
@@ -492,6 +516,22 @@ def hebrew_faq():
         ],
     }
     return render_template('faq-he.html', faq=HEBREW_FAQ, schema=schema)
+
+
+@app.route('/faq')
+def english_faq():
+    schema = {
+        '@context': 'https://schema.org', '@type': 'FAQPage',
+        'inLanguage': 'en',
+        'mainEntity': [
+            {
+                '@type': 'Question', 'name': question,
+                'acceptedAnswer': {'@type': 'Answer', 'text': answer},
+            }
+            for question, answer in ENGLISH_FAQ
+        ],
+    }
+    return render_template('faq-en.html', faq=ENGLISH_FAQ, schema=schema)
 
 
 def _access_token_hash(token):
@@ -1142,10 +1182,14 @@ def sitemap_xml():
     urls = [
         'https://www.careil.net/', 'https://www.careil.net/he',
         'https://www.careil.net/plans', 'https://www.careil.net/he/plans',
+        'https://www.careil.net/articles', 'https://www.careil.net/faq',
         'https://www.careil.net/he/articles', 'https://www.careil.net/he/faq',
     ]
     urls.extend(
         f'https://www.careil.net/he/articles/{slug}' for slug in HEBREW_ARTICLES
+    )
+    urls.extend(
+        f'https://www.careil.net/articles/{slug}' for slug in ENGLISH_ARTICLES
     )
     for key in LEGAL_DOCUMENTS:
         urls.extend([

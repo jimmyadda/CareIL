@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ article.title }} | CareIL</title><meta name="description" content="{{ article.description }}"><meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net/articles/{{ slug }}">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/articles/{{ slug }}"><link rel="alternate" hreflang="he" href="https://www.careil.net/he/articles/{{ slug }}"><link rel="alternate" hreflang="x-default" href="https://www.careil.net/articles/{{ slug }}">
+  <meta property="og:title" content="{{ article.title }} | CareIL"><meta property="og:description" content="{{ article.description }}"><meta property="og:url" content="https://www.careil.net/articles/{{ slug }}"><meta property="og:type" content="article">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1"><script type="application/ld+json">{{ schema|tojson }}</script>
+</head>
+<body>
+  <header class="content-header"><a class="content-brand" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="Main navigation"><a href="/articles">Articles</a><a href="/faq">FAQ</a><a href="/plans">Pricing</a><a href="/login">Log in</a><a class="cta" href="/request-access">Sign up</a></nav></header>
+  <main class="content-wrap"><article class="article"><div class="breadcrumbs"><a href="/">Home</a> / <a href="/articles">Articles</a> / {{ article.eyebrow }}</div><span class="eyebrow">{{ article.eyebrow }} · {{ article.reading_time }}</span><h1>{{ article.title }}</h1><p class="lead">{{ article.intro }}</p>
+  {% for heading, paragraphs in article.sections %}<section><h2>{{ heading }}</h2>{% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}</section>{% endfor %}
+  <aside class="takeaways"><h2>In brief</h2><ul>{% for item in article.takeaways %}<li>{{ item }}</li>{% endfor %}</ul></aside>
+  <div class="article-cta"><h2>Want to see CareIL in action?</h2><p>Open the CareIL demo and explore a sample practice workspace without real client information.</p><form action="/demo/start" method="post"><button class="button" type="submit">Try the demo</button></form></div></article></main>
+  <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/articles">All articles</a> · <a href="/faq">FAQ</a> · <a href="/legal/privacy">Privacy</a></span></footer>
+{% set lang = 'en' %}{% include '_cookie_notice.html' %}</body></html>

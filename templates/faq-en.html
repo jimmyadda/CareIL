@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CareIL FAQ | Practice Management for Therapists</title>
+  <meta name="description" content="Answers about CareIL, client management, appointments, Google Calendar, portal links, questionnaires, receipts and privacy."><meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net/faq">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/faq"><link rel="alternate" hreflang="he" href="https://www.careil.net/he/faq"><link rel="alternate" hreflang="x-default" href="https://www.careil.net/faq">
+  <meta property="og:title" content="Frequently Asked Questions About CareIL"><meta property="og:description" content="What therapists need to know about CareIL practice management."><meta property="og:url" content="https://www.careil.net/faq"><meta property="og:type" content="website">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1"><script type="application/ld+json">{{ schema|tojson }}</script>
+</head>
+<body>
+  <header class="content-header"><a class="content-brand" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="Main navigation"><a href="/articles">Articles</a><a href="/faq">FAQ</a><a href="/plans">Pricing</a><a href="/login">Log in</a><a class="cta" href="/request-access">Sign up</a></nav></header>
+  <main class="content-wrap"><section class="content-hero"><span class="eyebrow">Frequently asked questions</span><h1>What should I know about CareIL?</h1><p>Clear answers about clients, scheduling, the portal, documents and connected services.</p></section><section class="faq-list">{% for question, answer in faq %}<details class="faq-item"{% if loop.first %} open{% endif %}><summary>{{ question }}</summary><p>{{ answer }}</p></details>{% endfor %}</section></main>
+  <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/articles">Articles</a> · <a href="/legal/privacy">Privacy</a> · <a href="mailto:support@careil.net">Contact</a></span></footer>
+{% set lang = 'en' %}{% include '_cookie_notice.html' %}</body></html>

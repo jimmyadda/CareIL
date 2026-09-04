@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Articles for Therapists and Parent Guidance | CareIL</title>
+  <meta name="description" content="Practical articles on parent guidance, emotional therapy, boundaries, children's outbursts and private-practice management.">
+  <meta name="robots" content="index,follow"><link rel="canonical" href="https://www.careil.net/articles">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/articles"><link rel="alternate" hreflang="he" href="https://www.careil.net/he/articles"><link rel="alternate" hreflang="x-default" href="https://www.careil.net/articles">
+  <meta property="og:title" content="Articles for Therapists and Parent Guidance | CareIL"><meta property="og:description" content="Practical knowledge for parent guidance, emotional therapy and private-practice management."><meta property="og:url" content="https://www.careil.net/articles"><meta property="og:type" content="website">
+  <link rel="icon" href="/static/favicon.ico"><link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2"><link rel="stylesheet" href="/static/content-he.css?v=1">
+</head>
+<body>
+  <header class="content-header"><a class="content-brand" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a><nav class="content-nav" aria-label="Main navigation"><a href="/articles">Articles</a><a href="/faq">FAQ</a><a href="/plans">Pricing</a><a href="/login">Log in</a><a class="cta" href="/request-access">Sign up</a></nav></header>
+  <main class="content-wrap"><section class="content-hero"><span class="eyebrow">The CareIL knowledge space</span><h1>Articles for therapists and parents</h1><p>Practical knowledge about parent guidance, emotional therapy and private-practice management, created to support connection and leave more room for care.</p></section>
+  <section class="article-grid" aria-label="Articles">{% for slug, article in articles.items() %}<a class="article-card" href="/articles/{{ slug }}"><small>{{ article.eyebrow }} · {{ article.reading_time }}</small><h2>{{ article.title }}</h2><p>{{ article.description }}</p><span>Read the article →</span></a>{% endfor %}</section></main>
+  <footer class="content-footer"><span>CareIL · Care Israel</span><span><a href="/faq">FAQ</a> · <a href="/legal/privacy">Privacy</a> · <a href="mailto:support@careil.net">Contact</a></span></footer>
+{% set lang = 'en' %}{% include '_cookie_notice.html' %}</body></html>
