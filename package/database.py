@@ -63,6 +63,7 @@ class DatabaseManager:
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
         self.ensure_morning_schema(conn)
+        self.ensure_meta_social_schema(conn)
         self.ensure_pending_appointment_schema(conn)
         self.ensure_session_summary_schema(conn)
         self.ensure_clinical_forms_schema(conn)
@@ -105,6 +106,42 @@ class DatabaseManager:
             );
             CREATE INDEX IF NOT EXISTS idx_morning_receipts_patient
                 ON morning_receipts(pat_id, created_at);
+        ''')
+        conn.commit()
+
+    @staticmethod
+    def ensure_meta_social_schema(conn):
+        """Store the CareIL Facebook Page connection and approval-gated posts."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS meta_social_connections (
+                connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
+                page_id TEXT NOT NULL,
+                page_name TEXT NOT NULL,
+                page_access_token_encrypted TEXT NOT NULL,
+                connected_by TEXT NOT NULL,
+                granted_scopes TEXT,
+                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS social_post_drafts (
+                draft_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT NOT NULL,
+                image_url TEXT,
+                status TEXT NOT NULL DEFAULT 'draft'
+                    CHECK (status IN ('draft', 'approved', 'publishing', 'published', 'failed')),
+                created_by TEXT NOT NULL,
+                approval_reference TEXT,
+                approved_by TEXT,
+                approved_at DATETIME,
+                meta_post_id TEXT,
+                published_at DATETIME,
+                error_message TEXT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_social_post_drafts_status
+                ON social_post_drafts(status, created_at);
         ''')
         conn.commit()
 
@@ -550,4 +587,3 @@ class DatabaseManager:
         db = g.pop("db", None)
         if db is not None:
             db.close()
-

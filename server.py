@@ -55,6 +55,19 @@ from package.morning import (
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
 )
+from package.meta_social import (
+    MetaSocialError,
+    approve_draft as approve_social_draft,
+    authorization_url as meta_authorization_url,
+    connection_status as meta_connection_status,
+    create_draft as create_social_draft,
+    disconnect as disconnect_meta,
+    exchange_code_and_find_page,
+    is_configured as meta_is_configured,
+    list_drafts as list_social_drafts,
+    publish_approved_draft,
+    save_connection as save_meta_connection,
+)
 from package.email_service import (
     careil_logo_attachment,
     encoded_attachment,
@@ -287,6 +300,8 @@ def careil_workspace_lifecycle():
         'google_calendar_connect', 'google_calendar_callback',
         'google_calendar_sync_now', 'google_calendar_disconnect',
         'create_portal_invitation', 'request_account_deletion',
+        'meta_connect', 'meta_callback', 'meta_disconnect', 'social_create_draft',
+        'social_approve_draft', 'social_publish_draft',
     }
     if request.endpoint in blocked_endpoints:
         return render_template('demo-blocked.html'), 403
@@ -1700,6 +1715,200 @@ def update_clinic_info():
 @admin_only
 def admin_panel():
     return render_template('adminPanel.html', careil_owner=_careil_owner())
+
+
+def _require_careil_owner():
+    if not _careil_owner():
+        abort(403)
+
+
+def _meta_redirect_uri():
+    return os.environ.get('META_REDIRECT_URI') or url_for('meta_callback', _external=True)
+
+
+def _social_csrf_token():
+    if not session.get('social_csrf'):
+        session['social_csrf'] = secrets.token_urlsafe(32)
+    return session['social_csrf']
+
+
+def _valid_social_csrf():
+    return hmac.compare_digest(
+        request.form.get('csrf_token', ''), session.get('social_csrf', '')
+    )
+
+
+def _agent_api_authorized():
+    expected = os.environ.get('CAREIL_SOCIAL_AGENT_KEY', '')
+    header = request.headers.get('Authorization', '')
+    supplied = header[7:].strip() if header.startswith('Bearer ') else ''
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+@app.route('/careil-admin/social')
+@flask_login.login_required
+def meta_social_settings():
+    _require_careil_owner()
+    conn = _central_database()
+    try:
+        connected = meta_connection_status(conn)
+        drafts = list_social_drafts(conn)
+    finally:
+        conn.close()
+    return render_template(
+        'meta-social.html', configured=meta_is_configured(), connected=connected,
+        drafts=drafts, csrf_token=_social_csrf_token(),
+    )
+
+
+@app.route('/meta/connect')
+@flask_login.login_required
+def meta_connect():
+    _require_careil_owner()
+    if not meta_is_configured():
+        return redirect(url_for('meta_social_settings', error='Meta credentials are not configured.'))
+    state = secrets.token_urlsafe(32)
+    session['meta_oauth_state'] = state
+    try:
+        return redirect(meta_authorization_url(_meta_redirect_uri(), state))
+    except MetaSocialError as error:
+        return redirect(url_for('meta_social_settings', error=str(error)))
+
+
+@app.route('/meta/callback')
+@flask_login.login_required
+def meta_callback():
+    _require_careil_owner()
+    expected_state = session.pop('meta_oauth_state', '')
+    if not expected_state or not hmac.compare_digest(request.args.get('state', ''), expected_state):
+        abort(400, description='Invalid Meta OAuth state')
+    if request.args.get('error'):
+        return redirect(url_for(
+            'meta_social_settings', error=request.args.get('error_description', 'Meta access was declined.')
+        ))
+    code = request.args.get('code', '')
+    if not code:
+        return redirect(url_for('meta_social_settings', error='Meta did not return an authorization code.'))
+    try:
+        page = exchange_code_and_find_page(code, _meta_redirect_uri())
+        conn = _central_database()
+        try:
+            user = flask_login.current_user.get_dict()
+            save_meta_connection(conn, page, user['userid'])
+        finally:
+            conn.close()
+    except MetaSocialError as error:
+        current_app.logger.warning('Meta connection failed: %s', error)
+        return redirect(url_for('meta_social_settings', error=str(error)))
+    return redirect(url_for('meta_social_settings', connected='1'))
+
+
+@app.route('/meta/disconnect', methods=['POST'])
+@flask_login.login_required
+def meta_disconnect():
+    _require_careil_owner()
+    if not _valid_social_csrf():
+        abort(400)
+    conn = _central_database()
+    try:
+        disconnect_meta(conn)
+    finally:
+        conn.close()
+    return redirect(url_for('meta_social_settings', disconnected='1'))
+
+
+@app.route('/careil-admin/social/drafts', methods=['POST'])
+@flask_login.login_required
+def social_create_draft():
+    _require_careil_owner()
+    if not _valid_social_csrf():
+        abort(400)
+    conn = _central_database()
+    try:
+        user = flask_login.current_user.get_dict()
+        create_social_draft(
+            conn, request.form.get('message'), request.form.get('image_url'), user['userid']
+        )
+    except MetaSocialError as error:
+        return redirect(url_for('meta_social_settings', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('meta_social_settings', drafted='1'))
+
+
+@app.route('/careil-admin/social/drafts/<int:draft_id>/approve', methods=['POST'])
+@flask_login.login_required
+def social_approve_draft(draft_id):
+    _require_careil_owner()
+    if not _valid_social_csrf():
+        abort(400)
+    conn = _central_database()
+    try:
+        user = flask_login.current_user.get_dict()
+        approve_social_draft(conn, draft_id, user['userid'], 'CareIL owner dashboard approval')
+    except MetaSocialError as error:
+        return redirect(url_for('meta_social_settings', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('meta_social_settings', approved='1'))
+
+
+@app.route('/careil-admin/social/drafts/<int:draft_id>/publish', methods=['POST'])
+@flask_login.login_required
+def social_publish_draft(draft_id):
+    _require_careil_owner()
+    if not _valid_social_csrf():
+        abort(400)
+    conn = _central_database()
+    try:
+        publish_approved_draft(conn, draft_id)
+    except MetaSocialError as error:
+        current_app.logger.warning('Meta publishing failed: %s', error)
+        return redirect(url_for('meta_social_settings', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('meta_social_settings', published='1'))
+
+
+@app.route('/careil-api/social/drafts', methods=['POST'])
+def social_agent_create_draft():
+    if not _agent_api_authorized():
+        return jsonify({'error': 'Unauthorized'}), 401
+    payload = request.get_json(silent=True) or {}
+    conn = _central_database()
+    try:
+        draft_id = create_social_draft(
+            conn, payload.get('message'), payload.get('image_url'), 'CareIL marketing agent'
+        )
+    except MetaSocialError as error:
+        return jsonify({'error': str(error)}), 400
+    finally:
+        conn.close()
+    return jsonify({'draft_id': draft_id, 'status': 'draft'}), 201
+
+
+@app.route('/careil-api/social/drafts/<int:draft_id>/approve-and-publish', methods=['POST'])
+def social_agent_approve_and_publish(draft_id):
+    if not _agent_api_authorized():
+        return jsonify({'error': 'Unauthorized'}), 401
+    payload = request.get_json(silent=True) or {}
+    if payload.get('approval_confirmation') != 'APPROVED':
+        return jsonify({'error': 'Explicit approval_confirmation=APPROVED is required.'}), 400
+    approval_reference = str(payload.get('approval_reference') or '').strip()
+    if not approval_reference:
+        return jsonify({'error': 'approval_reference is required for the audit log.'}), 400
+    conn = _central_database()
+    try:
+        approve_social_draft(
+            conn, draft_id, 'CareIL marketing agent', approval_reference
+        )
+        post_id = publish_approved_draft(conn, draft_id)
+    except MetaSocialError as error:
+        current_app.logger.warning('Agent Meta publishing failed: %s', error)
+        return jsonify({'error': str(error)}), 400
+    finally:
+        conn.close()
+    return jsonify({'draft_id': draft_id, 'status': 'published', 'meta_post_id': post_id})
 
 def _availability_settings(client_key):
     defaults = {

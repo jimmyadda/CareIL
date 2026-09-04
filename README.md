@@ -106,3 +106,54 @@ CAREIL_OWNER_EMAIL=your-notification-email@example.com
 
 Approval sends a private, single-use registration link valid for seven days. A clinic
 database is created only when the approved person completes registration.
+## Facebook Page publishing
+
+CareIL includes an owner-only Meta OAuth connection and an approval-gated post queue.
+The marketing agent can create drafts through the API, but publishing requires an
+explicit approval confirmation that is stored with the post audit record.
+
+Configure these Railway service variables:
+
+```text
+META_APP_ID=<Meta app ID>
+META_APP_SECRET=<Meta app secret>
+META_REDIRECT_URI=https://www.careil.net/meta/callback
+META_GRAPH_API_VERSION=v24.0
+META_PAGE_ID=<optional Page ID when the Meta account manages multiple Pages>
+CAREIL_SOCIAL_AGENT_KEY=<long random API key>
+```
+
+Keep the existing `THERAPY_SECRET_KEY` stable. It is also used to encrypt the saved
+Facebook Page access token. Add `https://www.careil.net/meta/callback` as an exact
+valid OAuth redirect URI in the Meta app.
+
+The Meta app requests only:
+
+- `pages_show_list`
+- `pages_read_engagement`
+- `pages_manage_posts`
+
+Agent requests use `Authorization: Bearer <CAREIL_SOCIAL_AGENT_KEY>`:
+
+```http
+POST /careil-api/social/drafts
+Content-Type: application/json
+
+{"message":"Approved CareIL post text","image_url":"https://www.careil.net/static/img/social/careil-launch-post.jpeg"}
+```
+
+After the owner explicitly approves the exact draft:
+
+```http
+POST /careil-api/social/drafts/42/approve-and-publish
+Content-Type: application/json
+
+{
+  "approval_confirmation":"APPROVED",
+  "approval_reference":"Chat approval message 48217"
+}
+```
+
+The second call both records the approval reference and publishes. It rejects missing
+or malformed approval confirmations. The same workflow is also available to the
+CareIL owner in **Settings → CareIL Social Publishing**.
