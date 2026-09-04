@@ -20,7 +20,7 @@
   <section class="card shadow-sm mb-4"><div class="card-body">
     <h2 class="h5">Facebook connection</h2>
     {% if not configured %}
-      <div class="alert alert-warning mb-0">Set META_APP_ID, META_APP_SECRET and META_REDIRECT_URI in Railway before connecting.</div>
+      <div class="alert alert-warning mb-0">Set META_APP_ID, META_APP_SECRET, META_LOGIN_CONFIG_ID and META_REDIRECT_URI in Railway before connecting.</div>
     {% elif connected %}
       <p class="mb-2"><strong>Connected Page:</strong> {{ connected.page_name }} ({{ connected.page_id }})</p>
       <form method="post" action="/meta/disconnect"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-outline-danger">Disconnect</button></form>

@@ -1,10 +1,12 @@
 import os
 import sqlite3
 import unittest
+import urllib.parse
 from unittest.mock import patch
 
 from package.meta_social import (
     MetaSocialError,
+    authorization_url,
     approve_draft,
     create_draft,
     publish_approved_draft,
@@ -76,6 +78,20 @@ class MetaSocialTest(unittest.TestCase):
     def test_image_url_must_be_public_https(self):
         with self.assertRaisesRegex(MetaSocialError, 'public HTTPS'):
             create_draft(self.conn, 'Post', 'http://localhost/image.png', 'agent')
+
+    def test_business_login_url_uses_configuration_id(self):
+        environment = {
+            'META_APP_ID': 'app-123',
+            'META_APP_SECRET': 'secret',
+            'META_LOGIN_CONFIG_ID': 'config-456',
+        }
+        with patch.dict(os.environ, environment, clear=False):
+            url = authorization_url('https://www.careil.net/meta/callback', 'state-token')
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        self.assertEqual(query['config_id'], ['config-456'])
+        self.assertEqual(query['response_type'], ['code'])
+        self.assertEqual(query['override_default_response_type'], ['true'])
+        self.assertNotIn('scope', query)
 
 
 if __name__ == '__main__':

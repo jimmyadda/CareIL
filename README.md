@@ -117,6 +117,7 @@ Configure these Railway service variables:
 ```text
 META_APP_ID=<Meta app ID>
 META_APP_SECRET=<Meta app secret>
+META_LOGIN_CONFIG_ID=<Facebook Login for Business configuration ID>
 META_REDIRECT_URI=https://www.careil.net/meta/callback
 META_GRAPH_API_VERSION=v24.0
 META_PAGE_ID=<optional Page ID when the Meta account manages multiple Pages>

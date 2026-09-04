@@ -22,19 +22,25 @@ def graph_version():
 
 
 def is_configured():
-    return bool(os.environ.get('META_APP_ID') and os.environ.get('META_APP_SECRET'))
+    return bool(
+        os.environ.get('META_APP_ID')
+        and os.environ.get('META_APP_SECRET')
+        and os.environ.get('META_LOGIN_CONFIG_ID')
+    )
 
 
 def authorization_url(redirect_uri, state):
     if not is_configured():
         raise MetaSocialError('Meta credentials are not configured.')
-    query = urllib.parse.urlencode({
+    query_values = {
         'client_id': os.environ['META_APP_ID'],
         'redirect_uri': redirect_uri,
         'state': state,
         'response_type': 'code',
-        'scope': ','.join(SCOPES),
-    })
+        'config_id': os.environ['META_LOGIN_CONFIG_ID'],
+        'override_default_response_type': 'true',
+    }
+    query = urllib.parse.urlencode(query_values)
     return f'https://www.facebook.com/{graph_version()}/dialog/oauth?{query}'
 
 
