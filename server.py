@@ -1854,6 +1854,20 @@ def morning_disconnect():
 @app.route('/patients/<int:pat_id>/appointments/<int:app_id>/receipt', methods=['POST'])
 @flask_login.login_required
 def create_appointment_receipt(pat_id, app_id):
+    return _create_morning_receipt(pat_id, app_id, default_tab='appointments')
+
+
+@app.route('/patients/<int:pat_id>/receipt', methods=['POST'])
+@flask_login.login_required
+def create_patient_receipt(pat_id):
+    app_id = request.form.get('app_id', type=int)
+    if app_id is None:
+        flash('Please select a completed appointment.', 'danger')
+        return redirect(url_for('patient_folder_Load', id=pat_id) + '#payments')
+    return _create_morning_receipt(pat_id, app_id, default_tab='payments')
+
+
+def _create_morning_receipt(pat_id, app_id, default_tab):
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
@@ -1874,7 +1888,10 @@ def create_appointment_receipt(pat_id, app_id):
     except Exception:
         current_app.logger.exception('Morning receipt creation failed')
         flash('The receipt could not be issued. Please try again or check Morning Settings.', 'danger')
-    return redirect(url_for('patient_folder_Load', id=pat_id) + '#appointments')
+    return_tab = request.form.get('return_tab', default_tab)
+    if return_tab not in {'appointments', 'payments'}:
+        return_tab = default_tab
+    return redirect(url_for('patient_folder_Load', id=pat_id) + '#' + return_tab)
 
 
 @app.route('/admin/mail-settings', methods=['GET', 'POST'])
@@ -2445,6 +2462,11 @@ def patient_folder_Load():
     }
     for appointment in appointments:
         appointment['receipt'] = receipts_by_appointment.get(appointment.get('app_id'))
+    unreceipted_past_appointments = [
+        appointment for appointment in appointments
+        if appointment.get('is_past')
+        and not (appointment.get('receipt') and appointment['receipt'].get('status') == 'issued')
+    ]
     payment_rows = sorted(
         receipts_by_appointment.values(),
         key=lambda row: (row.get('payment_date') or row.get('session_date') or ''),
@@ -2495,6 +2517,7 @@ def patient_folder_Load():
         morning_connected=bool(morning_connection_status(client_key)),
         morning_payment_types=MORNING_PAYMENT_TYPES,
         payment_rows=payment_rows, payment_summary=payment_summary,
+        unreceipted_past_appointments=unreceipted_past_appointments,
         morning_csrf_token=_morning_csrf_token(),
         today=datetime.date.today().isoformat(), alert=""
     )
