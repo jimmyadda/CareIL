@@ -121,6 +121,14 @@ class DatabaseManager:
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (billing_order_id) REFERENCES billing_orders(order_id)
             );
+
+            CREATE TABLE IF NOT EXISTS billing_webhook_deliveries (
+                delivery_id TEXT PRIMARY KEY,
+                topic TEXT NOT NULL,
+                provider_transaction_id TEXT,
+                status TEXT NOT NULL,
+                received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
         ''')
         conn.commit()
 

@@ -83,7 +83,15 @@ from package.legal_documents import (
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
 from package.content_en import ENGLISH_ARTICLES, ENGLISH_FAQ
-from package.billing import PLANS as BILLING_PLANS, create_checkout_order, public_order, selected_offer
+from package.billing import (
+    PLANS as BILLING_PLANS,
+    accept_morning_payment,
+    create_checkout_order,
+    parse_morning_payment,
+    public_order,
+    selected_offer,
+    verify_morning_signature,
+)
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -526,6 +534,47 @@ def checkout_status(public_token):
         abort(404)
     language = 'he' if order['language'] == 'he' else 'en'
     return render_template('checkout-status.html', lang=language, order=order)
+
+
+@app.route('/api/webhooks/morning', methods=['POST'])
+def morning_billing_webhook():
+    """Receive signed Morning payment events for CareIL subscriptions."""
+    raw_body = request.get_data(cache=True)
+    secret = os.environ.get('MORNING_WEBHOOK_SECRET', '').strip()
+    signature = request.headers.get('x-webhook-signature', '')
+    if not verify_morning_signature(raw_body, signature, secret):
+        return jsonify({'ok': False, 'error': 'invalid signature'}), 401
+
+    topic = request.headers.get('x-webhook-topic', '').strip().lower()
+    delivery_id = request.headers.get('x-webhook-delivery-id', '').strip()
+    try:
+        payment = parse_morning_payment(raw_body, topic)
+        conn = _central_database()
+        try:
+            if delivery_id:
+                duplicate = conn.execute(
+                    'SELECT 1 FROM billing_webhook_deliveries WHERE delivery_id=?',
+                    (delivery_id,),
+                ).fetchone()
+                if duplicate:
+                    return jsonify({'ok': True, 'duplicate': True}), 200
+            order, newly_paid = accept_morning_payment(conn, payment)
+            if delivery_id:
+                conn.execute(
+                    '''INSERT INTO billing_webhook_deliveries
+                       (delivery_id,topic,provider_transaction_id,status)
+                       VALUES(?,?,?,'processed')''',
+                    (delivery_id, topic, payment['provider_transaction_id']),
+                )
+                conn.commit()
+        finally:
+            conn.close()
+        if newly_paid:
+            _provision_paid_order(order)
+        return jsonify({'ok': True, 'duplicate': not newly_paid}), 200
+    except (ValueError, sqlite3.IntegrityError) as error:
+        logger.warning('Rejected Morning billing webhook: %s', str(error))
+        return jsonify({'ok': False, 'error': 'event rejected'}), 422
 
 
 @app.route('/he/articles')
