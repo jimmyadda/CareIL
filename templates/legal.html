@@ -36,6 +36,7 @@
         <h2>{{ 'פרטי המפעיל ויצירת קשר' if lang == 'he' else 'Operator and contact' }}</h2>
         <p><strong>{{ operator_name }}</strong></p>
         {% if operator_address %}<p>{{ operator_address }}</p>{% endif %}
+        {% if operator_phone %}<p>{{ 'טלפון' if lang == 'he' else 'Phone' }}: <a href="tel:{{ operator_phone }}">{{ operator_phone }}</a></p>{% endif %}
         <p>{{ 'פרטיות' if lang == 'he' else 'Privacy' }}: <a href="mailto:{{ privacy_email }}">{{ privacy_email }}</a><br>
         {{ 'תמיכה' if lang == 'he' else 'Support' }}: <a href="mailto:{{ support_email }}">{{ support_email }}</a><br>
         {{ 'נגישות' if lang == 'he' else 'Accessibility' }}: <a href="mailto:{{ accessibility_email }}">{{ accessibility_email }}</a></p>

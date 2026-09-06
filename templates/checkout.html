@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{ 'הצטרפות ל-CareIL' if lang == 'he' else 'Join CareIL' }}</title>
-  <meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/static/checkout.css?v=1">
+  <meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/static/checkout.css?v=1"><link rel="stylesheet" href="/static/checkout-grow.css?v=1">
 </head>
 <body>
   <main class="checkout-shell">
@@ -23,11 +23,16 @@
       {% if alert %}<div class="alert">{{ alert }}</div>{% endif %}
       <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="plan" value="{{ offer.plan_code }}"><input type="hidden" name="cycle" value="{{ offer.billing_cycle }}"><input type="hidden" name="lang" value="{{ lang }}">
-        <label>{{ 'שם מלא' if lang == 'he' else 'Full name' }}<input name="full_name" required autocomplete="name"></label>
+        <div class="field-row">
+          <label>{{ 'שם פרטי' if lang == 'he' else 'First name' }}<input name="first_name" required autocomplete="given-name"></label>
+          <label>{{ 'שם משפחה' if lang == 'he' else 'Last name' }}<input name="last_name" required autocomplete="family-name"></label>
+        </div>
         <label>{{ 'אימייל' if lang == 'he' else 'Email' }}<input name="email" type="email" required autocomplete="email"></label>
-        <label>{{ 'טלפון' if lang == 'he' else 'Phone' }}<input name="phone" autocomplete="tel"></label>
+        <label>{{ 'טלפון ללא קידומת מדינה' if lang == 'he' else 'Phone without country code' }}<input name="phone" type="tel" required autocomplete="tel-national" inputmode="tel"></label>
+        <label>{{ 'מדינה' if lang == 'he' else 'Country' }}<select name="country" required autocomplete="country-name"><option value="Israel">{{ 'ישראל' if lang == 'he' else 'Israel' }}</option></select></label>
+        <label>{{ 'כתובת מלאה' if lang == 'he' else 'Full billing address' }}<input name="billing_address" required autocomplete="street-address"></label>
         <label>{{ 'שם הקליניקה' if lang == 'he' else 'Practice name' }}<input name="clinic_name" autocomplete="organization"></label>
-        <label class="consent"><input type="checkbox" name="accept_terms" value="yes" required><span>{{ 'אני מאשר/ת את' if lang == 'he' else 'I accept the' }} <a href="{{ '/he/legal/terms' if lang == 'he' else '/legal/terms' }}" target="_blank">{{ 'תנאי השימוש' if lang == 'he' else 'Terms' }}</a> {{ 'ואת' if lang == 'he' else 'and' }} <a href="{{ '/he/legal/privacy' if lang == 'he' else '/legal/privacy' }}" target="_blank">{{ 'מדיניות הפרטיות' if lang == 'he' else 'Privacy Policy' }}</a>.</span></label>
+        <label class="consent"><input type="checkbox" name="accept_terms" value="yes" required><span>{{ 'קראתי ואני מאשר/ת את' if lang == 'he' else 'I have read and accept the' }} <a href="{{ '/he/legal/terms' if lang == 'he' else '/legal/terms' }}" target="_blank">{{ 'תקנון ותנאי השימוש' if lang == 'he' else 'Terms of Service' }}</a>, <a href="{{ '/he/legal/refunds' if lang == 'he' else '/legal/refunds' }}" target="_blank">{{ 'מדיניות הביטול וההחזרים' if lang == 'he' else 'Cancellation and Refund Policy' }}</a> {{ 'ואת' if lang == 'he' else 'and the' }} <a href="{{ '/he/legal/privacy' if lang == 'he' else '/legal/privacy' }}" target="_blank">{{ 'מדיניות הפרטיות' if lang == 'he' else 'Privacy Policy' }}</a>.</span></label>
         <button type="submit">{{ 'המשך לתשלום מאובטח' if lang == 'he' else 'Continue to secure payment' }}</button>
         <small>{{ 'פרטי הכרטיס יוזנו אצל Morning/Grow ולא יישמרו ב-CareIL.' if lang == 'he' else 'Card details are entered with Morning/Grow and are never stored by CareIL.' }}</small>
       </form>

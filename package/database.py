@@ -84,6 +84,8 @@ class DatabaseManager:
                 phone TEXT,
                 clinic_name TEXT,
                 language TEXT NOT NULL DEFAULT 'en',
+                country TEXT,
+                billing_address TEXT,
                 plan_code TEXT NOT NULL CHECK(plan_code IN ('basic','professional')),
                 billing_cycle TEXT NOT NULL CHECK(billing_cycle IN ('monthly','annual')),
                 amount INTEGER NOT NULL,
@@ -130,6 +132,13 @@ class DatabaseManager:
                 received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         ''')
+        existing_columns = {
+            row[1] for row in conn.execute('PRAGMA table_info(billing_orders)').fetchall()
+        }
+        if 'country' not in existing_columns:
+            conn.execute('ALTER TABLE billing_orders ADD COLUMN country TEXT')
+        if 'billing_address' not in existing_columns:
+            conn.execute('ALTER TABLE billing_orders ADD COLUMN billing_address TEXT')
         conn.commit()
 
     @staticmethod

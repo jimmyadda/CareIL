@@ -220,8 +220,11 @@ def _legal_operator_context():
     support_email = os.environ.get('CAREIL_SUPPORT_EMAIL', 'support@careil.net')
     privacy_email = os.environ.get('CAREIL_PRIVACY_EMAIL', 'privacy@careil.net')
     return {
-        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'CareIL'),
-        'operator_address': os.environ.get('CAREIL_LEGAL_ADDRESS', ''),
+        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'קארין עדה – CareIL'),
+        'operator_address': os.environ.get(
+            'CAREIL_LEGAL_ADDRESS', 'שחף 22, דירה 1, עתלית, ישראל'
+        ),
+        'operator_phone': os.environ.get('CAREIL_LEGAL_PHONE', '050-9127180'),
         'support_email': support_email,
         'privacy_email': privacy_email,
         'accessibility_email': os.environ.get('CAREIL_ACCESSIBILITY_EMAIL', support_email),
@@ -445,7 +448,10 @@ def close_db(exception=None):
 @app.route("/")
 def index_page():
     if not flask_login.current_user.is_authenticated:
-        return render_template('landing.html', lang='en', t=LANDING_CONTENT['en'])
+        return render_template(
+            'landing.html', lang='en', t=LANDING_CONTENT['en'],
+            **_legal_operator_context()
+        )
     logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")
     user = flask_login.current_user.get_dict()
     apps = Appointments()
@@ -459,7 +465,10 @@ def index_page():
 def landing_hebrew_page():
     if flask_login.current_user.is_authenticated:
         return redirect('/')
-    return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
+    return render_template(
+        'landing.html', lang='he', t=LANDING_CONTENT['he'],
+        **_legal_operator_context()
+    )
 
 
 @app.route('/plans')
@@ -489,13 +498,18 @@ def checkout_page():
         if not hmac.compare_digest(
                 request.form.get('csrf_token', ''), session.get('billing_csrf', '')):
             abort(400)
-        full_name = request.form.get('full_name', '').strip()
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        full_name = ' '.join(filter(None, (first_name, last_name)))
         email = request.form.get('email', '').strip().lower()
         phone = request.form.get('phone', '').strip()
         clinic_name = request.form.get('clinic_name', '').strip()
-        if not full_name or not email or '@' not in email:
-            alert = ('נא להזין שם וכתובת אימייל תקינה.' if language == 'he'
-                     else 'Enter your name and a valid email address.')
+        country = request.form.get('country', '').strip()
+        billing_address = request.form.get('billing_address', '').strip()
+        if (not first_name or not last_name or not phone or not country
+                or not billing_address or not email or '@' not in email):
+            alert = ('נא למלא את כל שדות החובה וכתובת אימייל תקינה.' if language == 'he'
+                     else 'Complete all required fields and enter a valid email address.')
         elif request.form.get('accept_terms') != 'yes':
             alert = ('יש לאשר את תנאי השימוש ומדיניות הפרטיות.' if language == 'he'
                      else 'Accept the Terms and Privacy Policy to continue.')
@@ -505,6 +519,7 @@ def checkout_page():
                 order_id, public_token, offer = create_checkout_order(
                     conn, full_name=full_name, email=email, phone=phone,
                     clinic_name=clinic_name, language=language,
+                    country=country, billing_address=billing_address,
                     plan_code=plan_code, billing_cycle=billing_cycle,
                     requester_ip=_visitor_ip_address(),
                     user_agent=request.headers.get('User-Agent', ''),

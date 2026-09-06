@@ -41,16 +41,18 @@ def token_hash(token):
 
 def create_checkout_order(conn, *, full_name, email, phone, clinic_name,
                           language, plan_code, billing_cycle, requester_ip,
-                          user_agent):
+                          user_agent, country='', billing_address=''):
     offer = selected_offer(plan_code, billing_cycle)
     public_token = secrets.token_urlsafe(32)
     cursor = conn.execute(
         """INSERT INTO billing_orders
            (public_token_hash,full_name,email,phone,clinic_name,language,
-            plan_code,billing_cycle,amount,currency,status,requester_ip,user_agent)
-           VALUES(?,?,?,?,?,?,?,?,?,?,'pending',?,?)""",
+            country,billing_address,plan_code,billing_cycle,amount,currency,
+            status,requester_ip,user_agent)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)""",
         (token_hash(public_token), full_name, email, phone, clinic_name,
-         language, offer["plan_code"], offer["billing_cycle"], offer["amount"],
+         language, country, billing_address, offer["plan_code"],
+         offer["billing_cycle"], offer["amount"],
          offer["currency"], requester_ip, user_agent[:500]),
     )
     conn.commit()

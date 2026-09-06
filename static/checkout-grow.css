@@ -1,0 +1,20 @@
+.checkout-form select {
+  width: 100%;
+  border: 1px solid #ccd8c8;
+  border-radius: 11px;
+  padding: 12px 13px;
+  font: inherit;
+  background: #fff;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
