@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'he' else 'ltr' }}">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ 'הצטרפות ל-CareIL' if lang == 'he' else 'Join CareIL' }}</title>
+  <meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/static/checkout.css?v=1">
+</head>
+<body>
+  <main class="checkout-shell">
+    <a class="close" href="{{ '/he/plans' if lang == 'he' else '/plans' }}" aria-label="{{ 'סגירה' if lang == 'he' else 'Close' }}">×</a>
+    <section class="checkout-summary">
+      <a class="brand" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a>
+      <span class="eyebrow">{{ 'המסלול שבחרת' if lang == 'he' else 'Your selected plan' }}</span>
+      <h1>{{ offer.plan_name }}</h1>
+      <p class="amount">₪{{ offer.amount }} <small>{{ 'לשנה' if offer.billing_cycle == 'annual' and lang == 'he' else 'לחודש' if lang == 'he' else 'per year' if offer.billing_cycle == 'annual' else 'per month' }}</small></p>
+      {% if offer.billing_cycle == 'annual' %}<p class="saving">{{ 'חודשיים ללא עלות' if lang == 'he' else 'Two months free' }}</p>{% endif %}
+      <ul><li>{{ 'חיוב מאובטח באמצעות Morning/Grow' if lang == 'he' else 'Secure payment by Morning/Grow' }}</li><li>{{ 'קבלה נשלחת אוטומטית' if lang == 'he' else 'Receipt sent automatically' }}</li><li>{{ 'אפשר לבטל את החידוש בהתאם לתנאים' if lang == 'he' else 'Renewal can be cancelled under the plan terms' }}</li></ul>
+      <a href="{{ '/checkout?plan=' + offer.plan_code + '&cycle=' + ('monthly' if offer.billing_cycle == 'annual' else 'annual') + ('&lang=he' if lang == 'he' else '') }}">{{ 'מעבר לחיוב חודשי' if offer.billing_cycle == 'annual' and lang == 'he' else 'מעבר למנוי שנתי' if lang == 'he' else 'Switch to monthly' if offer.billing_cycle == 'annual' else 'Switch to annual' }}</a>
+    </section>
+    <section class="checkout-form">
+      <h2>{{ 'פרטי הקליניקה' if lang == 'he' else 'Practice details' }}</h2>
+      <p>{{ 'לאחר אישור התשלום נשלח קישור מאובטח להגדרת החשבון.' if lang == 'he' else 'After payment, we will send a secure account setup link.' }}</p>
+      {% if alert %}<div class="alert">{{ alert }}</div>{% endif %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="plan" value="{{ offer.plan_code }}"><input type="hidden" name="cycle" value="{{ offer.billing_cycle }}"><input type="hidden" name="lang" value="{{ lang }}">
+        <label>{{ 'שם מלא' if lang == 'he' else 'Full name' }}<input name="full_name" required autocomplete="name"></label>
+        <label>{{ 'אימייל' if lang == 'he' else 'Email' }}<input name="email" type="email" required autocomplete="email"></label>
+        <label>{{ 'טלפון' if lang == 'he' else 'Phone' }}<input name="phone" autocomplete="tel"></label>
+        <label>{{ 'שם הקליניקה' if lang == 'he' else 'Practice name' }}<input name="clinic_name" autocomplete="organization"></label>
+        <label class="consent"><input type="checkbox" name="accept_terms" value="yes" required><span>{{ 'אני מאשר/ת את' if lang == 'he' else 'I accept the' }} <a href="{{ '/he/legal/terms' if lang == 'he' else '/legal/terms' }}" target="_blank">{{ 'תנאי השימוש' if lang == 'he' else 'Terms' }}</a> {{ 'ואת' if lang == 'he' else 'and' }} <a href="{{ '/he/legal/privacy' if lang == 'he' else '/legal/privacy' }}" target="_blank">{{ 'מדיניות הפרטיות' if lang == 'he' else 'Privacy Policy' }}</a>.</span></label>
+        <button type="submit">{{ 'המשך לתשלום מאובטח' if lang == 'he' else 'Continue to secure payment' }}</button>
+        <small>{{ 'פרטי הכרטיס יוזנו אצל Morning/Grow ולא יישמרו ב-CareIL.' if lang == 'he' else 'Card details are entered with Morning/Grow and are never stored by CareIL.' }}</small>
+      </form>
+    </section>
+  </main>
+</body></html>

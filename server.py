@@ -83,6 +83,7 @@ from package.legal_documents import (
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
 from package.content_en import ENGLISH_ARTICLES, ENGLISH_FAQ
+from package.billing import PLANS as BILLING_PLANS, create_checkout_order, public_order, selected_offer
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -457,7 +458,74 @@ def landing_hebrew_page():
 @app.route('/he/plans')
 def plans_page():
     lang = 'he' if request.path.startswith('/he/') else 'en'
-    return render_template('plans.html', lang=lang)
+    return render_template('plans.html', lang=lang, billing_plans=BILLING_PLANS)
+
+
+def _billing_csrf_token():
+    if not session.get('billing_csrf'):
+        session['billing_csrf'] = secrets.token_urlsafe(32)
+    return session['billing_csrf']
+
+
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout_page():
+    language = 'he' if request.values.get('lang') == 'he' else 'en'
+    plan_code = request.values.get('plan', 'basic').strip().lower()
+    billing_cycle = request.values.get('cycle', 'monthly').strip().lower()
+    try:
+        offer = selected_offer(plan_code, billing_cycle)
+    except ValueError:
+        abort(404)
+    alert = ''
+    if request.method == 'POST':
+        if not hmac.compare_digest(
+                request.form.get('csrf_token', ''), session.get('billing_csrf', '')):
+            abort(400)
+        full_name = request.form.get('full_name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        phone = request.form.get('phone', '').strip()
+        clinic_name = request.form.get('clinic_name', '').strip()
+        if not full_name or not email or '@' not in email:
+            alert = ('נא להזין שם וכתובת אימייל תקינה.' if language == 'he'
+                     else 'Enter your name and a valid email address.')
+        elif request.form.get('accept_terms') != 'yes':
+            alert = ('יש לאשר את תנאי השימוש ומדיניות הפרטיות.' if language == 'he'
+                     else 'Accept the Terms and Privacy Policy to continue.')
+        else:
+            conn = _central_database()
+            try:
+                order_id, public_token, offer = create_checkout_order(
+                    conn, full_name=full_name, email=email, phone=phone,
+                    clinic_name=clinic_name, language=language,
+                    plan_code=plan_code, billing_cycle=billing_cycle,
+                    requester_ip=_visitor_ip_address(),
+                    user_agent=request.headers.get('User-Agent', ''),
+                )
+            finally:
+                conn.close()
+            session['billing_order_token'] = public_token
+            return render_template(
+                'checkout-provider-pending.html', lang=language, offer=offer,
+                order_id=order_id, public_token=public_token,
+                billing_ready=False,
+            ), 503
+    return render_template(
+        'checkout.html', lang=language, offer=offer,
+        csrf_token=_billing_csrf_token(), alert=alert,
+    ), (400 if alert else 200)
+
+
+@app.route('/checkout/status/<public_token>')
+def checkout_status(public_token):
+    conn = _central_database()
+    try:
+        order = public_order(conn, public_token)
+    finally:
+        conn.close()
+    if not order:
+        abort(404)
+    language = 'he' if order['language'] == 'he' else 'en'
+    return render_template('checkout-status.html', lang=language, order=order)
 
 
 @app.route('/he/articles')
@@ -590,6 +658,77 @@ def _send_access_email(recipient, subject, content):
         email_brand_header() + content,
         attachments=[careil_logo_attachment(os.path.dirname(__file__))],
     )
+
+
+def _provision_paid_order(order):
+    """Create a one-time setup invitation and send payment notifications.
+
+    Called only after the billing adapter has verified a successful provider webhook.
+    """
+    raw_token = secrets.token_urlsafe(48)
+    expires = (_utc_now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+    conn = _central_database()
+    try:
+        existing = conn.execute(
+            """SELECT request_id,status FROM access_requests WHERE email=?
+               ORDER BY request_id DESC LIMIT 1""",
+            (order['email'],),
+        ).fetchone()
+        if existing and existing['status'] == 'registered':
+            registration_url = url_for('login_page', _external=True)
+        else:
+            if existing:
+                conn.execute(
+                    """UPDATE access_requests SET full_name=?,phone=?,clinic_name=?,
+                              language=?,preferred_plan=?,status='approved',token_hash=?,
+                              token_expires_at=?,approved_at=CURRENT_TIMESTAMP,
+                              declined_at=NULL,used_at=NULL WHERE request_id=?""",
+                    (order['full_name'], order['phone'], order['clinic_name'],
+                     order['language'], order['plan_code'], _access_token_hash(raw_token),
+                     expires, existing['request_id']),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO access_requests
+                       (full_name,email,phone,clinic_name,language,preferred_plan,status,
+                        token_hash,token_expires_at,approved_at,requester_ip,user_agent)
+                       VALUES(?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?)""",
+                    (order['full_name'], order['email'], order['phone'],
+                     order['clinic_name'], order['language'], order['plan_code'],
+                     _access_token_hash(raw_token), expires, order['requester_ip'],
+                     order['user_agent']),
+                )
+            registration_url = url_for('registration_page', token=raw_token, _external=True)
+        conn.commit()
+    finally:
+        conn.close()
+
+    cycle = 'Annual' if order['billing_cycle'] == 'annual' else 'Monthly'
+    receipt = (f'<p><a href="{html.escape(order["receipt_url"])}">View receipt</a></p>'
+               if order.get('receipt_url') else '')
+    next_charge = (f'<p>Next billing date: {html.escape(order["next_billing_date"])}</p>'
+                   if order.get('next_billing_date') else '')
+    _send_access_email(
+        order['email'], 'CareIL | Payment received and account setup',
+        f'<p>Hello {html.escape(order["full_name"])},</p>'
+        f'<p>Your payment for CareIL {html.escape(order["plan_code"].title())} '
+        f'({cycle}) was confirmed.</p>{receipt}{next_charge}'
+        f'<p><a href="{registration_url}" style="display:inline-block;padding:12px 18px;'
+        'border-radius:10px;background:#588157;color:white;text-decoration:none">'
+        'Set up your CareIL account</a></p>'
+        '<p>The setup link is personal, can be used once and is valid for seven days.</p>',
+    )
+    owner_email = os.environ.get('CAREIL_OWNER_EMAIL', '').strip()
+    if owner_email:
+        _send_access_email(
+            owner_email, 'CareIL | New paid customer',
+            f'<p><strong>{html.escape(order["full_name"])}</strong> '
+            f'({html.escape(order["email"])}) purchased '
+            f'<strong>{html.escape(order["plan_code"].title())} · {cycle}</strong>.</p>'
+            f'<p>Amount: ₪{order["amount"]} · Order #{order["order_id"]}</p>'
+            f'<p>Provider transaction: {html.escape(order.get("provider_transaction_id") or "Pending reference")}</p>',
+        )
+    return registration_url
 
 
 @app.route('/request-access', methods=['GET', 'POST'])

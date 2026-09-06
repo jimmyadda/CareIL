@@ -59,6 +59,7 @@ class DatabaseManager:
         conn = sqlite3.connect(db_path)
         self.ensure_account_verification_schema(conn)
         self.ensure_access_request_schema(conn)
+        self.ensure_subscription_billing_schema(conn)
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
@@ -70,6 +71,58 @@ class DatabaseManager:
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_subscription_billing_schema(conn):
+        """Store checkout attempts and active CareIL subscriptions centrally."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS billing_orders (
+                order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                public_token_hash TEXT NOT NULL UNIQUE,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL COLLATE NOCASE,
+                phone TEXT,
+                clinic_name TEXT,
+                language TEXT NOT NULL DEFAULT 'en',
+                plan_code TEXT NOT NULL CHECK(plan_code IN ('basic','professional')),
+                billing_cycle TEXT NOT NULL CHECK(billing_cycle IN ('monthly','annual')),
+                amount INTEGER NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'ILS',
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(status IN ('pending','checkout_created','payment_processing',
+                                     'paid','failed','cancelled','refunded')),
+                provider_session_id TEXT UNIQUE,
+                provider_transaction_id TEXT UNIQUE,
+                checkout_url TEXT,
+                receipt_url TEXT,
+                next_billing_date TEXT,
+                requester_ip TEXT,
+                user_agent TEXT,
+                error_message TEXT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                paid_at DATETIME
+            );
+            CREATE INDEX IF NOT EXISTS idx_billing_orders_email
+                ON billing_orders(email, created_at);
+            CREATE INDEX IF NOT EXISTS idx_billing_orders_status
+                ON billing_orders(status, created_at);
+
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                subscription_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                plan_code TEXT NOT NULL,
+                billing_cycle TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                provider_subscription_id TEXT UNIQUE,
+                current_period_end TEXT,
+                billing_order_id INTEGER NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (billing_order_id) REFERENCES billing_orders(order_id)
+            );
+        ''')
+        conn.commit()
 
     @staticmethod
     def ensure_morning_schema(conn):
