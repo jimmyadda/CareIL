@@ -55,19 +55,6 @@ from package.morning import (
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
 )
-from package.meta_social import (
-    MetaSocialError,
-    approve_draft as approve_social_draft,
-    authorization_url as meta_authorization_url,
-    connection_status as meta_connection_status,
-    create_draft as create_social_draft,
-    disconnect as disconnect_meta,
-    exchange_code_and_find_page,
-    is_configured as meta_is_configured,
-    list_drafts as list_social_drafts,
-    publish_approved_draft,
-    save_connection as save_meta_connection,
-)
 from package.email_service import (
     careil_logo_attachment,
     encoded_attachment,
@@ -82,16 +69,6 @@ from package.legal_documents import (
 )
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
-from package.content_en import ENGLISH_ARTICLES, ENGLISH_FAQ
-from package.billing import (
-    PLANS as BILLING_PLANS,
-    accept_morning_payment,
-    create_checkout_order,
-    parse_morning_payment,
-    public_order,
-    selected_offer,
-    verify_morning_signature,
-)
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -220,11 +197,8 @@ def _legal_operator_context():
     support_email = os.environ.get('CAREIL_SUPPORT_EMAIL', 'support@careil.net')
     privacy_email = os.environ.get('CAREIL_PRIVACY_EMAIL', 'privacy@careil.net')
     return {
-        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'קארין עדה – CareIL'),
-        'operator_address': os.environ.get(
-            'CAREIL_LEGAL_ADDRESS', 'שחף 22, דירה 1, עתלית, ישראל'
-        ),
-        'operator_phone': os.environ.get('CAREIL_LEGAL_PHONE', '050-9127180'),
+        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'CareIL'),
+        'operator_address': os.environ.get('CAREIL_LEGAL_ADDRESS', ''),
         'support_email': support_email,
         'privacy_email': privacy_email,
         'accessibility_email': os.environ.get('CAREIL_ACCESSIBILITY_EMAIL', support_email),
@@ -313,8 +287,6 @@ def careil_workspace_lifecycle():
         'google_calendar_connect', 'google_calendar_callback',
         'google_calendar_sync_now', 'google_calendar_disconnect',
         'create_portal_invitation', 'request_account_deletion',
-        'meta_connect', 'meta_callback', 'meta_disconnect', 'social_create_draft',
-        'social_approve_draft', 'social_publish_draft',
     }
     if request.endpoint in blocked_endpoints:
         return render_template('demo-blocked.html'), 403
@@ -324,9 +296,7 @@ def careil_workspace_lifecycle():
 def protect_private_pages_from_indexing(response):
     public_paths = {'/', '/he', '/plans', '/he/plans', '/robots.txt', '/sitemap.xml'}
     public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
-    public_content = (request.path in ('/faq', '/he/faq')
-                      or request.path.startswith('/articles')
-                      or request.path.startswith('/he/articles'))
+    public_content = request.path == '/he/faq' or request.path.startswith('/he/articles')
     if (request.path not in public_paths and not public_legal and not public_content
             and not request.path.startswith('/static/')):
         response.headers['X-Robots-Tag'] = 'noindex, nofollow'
@@ -448,10 +418,7 @@ def close_db(exception=None):
 @app.route("/")
 def index_page():
     if not flask_login.current_user.is_authenticated:
-        return render_template(
-            'landing.html', lang='en', t=LANDING_CONTENT['en'],
-            **_legal_operator_context()
-        )
+        return render_template('landing.html', lang='en', t=LANDING_CONTENT['en'])
     logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")
     user = flask_login.current_user.get_dict()
     apps = Appointments()
@@ -465,141 +432,19 @@ def index_page():
 def landing_hebrew_page():
     if flask_login.current_user.is_authenticated:
         return redirect('/')
-    return render_template(
-        'landing.html', lang='he', t=LANDING_CONTENT['he'],
-        **_legal_operator_context()
-    )
+    return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
 
 
 @app.route('/plans')
 @app.route('/he/plans')
 def plans_page():
     lang = 'he' if request.path.startswith('/he/') else 'en'
-    return render_template('plans.html', lang=lang, billing_plans=BILLING_PLANS)
-
-
-def _billing_csrf_token():
-    if not session.get('billing_csrf'):
-        session['billing_csrf'] = secrets.token_urlsafe(32)
-    return session['billing_csrf']
-
-
-@app.route('/checkout', methods=['GET', 'POST'])
-def checkout_page():
-    language = 'he' if request.values.get('lang') == 'he' else 'en'
-    plan_code = request.values.get('plan', 'basic').strip().lower()
-    billing_cycle = request.values.get('cycle', 'monthly').strip().lower()
-    try:
-        offer = selected_offer(plan_code, billing_cycle)
-    except ValueError:
-        abort(404)
-    alert = ''
-    if request.method == 'POST':
-        if not hmac.compare_digest(
-                request.form.get('csrf_token', ''), session.get('billing_csrf', '')):
-            abort(400)
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        full_name = ' '.join(filter(None, (first_name, last_name)))
-        email = request.form.get('email', '').strip().lower()
-        phone = request.form.get('phone', '').strip()
-        clinic_name = request.form.get('clinic_name', '').strip()
-        country = request.form.get('country', '').strip()
-        billing_address = request.form.get('billing_address', '').strip()
-        if (not first_name or not last_name or not phone or not country
-                or not billing_address or not email or '@' not in email):
-            alert = ('נא למלא את כל שדות החובה וכתובת אימייל תקינה.' if language == 'he'
-                     else 'Complete all required fields and enter a valid email address.')
-        elif request.form.get('accept_terms') != 'yes':
-            alert = ('יש לאשר את תנאי השימוש ומדיניות הפרטיות.' if language == 'he'
-                     else 'Accept the Terms and Privacy Policy to continue.')
-        else:
-            conn = _central_database()
-            try:
-                order_id, public_token, offer = create_checkout_order(
-                    conn, full_name=full_name, email=email, phone=phone,
-                    clinic_name=clinic_name, language=language,
-                    country=country, billing_address=billing_address,
-                    plan_code=plan_code, billing_cycle=billing_cycle,
-                    requester_ip=_visitor_ip_address(),
-                    user_agent=request.headers.get('User-Agent', ''),
-                )
-            finally:
-                conn.close()
-            session['billing_order_token'] = public_token
-            return render_template(
-                'checkout-provider-pending.html', lang=language, offer=offer,
-                order_id=order_id, public_token=public_token,
-                billing_ready=False,
-            ), 503
-    return render_template(
-        'checkout.html', lang=language, offer=offer,
-        csrf_token=_billing_csrf_token(), alert=alert,
-    ), (400 if alert else 200)
-
-
-@app.route('/checkout/status/<public_token>')
-def checkout_status(public_token):
-    conn = _central_database()
-    try:
-        order = public_order(conn, public_token)
-    finally:
-        conn.close()
-    if not order:
-        abort(404)
-    language = 'he' if order['language'] == 'he' else 'en'
-    return render_template('checkout-status.html', lang=language, order=order)
-
-
-@app.route('/api/webhooks/morning', methods=['POST'])
-def morning_billing_webhook():
-    """Receive signed Morning payment events for CareIL subscriptions."""
-    raw_body = request.get_data(cache=True)
-    secret = os.environ.get('MORNING_WEBHOOK_SECRET', '').strip()
-    signature = request.headers.get('x-webhook-signature', '')
-    if not verify_morning_signature(raw_body, signature, secret):
-        return jsonify({'ok': False, 'error': 'invalid signature'}), 401
-
-    topic = request.headers.get('x-webhook-topic', '').strip().lower()
-    delivery_id = request.headers.get('x-webhook-delivery-id', '').strip()
-    try:
-        payment = parse_morning_payment(raw_body, topic)
-        conn = _central_database()
-        try:
-            if delivery_id:
-                duplicate = conn.execute(
-                    'SELECT 1 FROM billing_webhook_deliveries WHERE delivery_id=?',
-                    (delivery_id,),
-                ).fetchone()
-                if duplicate:
-                    return jsonify({'ok': True, 'duplicate': True}), 200
-            order, newly_paid = accept_morning_payment(conn, payment)
-            if delivery_id:
-                conn.execute(
-                    '''INSERT INTO billing_webhook_deliveries
-                       (delivery_id,topic,provider_transaction_id,status)
-                       VALUES(?,?,?,'processed')''',
-                    (delivery_id, topic, payment['provider_transaction_id']),
-                )
-                conn.commit()
-        finally:
-            conn.close()
-        if newly_paid:
-            _provision_paid_order(order)
-        return jsonify({'ok': True, 'duplicate': not newly_paid}), 200
-    except (ValueError, sqlite3.IntegrityError) as error:
-        logger.warning('Rejected Morning billing webhook: %s', str(error))
-        return jsonify({'ok': False, 'error': 'event rejected'}), 422
+    return render_template('plans.html', lang=lang)
 
 
 @app.route('/he/articles')
 def hebrew_articles():
     return render_template('content-hub-he.html', articles=HEBREW_ARTICLES)
-
-
-@app.route('/articles')
-def english_articles():
-    return render_template('content-hub-en.html', articles=ENGLISH_ARTICLES)
 
 
 @app.route('/he/articles/<slug>')
@@ -618,22 +463,6 @@ def hebrew_article(slug):
     return render_template('article-he.html', article=article, slug=slug, schema=schema)
 
 
-@app.route('/articles/<slug>')
-def english_article(slug):
-    article = ENGLISH_ARTICLES.get(slug)
-    if not article:
-        abort(404)
-    schema = {
-        '@context': 'https://schema.org', '@type': 'Article',
-        'headline': article['title'], 'description': article['description'],
-        'inLanguage': 'en',
-        'mainEntityOfPage': f'https://www.careil.net/articles/{slug}',
-        'author': {'@type': 'Organization', 'name': 'CareIL'},
-        'publisher': {'@type': 'Organization', 'name': 'CareIL'},
-    }
-    return render_template('article-en.html', article=article, slug=slug, schema=schema)
-
-
 @app.route('/he/faq')
 def hebrew_faq():
     schema = {
@@ -650,28 +479,103 @@ def hebrew_faq():
     return render_template('faq-he.html', faq=HEBREW_FAQ, schema=schema)
 
 
-@app.route('/faq')
-def english_faq():
-    schema = {
-        '@context': 'https://schema.org', '@type': 'FAQPage',
-        'inLanguage': 'en',
-        'mainEntity': [
-            {
-                '@type': 'Question', 'name': question,
-                'acceptedAnswer': {'@type': 'Answer', 'text': answer},
-            }
-            for question, answer in ENGLISH_FAQ
-        ],
-    }
-    return render_template('faq-en.html', faq=ENGLISH_FAQ, schema=schema)
-
-
 def _access_token_hash(token):
     return hashlib.sha256(str(token).encode('utf-8')).hexdigest()
 
 
 def _central_database():
     return db_manager.connect_to_db(Globalsetting['DEFAULT_CLIENT_KEY'])
+
+
+def _whatsapp_phone_hash(phone):
+    if not phone:
+        return None
+    return hmac.new(
+        app.config['SECRET_KEY'].encode('utf-8'),
+        str(phone).encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+@app.route('/webhooks/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    """Verify Meta and accept signed WhatsApp test events without storing content."""
+    if request.method == 'GET':
+        verify_token = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', '')
+        supplied_token = request.args.get('hub.verify_token', '')
+        if (request.args.get('hub.mode') == 'subscribe' and verify_token
+                and hmac.compare_digest(supplied_token, verify_token)):
+            return request.args.get('hub.challenge', ''), 200, {'Content-Type': 'text/plain'}
+        return 'Webhook verification failed', 403
+
+    app_secret = os.environ.get('META_APP_SECRET', '')
+    if not app_secret:
+        logger.error('WhatsApp webhook rejected because META_APP_SECRET is missing')
+        return '', 503
+
+    raw_body = request.get_data(cache=True)
+    supplied_signature = request.headers.get('X-Hub-Signature-256', '')
+    expected_signature = 'sha256=' + hmac.new(
+        app_secret.encode('utf-8'), raw_body, hashlib.sha256
+    ).hexdigest()
+    if not supplied_signature or not hmac.compare_digest(
+            supplied_signature, expected_signature):
+        logger.warning('Rejected WhatsApp webhook with an invalid signature')
+        return '', 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return '', 400
+
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
+    events = []
+    for entry in payload.get('entry', []):
+        for change in entry.get('changes', []):
+            if change.get('field') != 'messages':
+                continue
+            value = change.get('value') or {}
+            phone_number_id = (value.get('metadata') or {}).get('phone_number_id')
+            for message in value.get('messages') or []:
+                message_id = message.get('id')
+                event_key = f"message:{message_id}" if message_id else f"payload:{payload_hash}"
+                events.append((
+                    event_key, payload_hash, phone_number_id, message_id,
+                    'incoming_message', None,
+                    _whatsapp_phone_hash(message.get('from')),
+                ))
+            for status in value.get('statuses') or []:
+                message_id = status.get('id')
+                delivery_status = status.get('status')
+                timestamp = status.get('timestamp', '')
+                event_key = (
+                    f"status:{message_id}:{delivery_status}:{timestamp}"
+                    if message_id else f"payload:{payload_hash}"
+                )
+                events.append((
+                    event_key, payload_hash, phone_number_id, message_id,
+                    'message_status', delivery_status,
+                    _whatsapp_phone_hash(status.get('recipient_id')),
+                ))
+
+    if not events:
+        events.append((
+            f"payload:{payload_hash}", payload_hash, None, None,
+            'other', None, None,
+        ))
+
+    conn = _central_database()
+    try:
+        conn.executemany(
+            """INSERT OR IGNORE INTO whatsapp_webhook_events
+               (event_key, payload_sha256, phone_number_id, message_id,
+                event_type, delivery_status, sender_phone_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            events,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return '', 200
 
 
 def _approved_access_request(token):
@@ -722,77 +626,6 @@ def _send_access_email(recipient, subject, content):
         email_brand_header() + content,
         attachments=[careil_logo_attachment(os.path.dirname(__file__))],
     )
-
-
-def _provision_paid_order(order):
-    """Create a one-time setup invitation and send payment notifications.
-
-    Called only after the billing adapter has verified a successful provider webhook.
-    """
-    raw_token = secrets.token_urlsafe(48)
-    expires = (_utc_now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
-    conn = _central_database()
-    try:
-        existing = conn.execute(
-            """SELECT request_id,status FROM access_requests WHERE email=?
-               ORDER BY request_id DESC LIMIT 1""",
-            (order['email'],),
-        ).fetchone()
-        if existing and existing['status'] == 'registered':
-            registration_url = url_for('login_page', _external=True)
-        else:
-            if existing:
-                conn.execute(
-                    """UPDATE access_requests SET full_name=?,phone=?,clinic_name=?,
-                              language=?,preferred_plan=?,status='approved',token_hash=?,
-                              token_expires_at=?,approved_at=CURRENT_TIMESTAMP,
-                              declined_at=NULL,used_at=NULL WHERE request_id=?""",
-                    (order['full_name'], order['phone'], order['clinic_name'],
-                     order['language'], order['plan_code'], _access_token_hash(raw_token),
-                     expires, existing['request_id']),
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO access_requests
-                       (full_name,email,phone,clinic_name,language,preferred_plan,status,
-                        token_hash,token_expires_at,approved_at,requester_ip,user_agent)
-                       VALUES(?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?)""",
-                    (order['full_name'], order['email'], order['phone'],
-                     order['clinic_name'], order['language'], order['plan_code'],
-                     _access_token_hash(raw_token), expires, order['requester_ip'],
-                     order['user_agent']),
-                )
-            registration_url = url_for('registration_page', token=raw_token, _external=True)
-        conn.commit()
-    finally:
-        conn.close()
-
-    cycle = 'Annual' if order['billing_cycle'] == 'annual' else 'Monthly'
-    receipt = (f'<p><a href="{html.escape(order["receipt_url"])}">View receipt</a></p>'
-               if order.get('receipt_url') else '')
-    next_charge = (f'<p>Next billing date: {html.escape(order["next_billing_date"])}</p>'
-                   if order.get('next_billing_date') else '')
-    _send_access_email(
-        order['email'], 'CareIL | Payment received and account setup',
-        f'<p>Hello {html.escape(order["full_name"])},</p>'
-        f'<p>Your payment for CareIL {html.escape(order["plan_code"].title())} '
-        f'({cycle}) was confirmed.</p>{receipt}{next_charge}'
-        f'<p><a href="{registration_url}" style="display:inline-block;padding:12px 18px;'
-        'border-radius:10px;background:#588157;color:white;text-decoration:none">'
-        'Set up your CareIL account</a></p>'
-        '<p>The setup link is personal, can be used once and is valid for seven days.</p>',
-    )
-    owner_email = os.environ.get('CAREIL_OWNER_EMAIL', '').strip()
-    if owner_email:
-        _send_access_email(
-            owner_email, 'CareIL | New paid customer',
-            f'<p><strong>{html.escape(order["full_name"])}</strong> '
-            f'({html.escape(order["email"])}) purchased '
-            f'<strong>{html.escape(order["plan_code"].title())} · {cycle}</strong>.</p>'
-            f'<p>Amount: ₪{order["amount"]} · Order #{order["order_id"]}</p>'
-            f'<p>Provider transaction: {html.escape(order.get("provider_transaction_id") or "Pending reference")}</p>',
-        )
-    return registration_url
 
 
 @app.route('/request-access', methods=['GET', 'POST'])
@@ -1385,14 +1218,10 @@ def sitemap_xml():
     urls = [
         'https://www.careil.net/', 'https://www.careil.net/he',
         'https://www.careil.net/plans', 'https://www.careil.net/he/plans',
-        'https://www.careil.net/articles', 'https://www.careil.net/faq',
         'https://www.careil.net/he/articles', 'https://www.careil.net/he/faq',
     ]
     urls.extend(
         f'https://www.careil.net/he/articles/{slug}' for slug in HEBREW_ARTICLES
-    )
-    urls.extend(
-        f'https://www.careil.net/articles/{slug}' for slug in ENGLISH_ARTICLES
     )
     for key in LEGAL_DOCUMENTS:
         urls.extend([
@@ -1854,20 +1683,6 @@ def morning_disconnect():
 @app.route('/patients/<int:pat_id>/appointments/<int:app_id>/receipt', methods=['POST'])
 @flask_login.login_required
 def create_appointment_receipt(pat_id, app_id):
-    return _create_morning_receipt(pat_id, app_id, default_tab='appointments')
-
-
-@app.route('/patients/<int:pat_id>/receipt', methods=['POST'])
-@flask_login.login_required
-def create_patient_receipt(pat_id):
-    app_id = request.form.get('app_id', type=int)
-    if app_id is None:
-        flash('Please select a completed appointment.', 'danger')
-        return redirect(url_for('patient_folder_Load', id=pat_id) + '#payments')
-    return _create_morning_receipt(pat_id, app_id, default_tab='payments')
-
-
-def _create_morning_receipt(pat_id, app_id, default_tab):
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
@@ -1888,10 +1703,7 @@ def _create_morning_receipt(pat_id, app_id, default_tab):
     except Exception:
         current_app.logger.exception('Morning receipt creation failed')
         flash('The receipt could not be issued. Please try again or check Morning Settings.', 'danger')
-    return_tab = request.form.get('return_tab', default_tab)
-    if return_tab not in {'appointments', 'payments'}:
-        return_tab = default_tab
-    return redirect(url_for('patient_folder_Load', id=pat_id) + '#' + return_tab)
+    return redirect(url_for('patient_folder_Load', id=pat_id) + '#appointments')
 
 
 @app.route('/admin/mail-settings', methods=['GET', 'POST'])
@@ -1979,200 +1791,6 @@ def update_clinic_info():
 @admin_only
 def admin_panel():
     return render_template('adminPanel.html', careil_owner=_careil_owner())
-
-
-def _require_careil_owner():
-    if not _careil_owner():
-        abort(403)
-
-
-def _meta_redirect_uri():
-    return os.environ.get('META_REDIRECT_URI') or url_for('meta_callback', _external=True)
-
-
-def _social_csrf_token():
-    if not session.get('social_csrf'):
-        session['social_csrf'] = secrets.token_urlsafe(32)
-    return session['social_csrf']
-
-
-def _valid_social_csrf():
-    return hmac.compare_digest(
-        request.form.get('csrf_token', ''), session.get('social_csrf', '')
-    )
-
-
-def _agent_api_authorized():
-    expected = os.environ.get('CAREIL_SOCIAL_AGENT_KEY', '')
-    header = request.headers.get('Authorization', '')
-    supplied = header[7:].strip() if header.startswith('Bearer ') else ''
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
-
-
-@app.route('/careil-admin/social')
-@flask_login.login_required
-def meta_social_settings():
-    _require_careil_owner()
-    conn = _central_database()
-    try:
-        connected = meta_connection_status(conn)
-        drafts = list_social_drafts(conn)
-    finally:
-        conn.close()
-    return render_template(
-        'meta-social.html', configured=meta_is_configured(), connected=connected,
-        drafts=drafts, csrf_token=_social_csrf_token(),
-    )
-
-
-@app.route('/meta/connect')
-@flask_login.login_required
-def meta_connect():
-    _require_careil_owner()
-    if not meta_is_configured():
-        return redirect(url_for('meta_social_settings', error='Meta credentials are not configured.'))
-    state = secrets.token_urlsafe(32)
-    session['meta_oauth_state'] = state
-    try:
-        return redirect(meta_authorization_url(_meta_redirect_uri(), state))
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-
-
-@app.route('/meta/callback')
-@flask_login.login_required
-def meta_callback():
-    _require_careil_owner()
-    expected_state = session.pop('meta_oauth_state', '')
-    if not expected_state or not hmac.compare_digest(request.args.get('state', ''), expected_state):
-        abort(400, description='Invalid Meta OAuth state')
-    if request.args.get('error'):
-        return redirect(url_for(
-            'meta_social_settings', error=request.args.get('error_description', 'Meta access was declined.')
-        ))
-    code = request.args.get('code', '')
-    if not code:
-        return redirect(url_for('meta_social_settings', error='Meta did not return an authorization code.'))
-    try:
-        page = exchange_code_and_find_page(code, _meta_redirect_uri())
-        conn = _central_database()
-        try:
-            user = flask_login.current_user.get_dict()
-            save_meta_connection(conn, page, user['userid'])
-        finally:
-            conn.close()
-    except MetaSocialError as error:
-        current_app.logger.warning('Meta connection failed: %s', error)
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    return redirect(url_for('meta_social_settings', connected='1'))
-
-
-@app.route('/meta/disconnect', methods=['POST'])
-@flask_login.login_required
-def meta_disconnect():
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        disconnect_meta(conn)
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', disconnected='1'))
-
-
-@app.route('/careil-admin/social/drafts', methods=['POST'])
-@flask_login.login_required
-def social_create_draft():
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        user = flask_login.current_user.get_dict()
-        create_social_draft(
-            conn, request.form.get('message'), request.form.get('image_url'), user['userid']
-        )
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', drafted='1'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/approve', methods=['POST'])
-@flask_login.login_required
-def social_approve_draft(draft_id):
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        user = flask_login.current_user.get_dict()
-        approve_social_draft(conn, draft_id, user['userid'], 'CareIL owner dashboard approval')
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', approved='1'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/publish', methods=['POST'])
-@flask_login.login_required
-def social_publish_draft(draft_id):
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        publish_approved_draft(conn, draft_id)
-    except MetaSocialError as error:
-        current_app.logger.warning('Meta publishing failed: %s', error)
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', published='1'))
-
-
-@app.route('/careil-api/social/drafts', methods=['POST'])
-def social_agent_create_draft():
-    if not _agent_api_authorized():
-        return jsonify({'error': 'Unauthorized'}), 401
-    payload = request.get_json(silent=True) or {}
-    conn = _central_database()
-    try:
-        draft_id = create_social_draft(
-            conn, payload.get('message'), payload.get('image_url'), 'CareIL marketing agent'
-        )
-    except MetaSocialError as error:
-        return jsonify({'error': str(error)}), 400
-    finally:
-        conn.close()
-    return jsonify({'draft_id': draft_id, 'status': 'draft'}), 201
-
-
-@app.route('/careil-api/social/drafts/<int:draft_id>/approve-and-publish', methods=['POST'])
-def social_agent_approve_and_publish(draft_id):
-    if not _agent_api_authorized():
-        return jsonify({'error': 'Unauthorized'}), 401
-    payload = request.get_json(silent=True) or {}
-    if payload.get('approval_confirmation') != 'APPROVED':
-        return jsonify({'error': 'Explicit approval_confirmation=APPROVED is required.'}), 400
-    approval_reference = str(payload.get('approval_reference') or '').strip()
-    if not approval_reference:
-        return jsonify({'error': 'approval_reference is required for the audit log.'}), 400
-    conn = _central_database()
-    try:
-        approve_social_draft(
-            conn, draft_id, 'CareIL marketing agent', approval_reference
-        )
-        post_id = publish_approved_draft(conn, draft_id)
-    except MetaSocialError as error:
-        current_app.logger.warning('Agent Meta publishing failed: %s', error)
-        return jsonify({'error': str(error)}), 400
-    finally:
-        conn.close()
-    return jsonify({'draft_id': draft_id, 'status': 'published', 'meta_post_id': post_id})
 
 def _availability_settings(client_key):
     defaults = {
@@ -2462,11 +2080,6 @@ def patient_folder_Load():
     }
     for appointment in appointments:
         appointment['receipt'] = receipts_by_appointment.get(appointment.get('app_id'))
-    unreceipted_past_appointments = [
-        appointment for appointment in appointments
-        if appointment.get('is_past')
-        and not (appointment.get('receipt') and appointment['receipt'].get('status') == 'issued')
-    ]
     payment_rows = sorted(
         receipts_by_appointment.values(),
         key=lambda row: (row.get('payment_date') or row.get('session_date') or ''),
@@ -2517,7 +2130,6 @@ def patient_folder_Load():
         morning_connected=bool(morning_connection_status(client_key)),
         morning_payment_types=MORNING_PAYMENT_TYPES,
         payment_rows=payment_rows, payment_summary=payment_summary,
-        unreceipted_past_appointments=unreceipted_past_appointments,
         morning_csrf_token=_morning_csrf_token(),
         today=datetime.date.today().isoformat(), alert=""
     )

@@ -62,8 +62,6 @@
     .patient-tab-panel[hidden] { display:none !important; }
     .clinical-card { max-width:980px; margin:18px auto; padding:24px; border:1px solid #dfe5d1; border-radius:18px; background:#fff; color:#35443d; }
     .clinical-card h3 { margin:0 0 18px; font-weight:800; }
-    .clinical-card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
-    .clinical-card-heading h3 { margin:0; }
     .clinical-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
     .clinical-form-grid .wide { grid-column:1/-1; }
     .clinical-card label { display:block; margin-bottom:6px; color:#355e3b; font-weight:700; }
@@ -383,14 +381,7 @@
         </section>
 
         <section class="clinical-card patient-tab-panel" data-patient-panel="payments" hidden>
-          <div class="clinical-card-heading">
-            <h3><span key="paymentsTitle" class="translate EN">Payments and receipts</span></h3>
-            {% if morning_connected and unreceipted_past_appointments %}
-            <button type="button" class="btn btn-success translate EN" key="issueReceipt" data-toggle="modal" data-target="#patientReceiptModal">Issue receipt</button>
-            {% elif not morning_connected %}
-            <a class="btn btn-default translate EN" key="connectMorning" href="/admin/morning">Connect Morning</a>
-            {% endif %}
-          </div>
+          <h3><span key="paymentsTitle" class="translate EN">Payments and receipts</span></h3>
           <div class="payment-summary">
             <div class="payment-stat"><span key="paymentsTotal" class="translate EN">Total documented payments</span><strong>₪{{ '%.2f'|format(payment_summary['total']) }}</strong></div>
             <div class="payment-stat"><span key="receiptsIssued" class="translate EN">Receipts issued</span><strong>{{ payment_summary['receipt_count'] }}</strong></div>
@@ -404,44 +395,7 @@
             </tr>{% endfor %}</tbody>
           </table>
           {% else %}<p key="paymentsEmpty" class="translate EN">No payments have been documented for this client yet.</p>{% endif %}
-          {% if morning_connected and not unreceipted_past_appointments %}
-          <p class="help-block translate EN" key="noReceiptAppointments">There are no completed appointments awaiting a receipt.</p>
-          {% endif %}
           <p class="help-block"><span key="paymentsScope" class="translate EN">This list includes receipts issued through CareIL. Documents created directly in Morning require a separate synchronization.</span></p>
-
-          {% if morning_connected and unreceipted_past_appointments %}
-          <div id="patientReceiptModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="patientReceiptTitle">
-            <div class="modal-dialog" role="document"><div class="modal-content">
-              <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="patientReceiptTitle" class="modal-title translate EN" key="issueMorningReceipt">Issue Morning receipt</h4></div>
-              <form method="post" action="/patients/{{ patient['pat_id'] }}/receipt">
-                <div class="modal-body">
-                  <input type="hidden" name="csrf_token" value="{{ morning_csrf_token }}">
-                  <input type="hidden" name="return_tab" value="payments">
-                  <p><strong>Client:</strong> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</p>
-                  <div class="form-group">
-                    <label for="receiptAppointment"><span class="translate EN" key="completedAppointment">Completed appointment</span></label>
-                    <select id="receiptAppointment" class="form-control" name="app_id" required>
-                      <option class="translate EN" key="selectAppointment" value="">Select an appointment</option>
-                      {% for appointment in unreceipted_past_appointments %}
-                      <option value="{{ appointment['app_id'] }}">{{ appointment['appointment_date'] }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div class="form-group"><label for="patientReceiptAmount"><span class="translate EN" key="amountIls">Amount (ILS)</span></label><input id="patientReceiptAmount" class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div>
-                  <div class="form-group"><label for="patientReceiptMethod"><span class="translate EN" key="paymentMethod">Payment method</span></label><select id="patientReceiptMethod" class="form-control" name="payment_type" required>{% for code, label in morning_payment_types.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
-                  <div class="form-group"><label for="patientReceiptDate"><span class="translate EN" key="paymentDate">Payment date</span></label><input id="patientReceiptDate" class="form-control" name="payment_date" type="date" max="{{ today }}" value="{{ today }}" required></div>
-                  <div class="form-group"><label for="patientReceiptLanguage"><span class="translate EN" key="receiptLanguage">Receipt language</span></label><select id="patientReceiptLanguage" class="form-control" name="language"><option value="he">עברית</option><option value="en">English</option></select></div>
-                  {% if patient['pat_email'] %}
-                  <p class="help-block">Morning will create the digitally signed receipt using the clinic's Morning document design and email it to {{ patient['pat_email'] }}, with the receipt attached.</p>
-                  {% else %}
-                  <p class="help-block text-warning">No email address is saved for this client. Morning will create the receipt, but cannot email it. Add an email address under Details first if delivery is required.</p>
-                  {% endif %}
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-default translate EN" key="cancel" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success translate EN" key="issueReceipt">Issue receipt</button></div>
-              </form>
-            </div></div>
-          </div>
-          {% endif %}
         </section>
 
           <!-- Records section-->
@@ -575,18 +529,13 @@
              <form method="post" action="/patients/{{ patient['pat_id'] }}/appointments/{{ appointment['app_id'] }}/receipt">
                <div class="modal-body">
                  <input type="hidden" name="csrf_token" value="{{ morning_csrf_token }}">
-                 <input type="hidden" name="return_tab" value="appointments">
                  <p><strong>Client:</strong> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</p>
                  <p><strong>Session:</strong> {{ appointment['appointment_date'] }}</p>
                  <div class="form-group"><label>Amount (ILS)</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div>
                  <div class="form-group"><label>Payment method</label><select class="form-control" name="payment_type" required>{% for code, label in morning_payment_types.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
                  <div class="form-group"><label>Payment date</label><input class="form-control" name="payment_date" type="date" max="{{ today }}" value="{{ today }}" required></div>
                  <div class="form-group"><label>Receipt language</label><select class="form-control" name="language"><option value="he">עברית</option><option value="en">English</option></select></div>
-                 {% if patient['pat_email'] %}
-                 <p class="help-block">The receipt item will include the session date. Morning will email the signed receipt to {{ patient['pat_email'] }} and attach it to the message.</p>
-                 {% else %}
-                 <p class="help-block text-warning">No email address is saved for this client. Morning will create the receipt, but cannot email it.</p>
-                 {% endif %}
+                 <p class="help-block">The receipt item will include the session date. Morning will email the signed receipt to the client's saved email address.</p>
                </div>
                <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Issue receipt</button></div>
              </form>
