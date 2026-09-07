@@ -24,6 +24,9 @@ import sqlite3
 import datetime
 import uuid
 import hashlib
+import re
+import urllib.error
+import urllib.request
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_restful import Resource, Api
@@ -617,6 +620,104 @@ def _access_csrf_token():
     if not session.get('access_admin_csrf'):
         session['access_admin_csrf'] = secrets.token_urlsafe(32)
     return session['access_admin_csrf']
+
+
+def _whatsapp_test_csrf_token():
+    if not session.get('whatsapp_test_csrf'):
+        session['whatsapp_test_csrf'] = secrets.token_urlsafe(32)
+    return session['whatsapp_test_csrf']
+
+
+def _normalize_whatsapp_test_phone(value):
+    """Return an international digits-only test recipient without persisting it."""
+    raw = str(value or '').strip()
+    if raw.startswith('+'):
+        raw = raw[1:]
+    digits = re.sub(r'[^0-9]', '', raw)
+    if digits.startswith('00'):
+        digits = digits[2:]
+    elif digits.startswith('0'):
+        digits = '972' + digits[1:]
+    if not 8 <= len(digits) <= 15:
+        raise ValueError('Enter a valid mobile number, including the country code.')
+    return digits
+
+
+def _send_whatsapp_test_template(recipient):
+    access_token = os.environ.get('WHATSAPP_ACCESS_TOKEN_TEST', '').strip()
+    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID_TEST', '').strip()
+    api_version = os.environ.get('WHATSAPP_API_VERSION', 'v26.0').strip()
+    if not access_token or not phone_number_id:
+        raise RuntimeError('WhatsApp test credentials are not configured in Railway.')
+    if not re.fullmatch(r'v\d+\.\d+', api_version):
+        raise RuntimeError('WHATSAPP_API_VERSION is invalid.')
+
+    endpoint = f'https://graph.facebook.com/{api_version}/{phone_number_id}/messages'
+    body = json.dumps({
+        'messaging_product': 'whatsapp',
+        'to': recipient,
+        'type': 'template',
+        'template': {
+            'name': 'hello_world',
+            'language': {'code': 'en_US'},
+        },
+    }).encode('utf-8')
+    api_request = urllib.request.Request(
+        endpoint,
+        data=body,
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(api_request, timeout=15) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as error:
+        try:
+            details = json.loads(error.read().decode('utf-8'))
+            message = details.get('error', {}).get('message', '')
+        except (ValueError, AttributeError):
+            message = ''
+        raise RuntimeError(message or 'Meta rejected the test message.') from error
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise RuntimeError('Could not reach Meta. Please try again.') from error
+
+    message_id = ((result.get('messages') or [{}])[0].get('id'))
+    if not message_id:
+        raise RuntimeError('Meta did not return a message ID.')
+    return message_id
+
+
+@app.route('/careil-admin/whatsapp-test', methods=['GET', 'POST'])
+@flask_login.login_required
+def careil_whatsapp_test():
+    if not _careil_owner():
+        abort(403)
+    notice = ''
+    error = ''
+    if request.method == 'POST':
+        supplied = request.form.get('csrf_token', '')
+        expected = session.get('whatsapp_test_csrf', '')
+        if not expected or not hmac.compare_digest(supplied, expected):
+            abort(400)
+        last_sent = float(session.get('whatsapp_test_last_sent', 0) or 0)
+        if _utc_now().timestamp() - last_sent < 5:
+            error = 'Please wait a few seconds before sending another test.'
+        else:
+            try:
+                recipient = _normalize_whatsapp_test_phone(request.form.get('phone'))
+                message_id = _send_whatsapp_test_template(recipient)
+                session['whatsapp_test_last_sent'] = _utc_now().timestamp()
+                notice = f'Test accepted by Meta. Message ID: {message_id}'
+            except (ValueError, RuntimeError) as exc:
+                error = str(exc)
+        session['whatsapp_test_csrf'] = secrets.token_urlsafe(32)
+    return render_template(
+        'whatsapp-test-admin.html', csrf_token=_whatsapp_test_csrf_token(),
+        notice=notice, error=error,
+    )
 
 
 def _send_access_email(recipient, subject, content):

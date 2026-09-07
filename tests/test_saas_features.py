@@ -158,6 +158,61 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertEqual(rows[0]['delivery_status'], 'delivered')
         self.assertNotIn('972501234567', json.dumps(rows))
 
+    def test_owner_whatsapp_test_sends_without_storing_recipient(self):
+        class FakeMetaResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"messages":[{"id":"wamid.test-outbound"}]}'
+
+        captured = {}
+
+        def fake_urlopen(api_request, timeout):
+            captured['url'] = api_request.full_url
+            captured['body'] = json.loads(api_request.data.decode('utf-8'))
+            captured['authorization'] = api_request.headers.get('Authorization')
+            captured['timeout'] = timeout
+            return FakeMetaResponse()
+
+        with self.client.session_transaction() as browser_session:
+            browser_session['whatsapp_test_csrf'] = 'whatsapp-csrf-test'
+        with patch.object(server, '_careil_owner', return_value=True), \
+                patch.object(server.urllib.request, 'urlopen', side_effect=fake_urlopen), \
+                patch.dict(server.app.config, {'LOGIN_DISABLED': True}), \
+                patch.dict(os.environ, {
+                    'WHATSAPP_ACCESS_TOKEN_TEST': 'private-test-token',
+                    'WHATSAPP_PHONE_NUMBER_ID_TEST': '123456789',
+                    'WHATSAPP_API_VERSION': 'v26.0',
+                }):
+            response = self.client.post('/careil-admin/whatsapp-test', data={
+                'csrf_token': 'whatsapp-csrf-test',
+                'phone': '050-123-4567',
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'wamid.test-outbound', response.data)
+        self.assertEqual(captured['url'], 'https://graph.facebook.com/v26.0/123456789/messages')
+        self.assertEqual(captured['body']['to'], '972501234567')
+        self.assertEqual(captured['body']['template']['name'], 'hello_world')
+        self.assertEqual(captured['authorization'], 'Bearer private-test-token')
+        self.assertNotIn(b'value="972501234567"', response.data)
+
+    def test_whatsapp_test_requires_owner_and_valid_csrf(self):
+        with patch.dict(server.app.config, {'LOGIN_DISABLED': True}), \
+                patch.object(server, '_careil_owner', return_value=False):
+            forbidden = self.client.get('/careil-admin/whatsapp-test')
+        with patch.dict(server.app.config, {'LOGIN_DISABLED': True}), \
+                patch.object(server, '_careil_owner', return_value=True):
+            bad_csrf = self.client.post('/careil-admin/whatsapp-test', data={
+                'csrf_token': 'wrong', 'phone': '+972501234567',
+            })
+        self.assertEqual(forbidden.status_code, 403)
+        self.assertEqual(bad_csrf.status_code, 400)
+
     def test_hebrew_content_and_faq_are_public_and_searchable(self):
         articles = self.client.get('/he/articles')
         faq = self.client.get('/he/faq')
