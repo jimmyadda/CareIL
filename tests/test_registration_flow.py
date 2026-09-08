@@ -22,7 +22,8 @@ class RegistrationFlowTest(unittest.TestCase):
     @patch.object(server, 'ensure_single_therapist')
     @patch.object(server, 'create_account', return_value=1)
     @patch.object(server, '_approved_access_request', return_value={
-        'request_id': 7, 'full_name': 'Jimmy Adda', 'email': 'jimmy@example.com'
+        'request_id': 7, 'full_name': 'Jimmy Adda', 'email': 'jimmy@example.com',
+        'preferred_plan': 'professional',
     })
     def test_registration_does_not_log_in_before_verification(
         self, approved_access, create_account, ensure_single_therapist, login_user
@@ -46,6 +47,7 @@ class RegistrationFlowTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'/enter_email', response.data)
+        self.assertEqual(create_account.call_args.args[0]['plan_code'], 'professional')
         login_user.assert_not_called()
 
     @patch.object(server, '_approved_access_request', return_value={

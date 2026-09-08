@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Clinic plans | CareIL</title>
+  <link rel="stylesheet" href="/static/account-lifecycle.css?v=2">
+  <style>
+    .clinics{display:grid;gap:14px}.clinic{padding:18px;border:1px solid #dce3d7;border-radius:14px}.clinic h2{font-size:18px;margin:0 0 8px}.meta{color:#65716b;font-size:14px;overflow-wrap:anywhere}.plan-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:14px}.plan-form label{flex:1;min-width:180px}.plan-form select{width:100%;padding:11px;border:1px solid #bcc9ba;border-radius:10px;background:#fff}.back{display:inline-block;margin-top:18px;color:#315a40}
+  </style>
+</head>
+<body>
+<main class="lifecycle">
+  <section class="lifecycle-card" style="max-width:900px">
+    <a class="lifecycle-logo" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a>
+    <h1>Clinic plans</h1>
+    <p>Choose which registered clinics use the Basic or Professional plan.</p>
+    {% if message %}<p class="alert" role="status">{{ message }}</p>{% endif %}
+    <div class="clinics">
+      {% for clinic in clinics %}
+      <article class="clinic">
+        <h2>{{ clinic['name'] or clinic['userid'] }}</h2>
+        <p class="meta">Username: {{ clinic['userid'] }}<br>Email: {{ clinic['email'] }}<br>Current plan: <strong>{{ clinic['plan_code']|title }}</strong></p>
+        <form class="plan-form" method="post" action="/careil-admin/clinics/{{ clinic['client_key'] }}/plan">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Plan
+            <select name="plan_code">
+              <option value="basic"{% if clinic['plan_code'] == 'basic' %} selected{% endif %}>Basic</option>
+              <option value="professional"{% if clinic['plan_code'] == 'professional' %} selected{% endif %}>Professional</option>
+            </select>
+          </label>
+          <button class="btn" type="submit">Save plan</button>
+        </form>
+      </article>
+      {% else %}
+      <p>No registered clinics were found.</p>
+      {% endfor %}
+    </div>
+    <a class="back" href="/admin/adminPanel">Back to settings</a>
+  </section>
+</main>
+</body>
+</html>

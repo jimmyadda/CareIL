@@ -213,6 +213,45 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertEqual(forbidden.status_code, 403)
         self.assertEqual(bad_csrf.status_code, 400)
 
+    def test_owner_can_assign_registered_clinic_professional_plan(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = temporary_manager(temp_dir)
+            manager.create_default_database()
+            client_key = 'client_' + hashlib.sha256(b'Karin').hexdigest()
+            manager.create_client_database(client_key)
+            conn = manager.connect_to_db(client_key)
+            conn.execute(
+                """INSERT INTO accounts
+                   (userid, name, email, client_key, plan_code, email_verified)
+                   VALUES(?, ?, ?, ?, 'basic', 1)""",
+                ('Karin', 'Karin Adda', 'karin@example.com', client_key),
+            )
+            conn.commit()
+            conn.close()
+            with self.client.session_transaction() as browser_session:
+                browser_session['clinic_plan_csrf'] = 'plan-csrf-test'
+            with patch.object(server, 'db_manager', manager), \
+                    patch.object(server, '_careil_owner', return_value=True), \
+                    patch.dict(server.app.config, {'LOGIN_DISABLED': True}):
+                page = self.client.get('/careil-admin/clinics')
+                changed = self.client.post(
+                    f'/careil-admin/clinics/{client_key}/plan',
+                    data={
+                        'csrf_token': 'plan-csrf-test',
+                        'plan_code': 'professional',
+                    },
+                )
+            conn = manager.connect_to_db(client_key)
+            account = conn.execute(
+                "SELECT plan_code, plan_updated_at FROM accounts WHERE userid='Karin'"
+            ).fetchone()
+            conn.close()
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'Karin Adda', page.data)
+        self.assertEqual(changed.status_code, 302)
+        self.assertEqual(account['plan_code'], 'professional')
+        self.assertTrue(account['plan_updated_at'])
+
     def test_hebrew_content_and_faq_are_public_and_searchable(self):
         articles = self.client.get('/he/articles')
         faq = self.client.get('/he/faq')

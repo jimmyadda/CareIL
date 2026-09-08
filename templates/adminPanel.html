@@ -71,6 +71,15 @@
                     <div class="col-md-6">
                         <div class="card border-secondary text-center shadow-sm">
                             <div class="card-body">
+                                <h5 class="card-title">Clinic Plans</h5>
+                                <p class="card-text">Assign Basic or Professional access to registered clinics.</p>
+                                <a href="/careil-admin/clinics" class="btn btn-primary">Manage Clinic Plans</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-secondary text-center shadow-sm">
+                            <div class="card-body">
                                 <h5 class="card-title">WhatsApp Test</h5>
                                 <p class="card-text">Send Meta's approved test template to a verified test recipient.</p>
                                 <a href="/careil-admin/whatsapp-test" class="btn btn-primary">Open WhatsApp Test</a>
@@ -99,7 +108,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-6">
                         <div class="card border-secondary text-center shadow-sm">
                             <div class="card-body">
@@ -120,6 +128,7 @@
                         </div>
                     </div>
 
+                    {% if account_plan == 'professional' %}
                     <div class="col-md-6">
                         <div class="card border-secondary text-center shadow-sm">
                             <div class="card-body">
@@ -129,7 +138,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-6">
                         <div class="card border-secondary text-center shadow-sm">
                             <div class="card-body">
@@ -139,6 +147,17 @@
                             </div>
                         </div>
                     </div>
+                    {% else %}
+                    <div class="col-md-6">
+                        <div class="card border-secondary text-center shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">Professional features</h5>
+                                <p class="card-text">Google Calendar synchronization and Morning receipts are available with Professional.</p>
+                                <a href="/plans" class="btn btn-primary">View Professional</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <div class="col-md-6">
                         <div class="card border-danger text-center shadow-sm">

@@ -248,6 +248,8 @@ class DatabaseManager:
             'deletion_purge_at': "DATETIME",
             'deletion_token_hash': "TEXT",
             'is_demo': "INTEGER NOT NULL DEFAULT 0",
+            'plan_code': "TEXT NOT NULL DEFAULT 'basic'",
+            'plan_updated_at': "DATETIME",
         }
         changed = False
         for column, definition in migrations.items():
@@ -408,7 +410,9 @@ class DatabaseManager:
             deletion_purge_at DATETIME,
             deletion_token_hash TEXT,
             is_demo INTEGER NOT NULL DEFAULT 0,
-            marketing_consent INTEGER NOT NULL DEFAULT 0
+            marketing_consent INTEGER NOT NULL DEFAULT 0,
+            plan_code TEXT NOT NULL DEFAULT 'basic',
+            plan_updated_at DATETIME
         );
         CREATE TABLE IF NOT EXISTS users (
             userid TEXT PRIMARY KEY,

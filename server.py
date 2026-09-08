@@ -616,6 +616,63 @@ def _careil_owner():
             or (user.get('email') or '').lower() in allowed_emails)
 
 
+def _account_plan(client_key, userid):
+    if str(client_key).startswith('demo_'):
+        return 'professional'
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        row = conn.execute(
+            'SELECT plan_code FROM accounts WHERE userid=? LIMIT 1', (userid,)
+        ).fetchone()
+    finally:
+        conn.close()
+    plan = (row or {}).get('plan_code', 'basic')
+    return plan if plan in {'basic', 'professional'} else 'basic'
+
+
+def _current_account_plan():
+    user = flask_login.current_user.get_dict()
+    return _account_plan(user['client_key'], user['userid'])
+
+
+def _require_professional_plan():
+    if _current_account_plan() != 'professional':
+        return render_template('professional-required.html'), 403
+    return None
+
+
+def _clinic_plan_csrf_token():
+    if not session.get('clinic_plan_csrf'):
+        session['clinic_plan_csrf'] = secrets.token_urlsafe(32)
+    return session['clinic_plan_csrf']
+
+
+def _registered_clinics():
+    clinics = []
+    base_path = pathlib.Path(db_manager.base_db_path)
+    if not base_path.is_dir():
+        return clinics
+    for db_path in sorted(base_path.glob('CareIL_client_*.db')):
+        client_key = _database_client_key(db_path.name)
+        if not client_key or not re.fullmatch(r'client_[0-9a-f]{64}', client_key):
+            continue
+        conn = None
+        try:
+            conn = db_manager.connect_to_db(client_key)
+            rows = conn.execute(
+                """SELECT userid, name, email, client_key, plan_code, plan_updated_at
+                   FROM accounts WHERE COALESCE(is_demo, 0)=0 ORDER BY userid"""
+            ).fetchall()
+        except (sqlite3.Error, OSError):
+            current_app.logger.exception('Could not read clinic plan metadata')
+            continue
+        finally:
+            if conn is not None:
+                conn.close()
+        clinics.extend(rows)
+    return clinics
+
+
 def _access_csrf_token():
     if not session.get('access_admin_csrf'):
         session['access_admin_csrf'] = secrets.token_urlsafe(32)
@@ -814,6 +871,56 @@ def careil_access_requests():
     )
 
 
+@app.route('/careil-admin/clinics')
+@flask_login.login_required
+def careil_clinics():
+    if not _careil_owner():
+        abort(403)
+    return render_template(
+        'clinics-admin.html', clinics=_registered_clinics(),
+        csrf_token=_clinic_plan_csrf_token(),
+        message=request.args.get('message', ''),
+    )
+
+
+@app.route('/careil-admin/clinics/<client_key>/plan', methods=['POST'])
+@flask_login.login_required
+def careil_clinic_plan(client_key):
+    if not _careil_owner():
+        abort(403)
+    supplied = request.form.get('csrf_token', '')
+    expected = session.get('clinic_plan_csrf', '')
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(400)
+    if not re.fullmatch(r'client_[0-9a-f]{64}', client_key):
+        abort(404)
+    plan_code = request.form.get('plan_code', '').strip().lower()
+    if plan_code not in {'basic', 'professional'}:
+        abort(400)
+    db_path = pathlib.Path(db_manager.get_db_path(client_key))
+    try:
+        db_path.resolve().relative_to(pathlib.Path(db_manager.base_db_path).resolve())
+    except ValueError:
+        abort(404)
+    if not db_path.is_file():
+        abort(404)
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        updated = conn.execute(
+            'UPDATE accounts SET plan_code=?, plan_updated_at=CURRENT_TIMESTAMP',
+            (plan_code,),
+        ).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    if not updated:
+        abort(404)
+    session['clinic_plan_csrf'] = secrets.token_urlsafe(32)
+    return redirect(url_for(
+        'careil_clinics', message=f'Clinic plan updated to {plan_code.title()}.'
+    ))
+
+
 @app.route('/careil-admin/access-requests/<int:request_id>/<action>', methods=['POST'])
 @flask_login.login_required
 def careil_access_request_action(request_id, action):
@@ -896,6 +1003,10 @@ def registration_request():
     form = dict(request.values)
     form['name'] = invitation['full_name']
     form['email'] = invitation['email']
+    preferred_plan = invitation.get('preferred_plan', 'basic')
+    form['plan_code'] = (
+        preferred_plan if preferred_plan in {'basic', 'professional'} else 'basic'
+    )
     required_legal = ('accept_privacy', 'accept_terms', 'accept_dpa')
     if not all(request.form.get(field) == 'yes' for field in required_legal):
         return render_template(
@@ -1638,6 +1749,9 @@ def _google_calendar_return_path(value):
 @app.route('/admin/google-calendar')
 @admin_only
 def google_calendar_settings():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     configured = google_calendar_is_configured()
     connected = google_calendar_connection_status(user['client_key'], user['userid']) if configured else None
@@ -1649,6 +1763,9 @@ def google_calendar_settings():
 @app.route('/google-calendar/connect')
 @admin_only
 def google_calendar_connect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not google_calendar_is_configured():
         return redirect(url_for('google_calendar_settings', error='Google credentials are not configured'))
     return_path = _google_calendar_return_path(request.args.get('next'))
@@ -1672,6 +1789,9 @@ def google_calendar_connect():
 @app.route('/google-calendar/callback')
 @admin_only
 def google_calendar_callback():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     expected_state = session.pop('google_oauth_state', None)
     code_verifier = session.pop('google_oauth_code_verifier', None)
     if not expected_state or request.args.get('state') != expected_state:
@@ -1703,6 +1823,9 @@ def google_calendar_callback():
 @app.route('/google-calendar/sync', methods=['POST'])
 @admin_only
 def google_calendar_sync_now():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     return_to_calendar = request.form.get('next') == '/calendar'
     if not google_calendar_is_configured():
@@ -1728,6 +1851,9 @@ def google_calendar_sync_now():
 @app.route('/google-calendar/disconnect', methods=['POST'])
 @admin_only
 def google_calendar_disconnect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     disconnect_google_calendar(user['client_key'], user['userid'])
     return redirect(url_for('google_calendar_settings', disconnected='1'))
@@ -1748,6 +1874,9 @@ def _valid_morning_csrf():
 @app.route('/admin/morning', methods=['GET', 'POST'])
 @admin_only
 def morning_settings():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     client_key = user['client_key']
     if request.method == 'POST':
@@ -1774,6 +1903,9 @@ def morning_settings():
 @app.route('/admin/morning/disconnect', methods=['POST'])
 @admin_only
 def morning_disconnect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
@@ -1784,6 +1916,9 @@ def morning_disconnect():
 @app.route('/patients/<int:pat_id>/appointments/<int:app_id>/receipt', methods=['POST'])
 @flask_login.login_required
 def create_appointment_receipt(pat_id, app_id):
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
@@ -1891,7 +2026,10 @@ def update_clinic_info():
 @app.route('/admin/adminPanel', methods=['GET'])
 @admin_only
 def admin_panel():
-    return render_template('adminPanel.html', careil_owner=_careil_owner())
+    return render_template(
+        'adminPanel.html', careil_owner=_careil_owner(),
+        account_plan=_current_account_plan(),
+    )
 
 def _availability_settings(client_key):
     defaults = {
@@ -2228,7 +2366,10 @@ def patient_folder_Load():
         diagnosis_types=diagnosis_types, patient_diagnoses=patient_diagnoses,
         questionnaire_templates=questionnaire_templates,
         patient_questionnaires=patient_questionnaires,
-        morning_connected=bool(morning_connection_status(client_key)),
+        morning_connected=(
+            _account_plan(client_key, user['userid']) == 'professional'
+            and bool(morning_connection_status(client_key))
+        ),
         morning_payment_types=MORNING_PAYMENT_TYPES,
         payment_rows=payment_rows, payment_summary=payment_summary,
         morning_csrf_token=_morning_csrf_token(),

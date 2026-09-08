@@ -61,14 +61,15 @@ def create_account(userpassed):
       "client_key" : client_key
     }
     ok = database_write(sql,record)
-    sql = f"Insert into accounts (userid,salt,password,email,name,client_key) Values (:userid,:salt,:password,:email,:name,:client_key);"
+    sql = f"Insert into accounts (userid,salt,password,email,name,client_key,plan_code,plan_updated_at) Values (:userid,:salt,:password,:email,:name,:client_key,:plan_code,CURRENT_TIMESTAMP);"
     record ={
       "userid": userid,
       "salt": salt,
       "password": key,
       "email": email,
       "name": name,
-      "client_key" : client_key
+      "client_key" : client_key,
+      "plan_code": userpassed.get('plan_code', 'basic')
     }
     ok = database_write(sql,record)
     return ok
