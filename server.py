@@ -48,9 +48,11 @@ from package.google_calendar import (
     sync_all_upcoming as sync_all_google_appointments,
 )
 from package.morning import (
+    activate_environment as activate_morning_environment,
     MorningError,
     PAYMENT_TYPES as MORNING_PAYMENT_TYPES,
     connection_status as morning_connection_status,
+    connection_statuses as morning_connection_statuses,
     disconnect as disconnect_morning,
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
@@ -962,6 +964,7 @@ def registration_request():
     form = dict(request.values)
     form['name'] = invitation['full_name']
     form['email'] = invitation['email']
+    form['plan_code'] = invitation.get('preferred_plan') or 'basic'
     required_legal = ('accept_privacy', 'accept_terms', 'accept_dpa')
     if not all(request.form.get(field) == 'yes' for field in required_legal):
         return render_template(
@@ -1826,6 +1829,13 @@ def morning_settings():
         client_id = request.form.get('client_id', '').strip()
         client_secret = request.form.get('client_secret', '').strip()
         environment = request.form.get('environment', 'production')
+        action = request.form.get('action', 'connect')
+        if action == 'activate':
+            try:
+                activate_morning_environment(client_key, environment)
+            except MorningError as error:
+                return redirect(url_for('morning_settings', error=str(error)))
+            return redirect(url_for('morning_settings', activated=environment))
         if not client_id or not client_secret:
             return redirect(url_for('morning_settings', error='Enter both Morning API key values.'))
         try:
@@ -1837,6 +1847,7 @@ def morning_settings():
     return render_template(
         'morning-settings.html', user=user,
         connected=morning_connection_status(client_key),
+        connections=morning_connection_statuses(client_key),
         csrf_token=_morning_csrf_token(),
     )
 
@@ -1847,7 +1858,7 @@ def morning_disconnect():
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
-    disconnect_morning(user['client_key'])
+    disconnect_morning(user['client_key'], request.form.get('environment'))
     return redirect(url_for('morning_settings', disconnected='1'))
 
 
@@ -1984,6 +1995,118 @@ def admin_panel():
 def _require_careil_owner():
     if not _careil_owner():
         abort(403)
+
+
+def _clinic_keys():
+    """Return only database-backed tenant keys; never trust a key from a form."""
+    keys = {Globalsetting['DEFAULT_CLIENT_KEY']}
+    base_path = pathlib.Path(db_manager.base_db_path)
+    if base_path.is_dir():
+        for db_path in base_path.glob('CareIL_*.db'):
+            client_key = _database_client_key(db_path.name)
+            if client_key and not client_key.startswith('demo_'):
+                keys.add(client_key)
+    return sorted(keys)
+
+
+def _careil_clinics():
+    central = _central_database()
+    try:
+        subscriptions = {
+            row['email'].strip().lower(): row
+            for row in central.execute(
+                "SELECT email,plan_code,billing_cycle,status,current_period_end "
+                "FROM subscriptions ORDER BY updated_at DESC"
+            ).fetchall()
+        }
+    finally:
+        central.close()
+    clinics = []
+    for client_key in _clinic_keys():
+        try:
+            conn = db_manager.connect_to_db(client_key)
+            accounts = conn.execute('''
+                SELECT userid,email,name,client_key,plan_code,plan_updated_at,
+                       email_verified,is_demo
+                FROM accounts ORDER BY name,userid
+            ''').fetchall()
+            conn.close()
+        except (FileNotFoundError, sqlite3.Error):
+            current_app.logger.exception('Could not read clinic %s', client_key)
+            continue
+        for account in accounts:
+            email_key = (account.get('email') or '').strip().lower()
+            subscription = subscriptions.get(email_key)
+            effective_plan = (
+                subscription['plan_code']
+                if subscription and subscription['status'] == 'active'
+                else account.get('plan_code') or 'basic'
+            )
+            clinics.append({
+                **account,
+                'client_key': client_key,
+                'effective_plan': effective_plan,
+                'subscription': subscription,
+            })
+    return sorted(clinics, key=lambda row: ((row.get('name') or '').lower(), row['client_key']))
+
+
+@app.route('/careil-admin/clinics')
+@flask_login.login_required
+def careil_clinics():
+    _require_careil_owner()
+    return render_template(
+        'careil-clinics.html', clinics=_careil_clinics(),
+        csrf_token=_access_csrf_token(), message=request.args.get('message', ''),
+    )
+
+
+@app.route('/careil-admin/clinics/plan', methods=['POST'])
+@flask_login.login_required
+def careil_clinic_plan():
+    _require_careil_owner()
+    if not hmac.compare_digest(
+        request.form.get('csrf_token', ''), session.get('access_admin_csrf', '')
+    ):
+        abort(400)
+    client_key = request.form.get('client_key', '')
+    userid = request.form.get('userid', '')
+    plan_code = request.form.get('plan_code', '')
+    if client_key not in _clinic_keys() or plan_code not in BILLING_PLANS or not userid:
+        abort(400)
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        account = conn.execute(
+            'SELECT email FROM accounts WHERE userid=?', (userid,)
+        ).fetchone()
+        if not account:
+            abort(404)
+        conn.execute('''
+            UPDATE accounts SET plan_code=?, plan_updated_at=CURRENT_TIMESTAMP
+            WHERE userid=?
+        ''', (plan_code, userid))
+        conn.commit()
+    finally:
+        conn.close()
+    email = (account.get('email') or '').strip()
+    if email:
+        central = _central_database()
+        try:
+            central.execute('''
+                UPDATE subscriptions SET plan_code=?,updated_at=CURRENT_TIMESTAMP
+                WHERE email=?
+            ''', (plan_code, email))
+            central.execute('''
+                UPDATE access_requests SET preferred_plan=?
+                WHERE request_id=(SELECT request_id FROM access_requests
+                                  WHERE email=? ORDER BY request_id DESC LIMIT 1)
+            ''', (plan_code, email))
+            central.commit()
+        finally:
+            central.close()
+    return redirect(url_for(
+        'careil_clinics', message=f'{userid} is now on {plan_code.title()}.'
+    ))
 
 
 def _meta_redirect_uri():

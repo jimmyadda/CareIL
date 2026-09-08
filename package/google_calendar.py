@@ -135,12 +135,6 @@ def sync_appointment_event(client_key, app_id):
         ''', (app_id,)).fetchone()
         if not appointment:
             return None
-        account = conn.execute(
-            'SELECT plan_code FROM accounts WHERE userid=? LIMIT 1',
-            (appointment['userid'],),
-        ).fetchone()
-        if not account or account.get('plan_code', 'basic') != 'professional':
-            return None
         connection = conn.execute('''
             SELECT * FROM google_calendar_connections WHERE userid=?
         ''', (appointment['userid'],)).fetchone()

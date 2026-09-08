@@ -38,11 +38,56 @@ class MorningReceiptTest(unittest.TestCase):
                     patch.dict(os.environ, {'THERAPY_SECRET_KEY': 'stable-test-secret'}):
                 morning.save_connection('default_client', 'client-id', 'client-secret', 'sandbox')
             conn = manager.connect_to_db('default_client')
-            saved = conn.execute('SELECT * FROM morning_connections').fetchone()
+            saved = conn.execute(
+                "SELECT * FROM morning_environment_connections WHERE environment='sandbox'"
+            ).fetchone()
             conn.close()
             self.assertEqual(saved['environment'], 'sandbox')
             self.assertNotIn('client-id', saved['client_id_encrypted'])
             self.assertNotIn('client-secret', saved['client_secret_encrypted'])
+
+    def test_sandbox_and_production_credentials_are_stored_separately(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = temporary_manager(temp_dir)
+            manager.create_default_database()
+            with patch.object(morning, 'DatabaseManager', return_value=manager), \
+                    patch.object(morning, '_request_json', return_value={'accessToken': 'token'}), \
+                    patch.dict(os.environ, {'THERAPY_SECRET_KEY': 'stable-test-secret'}):
+                morning.save_connection('default_client', 'prod-id', 'prod-secret', 'production')
+                morning.save_connection('default_client', 'test-id', 'test-secret', 'sandbox')
+                statuses = morning.connection_statuses('default_client')
+                self.assertEqual(set(statuses), {'production', 'sandbox'})
+                self.assertTrue(statuses['sandbox']['is_active'])
+                morning.activate_environment('default_client', 'production')
+                self.assertEqual(morning.connection_status('default_client')['environment'], 'production')
+            conn = manager.connect_to_db('default_client')
+            rows = conn.execute(
+                'SELECT environment,client_id_encrypted FROM morning_environment_connections'
+            ).fetchall()
+            conn.close()
+            self.assertEqual(len(rows), 2)
+            self.assertNotEqual(rows[0]['client_id_encrypted'], rows[1]['client_id_encrypted'])
+
+    def test_legacy_connection_is_migrated_once(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = temporary_manager(temp_dir)
+            manager.create_default_database()
+            conn = manager.connect_to_db('default_client')
+            conn.execute(
+                "INSERT INTO morning_connections "
+                "(connection_id,client_id_encrypted,client_secret_encrypted,environment) "
+                "VALUES(1,'legacy-id','legacy-secret','production')"
+            )
+            conn.commit()
+            conn.close()
+            conn = manager.connect_to_db('default_client')
+            migrated = conn.execute(
+                "SELECT * FROM morning_environment_connections WHERE environment='production'"
+            ).fetchone()
+            legacy = conn.execute('SELECT * FROM morning_connections').fetchone()
+            conn.close()
+            self.assertIsNotNone(migrated)
+            self.assertIsNone(legacy)
 
     def test_receipt_uses_patient_and_session_date_and_prevents_duplicate(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CareIL Clinics</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/modern-clinic.css?v=22">
+  <link rel="stylesheet" href="/static/account-lifecycle.css?v=2">
+  <style>
+    .clinic-list { display:grid; gap:14px; margin:22px 0; }
+    .clinic-card { padding:18px; border:1px solid #dbe3da; border-radius:15px; background:#fff; }
+    .clinic-card h2 { margin:0 0 6px; font-size:21px; }
+    .clinic-meta { color:#65716b; overflow-wrap:anywhere; }
+    .plan-row { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .plan-row label { margin:0; min-width:190px; }
+    .plan-row select { margin-top:6px; }
+    .plan-badge { display:inline-block; padding:5px 9px; border-radius:999px; background:#e7f6eb; color:#24643b; font-weight:800; }
+  </style>
+</head>
+<body>
+<main class="lifecycle">
+  <section class="lifecycle-card" style="max-width:900px">
+    <a class="lifecycle-logo" href="/"><img src="/static/img/therapy-hands-logo.png" alt="">CareIL</a>
+    <h1>Clinic accounts</h1>
+    <p>Plans shown here combine the clinic account setting with any active paid subscription under the same email.</p>
+    {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+    <div class="clinic-list">
+      {% for clinic in clinics %}
+      <article class="clinic-card">
+        <h2>{{ clinic['name'] or clinic['userid'] }} <span class="plan-badge">{{ clinic['effective_plan']|title }}</span></h2>
+        <div class="clinic-meta">{{ clinic['email'] or 'No email' }} · User: {{ clinic['userid'] }}<br>Clinic key: {{ clinic['client_key'] }}</div>
+        {% if clinic['subscription'] %}<p class="clinic-meta">Subscription: {{ clinic['subscription']['status']|title }} · {{ clinic['subscription']['billing_cycle']|title }}{% if clinic['subscription']['current_period_end'] %} · Through {{ clinic['subscription']['current_period_end'] }}{% endif %}</p>{% endif %}
+        <form class="plan-row" method="post" action="/careil-admin/clinics/plan">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="client_key" value="{{ clinic['client_key'] }}">
+          <input type="hidden" name="userid" value="{{ clinic['userid'] }}">
+          <label>CareIL plan<select name="plan_code"><option value="basic" {% if clinic['effective_plan']=='basic' %}selected{% endif %}>Basic</option><option value="professional" {% if clinic['effective_plan']=='professional' %}selected{% endif %}>Professional</option></select></label>
+          <button class="btn" type="submit">Save plan</button>
+        </form>
+      </article>
+      {% else %}<p>No clinic accounts were found.</p>{% endfor %}
+    </div>
+    <a class="btn btn-secondary" href="/admin/adminPanel">Back to Settings</a>
+  </section>
+</main>
+</body>
+</html>

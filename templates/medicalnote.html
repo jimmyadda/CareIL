@@ -178,14 +178,6 @@
 <br>
 <button style="margin-top: 20px;" id="savethepatient" type="button" class="btn btn-primary" onclick="saveText()" >Save changes</button>
 
-<div id="receiptPromptModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="receiptPromptTitle">
-  <div class="modal-dialog" role="document"><div class="modal-content">
-    <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="receiptPromptTitle" class="modal-title">הפקת קבלה</h4></div>
-    <div class="modal-body"><p id="receiptPromptMessage">סיכמת את הפגישה ולא הופקה קבלה. האם תרצו להפיק קבלה?</p></div>
-    <div class="modal-footer"><button id="receiptPromptLater" type="button" class="btn btn-default" data-dismiss="modal">לא עכשיו, אפיק בהמשך</button><a id="receiptPromptYes" class="btn btn-success" href="#">כן, להפקת קבלה</a></div>
-  </div></div>
-</div>
-
 
 
 
@@ -255,17 +247,6 @@
                         else{
                             $.notify("Session Summary Added Successfully", {"status":"success"});
                         } 
-                        if (data.receipt_prompt && data.receipt_url) {
-                            const isHebrew = my_lang === "HE";
-                            document.getElementById('receiptPromptTitle').textContent = isHebrew ? 'הפקת קבלה' : 'Issue a receipt';
-                            document.getElementById('receiptPromptMessage').textContent = isHebrew
-                                ? 'סיכמת את הפגישה ולא הופקה קבלה. האם תרצו להפיק קבלה?'
-                                : 'The session summary was saved, but no receipt was issued. Would you like to issue one now?';
-                            document.getElementById('receiptPromptLater').textContent = isHebrew ? 'לא עכשיו, אפיק בהמשך' : 'Not now, I’ll do it later';
-                            document.getElementById('receiptPromptYes').textContent = isHebrew ? 'כן, להפקת קבלה' : 'Yes, issue a receipt';
-                            document.getElementById('receiptPromptYes').href = data.receipt_url;
-                            $('#receiptPromptModal').modal('show');
-                        }
     }).catch(error => {
         console.error('Error:', error);
         alert('Failed to save text');

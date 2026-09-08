@@ -15,10 +15,14 @@
     .morning-state__icon { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:#fff; background:#398653; font-weight:800; }
     .morning-state--pending .morning-state__icon { background:#3978b4; }
     .credential-note { margin:10px 0 18px; color:#65716b; font-size:13px; }
-    .saved-connection { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0; }
+    .saved-connection { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
     .saved-connection div { padding:12px; border:1px solid #d9e0dc; border-radius:11px; background:#f7f9f6; }
     .saved-connection span { display:block; margin-bottom:5px; color:#355e3b; font-size:12px; font-weight:700; }
-    #replaceConnection[hidden] { display:none !important; }
+    .environment-card { margin:18px 0; padding:18px; border:1px solid #d9e0dc; border-radius:16px; }
+    .environment-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .environment-head h2 { margin:0; font-size:22px; }
+    .active-badge { padding:5px 9px; color:#24643b; background:#e7f6eb; border-radius:999px; font-size:12px; font-weight:800; }
+    .connection-form[hidden] { display:none !important; }
     @media(max-width:560px) { .saved-connection { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -31,46 +35,45 @@
     {% if request.args.get('error') %}<div class="alert alert-danger">{{ request.args.get('error') }}</div>{% endif %}
     {% if request.args.get('connected') %}<div class="alert alert-success">Morning connected successfully.</div>{% endif %}
     {% if request.args.get('disconnected') %}<div class="alert alert-success">Morning disconnected.</div>{% endif %}
-    {% if connected %}
-      <div class="morning-state morning-state--connected"><span class="morning-state__icon">✓</span><div><strong>Morning connected</strong>Verified environment: {{ connected['environment']|capitalize }}<br><small>Last updated: {{ connected['updated_at'] }}</small></div></div>
-      <div class="saved-connection"><div><span>API Client ID</span>•••••••• (saved)</div><div><span>API Client Secret</span>•••••••• (saved securely)</div></div>
-      <p class="credential-note">For security, saved credentials are never sent back to the browser.</p>
-      <button id="editConnection" class="btn btn-secondary" type="button">Edit connection</button>
-    {% else %}
-      <div class="morning-state morning-state--pending"><span class="morning-state__icon">i</span><div><strong>Morning not connected yet</strong>Enter both credentials below and press “Test and save connection.” Dots inserted by a browser or password manager do not confirm a saved connection.</div></div>
-    {% endif %}
-    <form id="replaceConnection" method="post" action="/admin/morning" {% if connected %}hidden{% endif %}>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="client_id">Morning API Client ID</label>
-      <input id="client_id" name="client_id" type="password" autocomplete="new-password" required>
-      <label for="client_secret">Morning API Client Secret</label>
-      <input id="client_secret" name="client_secret" type="password" autocomplete="new-password" required>
-      <label for="environment">Environment</label>
-      <select id="environment" name="environment">
-        <option value="production" {% if connected and connected['environment'] == 'production' %}selected{% endif %}>Production — real receipts</option>
-        <option value="sandbox" {% if connected and connected['environment'] == 'sandbox' %}selected{% endif %}>Sandbox — testing only</option>
-      </select>
-      <p class="credential-note"><strong>Sandbox requires separate Morning sandbox API keys.</strong> It creates test documents only and does not affect production data or receipt numbering.</p>
-      <div class="actions"><button class="btn" type="submit">Test and save connection</button><a class="btn btn-secondary" href="/admin/adminPanel">Back to Settings</a></div>
-    </form>
-    {% if connected %}
-    <form method="post" action="/admin/morning/disconnect" style="margin-top:18px">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="btn btn-danger" type="submit">Disconnect Morning</button>
-    </form>
-    {% endif %}
-    <p style="margin-top:20px;color:#65716b">Create API credentials in Morning under Personal Area → Developer Tools → API Keys. API access requires an eligible Morning subscription.</p>
+    {% if connected %}<div class="morning-state morning-state--connected"><span class="morning-state__icon">✓</span><div><strong>Morning connected</strong>{{ connected['environment']|capitalize }} is active for issuing {{ 'test documents' if connected['environment'] == 'sandbox' else 'real receipts' }}.</div></div>{% else %}<div class="morning-state morning-state--pending"><span class="morning-state__icon">i</span><div><strong>Morning not connected yet</strong>Add credentials for either environment below.</div></div>{% endif %}
+    {% for environment, title, description in [('production', 'Production', 'Real receipts and production numbering'), ('sandbox', 'Sandbox', 'Test documents only; production data is unaffected')] %}
+      {% set saved = connections.get(environment) %}
+      <section class="environment-card">
+        <div class="environment-head"><h2>{{ title }}</h2>{% if saved and saved['is_active'] %}<span class="active-badge">✓ Active</span>{% endif %}</div>
+        <p>{{ description }}</p>
+        {% if saved %}
+          <div class="saved-connection"><div><span>API Client ID</span>•••••••• (saved)</div><div><span>API Client Secret</span>•••••••• (saved securely)</div></div>
+          <p class="credential-note">Connected {{ saved['connected_at'] }} · Last updated {{ saved['updated_at'] }}. Credentials are never sent back to the browser.</p>
+          <div class="actions">
+            {% if not saved['is_active'] %}<form method="post" action="/admin/morning"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="action" value="activate"><input type="hidden" name="environment" value="{{ environment }}"><button class="btn" type="submit">Use {{ title }}</button></form>{% endif %}
+            <button class="btn btn-secondary edit-connection" type="button" data-target="connection-{{ environment }}">Edit</button>
+            <form method="post" action="/admin/morning/disconnect"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="environment" value="{{ environment }}"><button class="btn btn-danger" type="submit">Disconnect</button></form>
+          </div>
+        {% endif %}
+        <form id="connection-{{ environment }}" class="connection-form" method="post" action="/admin/morning" {% if saved %}hidden{% endif %}>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="environment" value="{{ environment }}">
+          <label for="client_id_{{ environment }}">{{ title }} API Client ID</label>
+          <input id="client_id_{{ environment }}" name="client_id" type="password" autocomplete="new-password" required>
+          <label for="client_secret_{{ environment }}">{{ title }} API Client Secret</label>
+          <input id="client_secret_{{ environment }}" name="client_secret" type="password" autocomplete="new-password" required>
+          <button class="btn" type="submit">Test and save {{ title }}</button>
+        </form>
+      </section>
+    {% endfor %}
+    <div class="actions"><a class="btn btn-secondary" href="/admin/adminPanel">Back to Settings</a></div>
+    <p style="margin-top:20px;color:#65716b"><strong>Production and Sandbox require different API credentials.</strong> Generate the keys inside the matching Morning environment under Developer Tools → API Keys.</p>
   </section>
 </main>
-{% if connected %}
 <script>
-document.getElementById('editConnection').addEventListener('click', function () {
-  var form = document.getElementById('replaceConnection');
-  form.hidden = false;
-  this.hidden = true;
-  document.getElementById('client_id').focus();
+document.querySelectorAll('.edit-connection').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var form = document.getElementById(this.dataset.target);
+    form.hidden = false;
+    this.hidden = true;
+    form.querySelector('input[name="client_id"]').focus();
+  });
 });
 </script>
-{% endif %}
 </body>
 </html>

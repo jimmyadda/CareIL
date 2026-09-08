@@ -143,7 +143,7 @@ class DatabaseManager:
 
     @staticmethod
     def ensure_morning_schema(conn):
-        """Store one encrypted Morning connection and issued receipts per clinic."""
+        """Store encrypted Morning connections per environment and issued receipts."""
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS morning_connections (
                 connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
@@ -151,6 +151,22 @@ class DatabaseManager:
                 client_secret_encrypted TEXT NOT NULL,
                 environment TEXT NOT NULL DEFAULT 'production',
                 connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS morning_environment_connections (
+                environment TEXT PRIMARY KEY
+                    CHECK (environment IN ('production', 'sandbox')),
+                client_id_encrypted TEXT NOT NULL,
+                client_secret_encrypted TEXT NOT NULL,
+                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS morning_connection_preferences (
+                preference_id INTEGER PRIMARY KEY CHECK (preference_id = 1),
+                active_environment TEXT NOT NULL DEFAULT 'production'
+                    CHECK (active_environment IN ('production', 'sandbox')),
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -177,6 +193,27 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_morning_receipts_patient
                 ON morning_receipts(pat_id, created_at);
         ''')
+        # Preserve a connection saved by versions that supported only one
+        # environment, then clear the legacy row so a deliberate disconnect
+        # cannot be silently undone on the next schema check.
+        legacy = conn.execute('''
+            SELECT client_id_encrypted, client_secret_encrypted, environment,
+                   connected_at, updated_at
+            FROM morning_connections WHERE connection_id=1
+        ''').fetchone()
+        if legacy:
+            environment = legacy[2] if legacy[2] in ('production', 'sandbox') else 'production'
+            conn.execute('''
+                INSERT OR IGNORE INTO morning_environment_connections
+                    (environment, client_id_encrypted, client_secret_encrypted,
+                     connected_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (environment, legacy[0], legacy[1], legacy[3], legacy[4]))
+            conn.execute('''
+                INSERT OR IGNORE INTO morning_connection_preferences
+                    (preference_id, active_environment) VALUES (1, ?)
+            ''', (environment,))
+            conn.execute('DELETE FROM morning_connections WHERE connection_id=1')
         conn.commit()
 
     @staticmethod
@@ -332,6 +369,8 @@ class DatabaseManager:
             'deletion_purge_at': "DATETIME",
             'deletion_token_hash': "TEXT",
             'is_demo': "INTEGER NOT NULL DEFAULT 0",
+            'plan_code': "TEXT NOT NULL DEFAULT 'basic'",
+            'plan_updated_at': "DATETIME",
         }
         changed = False
         for column, definition in migrations.items():
@@ -493,6 +532,8 @@ class DatabaseManager:
             deletion_token_hash TEXT,
             is_demo INTEGER NOT NULL DEFAULT 0,
             marketing_consent INTEGER NOT NULL DEFAULT 0
+            ,plan_code TEXT NOT NULL DEFAULT 'basic'
+            ,plan_updated_at DATETIME
         );
         CREATE TABLE IF NOT EXISTS users (
             userid TEXT PRIMARY KEY,
