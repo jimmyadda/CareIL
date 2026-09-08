@@ -94,6 +94,7 @@ function availabilityPickerOptions(disabletime) {
         .filter(function (hour) { return hour < startHour || hour >= endHour; }),
       daysOfWeekDisabled: Array.from({length: 7}, function (_, day) { return day; })
         .filter(function (day) { return availability.days.indexOf(day) === -1; }),
+      datesDisabled: availability.holidays || [],
       onRenderHour: function (date) {
         if (disabledSlots.has(appointmentSlotKey(date))) {
           return ['disabled', 'booked-hour'];

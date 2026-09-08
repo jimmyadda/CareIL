@@ -7,6 +7,7 @@ from flask_restful import Resource, Api, request
 from package.database import DatabaseManager
 from package.google_calendar import delete_appointment_event, sync_appointment_event
 from package.appointment_notifications import send_appointment_decision
+from package.israel_holidays import is_holiday
 
 
 def _single_therapist_id(conn):
@@ -33,6 +34,8 @@ def _slot_is_inside_clinic_hours(conn, appointment_date):
     try:
         requested = datetime.datetime.strptime(appointment_date, '%Y-%m-%d %H:%M:%S')
     except (TypeError, ValueError):
+        return False
+    if is_holiday(requested):
         return False
     settings = {row['key']: row['value'] for row in conn.execute(
         "SELECT key, value FROM settings WHERE key IN "
@@ -255,6 +258,9 @@ class RequestAppointment(Resource):
             if not pending:
                 conn.rollback()
                 return {'error': 'Pending appointment request was not found.'}, 404
+            if not _slot_is_inside_clinic_hours(conn, pending['appointment_date']):
+                conn.rollback()
+                return {'error': 'This appointment is outside clinic hours or falls on a holiday.'}, 409
             if not _slot_is_available(conn, pending['appointment_date'], exclude_pending_id=id):
                 conn.rollback()
                 return {'error': 'This appointment time is no longer available.'}, 409

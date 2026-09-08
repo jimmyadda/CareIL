@@ -95,6 +95,7 @@ from package.billing import (
     verify_morning_signature,
 )
 from package.Myutils import render_ics
+from package.israel_holidays import holiday_dates, holiday_records, is_holiday
 import json
 from package.Auth2fa import store_verification_code,verify_code
 
@@ -1556,7 +1557,12 @@ def calendar_page():
     apps = Appointments()
     appointments = apps.get()
     duration = int(_availability_settings(user['client_key'])['APPOINTMENT_DURATION'])
-    return render_template('calendar.html',user=user,appointments=appointments,appointment_duration=duration)
+    current_year = _utc_now().year
+    return render_template(
+        'calendar.html', user=user, appointments=appointments,
+        appointment_duration=duration,
+        holidays=holiday_records(current_year - 1, current_year + 5),
+    )
 
 @app.route('/service-worker.js')
 def service_worker():
@@ -2322,11 +2328,13 @@ def availability_api():
     if not client_key:
         return jsonify({'error': 'Clinic context is required.'}), 401
     settings = _availability_settings(client_key)
+    current_year = _utc_now().year
     return jsonify({
         'days': [int(day) for day in settings['AVAILABILITY_DAYS'].split(',') if day != ''],
         'start': settings['AVAILABILITY_START'],
         'end': settings['AVAILABILITY_END'],
-        'duration': int(settings['APPOINTMENT_DURATION'])
+        'duration': int(settings['APPOINTMENT_DURATION']),
+        'holidays': holiday_dates(current_year - 1, current_year + 3),
     })
 
 @app.route('/admin/availability', methods=['GET', 'POST'])
@@ -3425,6 +3433,9 @@ def chekappointmentdate():
         requested_at = datetime.datetime.strptime(datetocheck, '%Y-%m-%d %H:%M:%S')
     except ValueError:
         return "ERROR", 400
+
+    if is_holiday(requested_at):
+        return "ERROR"
 
     availability = _availability_settings(client_key)
     allowed_days = {int(day) for day in availability['AVAILABILITY_DAYS'].split(',') if day != ''}
