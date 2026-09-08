@@ -1116,6 +1116,17 @@
 
  </script>
 
+ <script>
+   (function () {
+     var appId = new URLSearchParams(window.location.search).get('receipt_app_id');
+     if (!appId || !/^\d+$/.test(appId)) return;
+     $(function () {
+       var modal = document.getElementById('receiptModal' + appId);
+       if (modal) $(modal).modal('show');
+     });
+   })();
+ </script>
+
 
 
 

@@ -2623,6 +2623,24 @@ def updatemedicalnote():
         )
         if not appointment:
             abort(400)
+
+    def saved_summary_response(rec_id=None):
+        receipt_prompt = False
+        receipt_url = None
+        if app_id and _account_plan(client_key, user['userid']) == 'professional':
+            already_issued = database_read(
+                "SELECT 1 FROM morning_receipts WHERE app_id = ? AND status = 'issued' LIMIT 1",
+                (app_id,), client_key=client_key
+            )
+            if not already_issued and morning_connection_status(client_key):
+                receipt_prompt = True
+                receipt_url = url_for(
+                    'patient_folder_Load', id=id, receipt_app_id=int(app_id)
+                ) + '#appointments'
+        result = {'ok': True, 'receipt_prompt': receipt_prompt, 'receipt_url': receipt_url}
+        if rec_id is not None:
+            result['rec_id'] = int(rec_id)
+        return jsonify(result)
     if 'noteid' in request.values:
         noteid = request.values['noteid']
         #update
@@ -2631,7 +2649,7 @@ def updatemedicalnote():
         sql = "UPDATE medrecords SET pat_id = ?, app_id = ?, create_date = ?, body = ? WHERE rec_id = ? AND pat_id = ?"
         ok = database_write(sql, (id, app_id, now, contentbdy, noteid, id))
         if ok == 1:
-            return jsonify({'ok': True, 'rec_id': int(noteid)})
+            return saved_summary_response(noteid)
         else:
             return "ERROR"
     else:
@@ -2647,7 +2665,7 @@ def updatemedicalnote():
         sql = "INSERT INTO medrecords (pat_id, app_id, create_date, body) VALUES (?, ?, ?, ?)"
         ok = database_write(sql, (id, app_id, now, contentbdy))
         if ok == 1:
-            return jsonify({'ok': True})
+            return saved_summary_response()
         else:
             return "ERROR"
 

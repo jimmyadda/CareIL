@@ -292,6 +292,15 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertIn(b'data-cookie-notice', english.data)
         self.assertNotIn(b'Accept all', english.data)
 
+    def test_session_summary_offers_professional_receipt_follow_up(self):
+        with open('templates/medicalnote.html', encoding='utf-8') as template_file:
+            medical_note = template_file.read()
+        with open('templates/patientform.html', encoding='utf-8') as template_file:
+            patient_form = template_file.read()
+        self.assertIn('סיכמת את הפגישה ולא הופקה קבלה', medical_note)
+        self.assertIn("data.receipt_prompt && data.receipt_url", medical_note)
+        self.assertIn("get('receipt_app_id')", patient_form)
+
     def test_expired_demo_cleanup_only_removes_demo_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)
