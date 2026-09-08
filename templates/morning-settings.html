@@ -5,8 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Morning Receipts | CareIL</title>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/static/modern-clinic.css?v=20">
+  <link rel="stylesheet" href="/static/modern-clinic.css?v=22">
   <link rel="stylesheet" href="/static/account-lifecycle.css?v=2">
+  <style>
+    .morning-state { display:flex; align-items:flex-start; gap:10px; margin:18px 0; padding:13px 15px; border-radius:13px; }
+    .morning-state strong { display:block; }
+    .morning-state--connected { color:#24643b; background:#e7f6eb; border:1px solid #add9b9; }
+    .morning-state--pending { color:#24598a; background:#eaf4ff; border:1px solid #b7d7f5; }
+    .morning-state__icon { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:#fff; background:#398653; font-weight:800; }
+    .morning-state--pending .morning-state__icon { background:#3978b4; }
+    .credential-note { margin:10px 0 18px; color:#65716b; font-size:13px; }
+    .saved-connection { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0; }
+    .saved-connection div { padding:12px; border:1px solid #d9e0dc; border-radius:11px; background:#f7f9f6; }
+    .saved-connection span { display:block; margin-bottom:5px; color:#355e3b; font-size:12px; font-weight:700; }
+    #replaceConnection[hidden] { display:none !important; }
+    @media(max-width:560px) { .saved-connection { grid-template-columns:1fr; } }
+  </style>
 </head>
 <body>
 <main class="lifecycle">
@@ -18,20 +32,25 @@
     {% if request.args.get('connected') %}<div class="alert alert-success">Morning connected successfully.</div>{% endif %}
     {% if request.args.get('disconnected') %}<div class="alert alert-success">Morning disconnected.</div>{% endif %}
     {% if connected %}
-      <div class="alert alert-success"><strong>Connected</strong><br>Environment: {{ connected['environment']|capitalize }}<br>Updated: {{ connected['updated_at'] }}</div>
-      <p>Enter new credentials below only if you want to replace the current connection.</p>
+      <div class="morning-state morning-state--connected"><span class="morning-state__icon">✓</span><div><strong>Morning connected</strong>Verified environment: {{ connected['environment']|capitalize }}<br><small>Last updated: {{ connected['updated_at'] }}</small></div></div>
+      <div class="saved-connection"><div><span>API Client ID</span>•••••••• (saved)</div><div><span>API Client Secret</span>•••••••• (saved securely)</div></div>
+      <p class="credential-note">For security, saved credentials are never sent back to the browser.</p>
+      <button id="editConnection" class="btn btn-secondary" type="button">Edit connection</button>
+    {% else %}
+      <div class="morning-state morning-state--pending"><span class="morning-state__icon">i</span><div><strong>Morning not connected yet</strong>Enter both credentials below and press “Test and save connection.” Dots inserted by a browser or password manager do not confirm a saved connection.</div></div>
     {% endif %}
-    <form method="post" action="/admin/morning">
+    <form id="replaceConnection" method="post" action="/admin/morning" {% if connected %}hidden{% endif %}>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label for="client_id">Morning API Client ID</label>
-      <input id="client_id" name="client_id" type="password" autocomplete="off" required>
+      <input id="client_id" name="client_id" type="password" autocomplete="new-password" required>
       <label for="client_secret">Morning API Client Secret</label>
-      <input id="client_secret" name="client_secret" type="password" autocomplete="off" required>
+      <input id="client_secret" name="client_secret" type="password" autocomplete="new-password" required>
       <label for="environment">Environment</label>
       <select id="environment" name="environment">
-        <option value="production">Production — real receipts</option>
-        <option value="sandbox">Sandbox — testing only</option>
+        <option value="production" {% if connected and connected['environment'] == 'production' %}selected{% endif %}>Production — real receipts</option>
+        <option value="sandbox" {% if connected and connected['environment'] == 'sandbox' %}selected{% endif %}>Sandbox — testing only</option>
       </select>
+      <p class="credential-note"><strong>Sandbox requires separate Morning sandbox API keys.</strong> It creates test documents only and does not affect production data or receipt numbering.</p>
       <div class="actions"><button class="btn" type="submit">Test and save connection</button><a class="btn btn-secondary" href="/admin/adminPanel">Back to Settings</a></div>
     </form>
     {% if connected %}
@@ -43,5 +62,15 @@
     <p style="margin-top:20px;color:#65716b">Create API credentials in Morning under Personal Area → Developer Tools → API Keys. API access requires an eligible Morning subscription.</p>
   </section>
 </main>
+{% if connected %}
+<script>
+document.getElementById('editConnection').addEventListener('click', function () {
+  var form = document.getElementById('replaceConnection');
+  form.hidden = false;
+  this.hidden = true;
+  document.getElementById('client_id').focus();
+});
+</script>
+{% endif %}
 </body>
 </html>

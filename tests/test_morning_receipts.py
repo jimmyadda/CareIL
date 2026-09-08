@@ -80,6 +80,8 @@ class MorningReceiptTest(unittest.TestCase):
             payload = document_call[2]
             expected_date = datetime.date.fromisoformat(session_date).strftime('%d/%m/%Y')
             self.assertEqual(payload['type'], 400)
+            self.assertTrue(payload['signed'])
+            self.assertTrue(payload['attachment'])
             self.assertEqual(payload['client']['name'], 'Noa Levi')
             self.assertEqual(payload['client']['emails'], ['noa@example.com'])
             self.assertEqual(payload['income'][0]['price'], 350)

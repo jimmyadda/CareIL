@@ -1,7 +1,7 @@
 """Versioned bilingual legal-document content for CareIL."""
 
-LEGAL_VERSION = "2026-08-25-v1"
-LEGAL_EFFECTIVE_DATE = "25 August 2026"
+LEGAL_VERSION = "2026-09-06-v3"
+LEGAL_EFFECTIVE_DATE = "6 September 2026"
 
 
 def _doc(title, intro, sections):
@@ -98,9 +98,9 @@ DOCUMENTS = {
             ("3. Permitted use", ["CareIL may be used only for lawful professional purposes. Users must not access another tenant, upload unlawful or malicious content, test security without permission, misuse portal links, resell access without authorization or use the service to harm or discriminate."]),
             ("4. Sensitive information", ["Users must collect and enter only information reasonably necessary for care and administration, obtain required notices and consents, restrict access, and avoid placing therapy notes or client names in third-party calendars unless lawful and intentionally enabled."]),
             ("5. Availability and changes", ["CareIL may maintain, change or discontinue features and may suspend access to protect users or the service. No uninterrupted or error-free service is promised. Users should maintain appropriate continuity and export procedures for their professional obligations."]),
-            ("6. Fees and cancellation", ["Fees, billing periods and included features are those shown at purchase. Subscriptions may renew until cancelled. Mandatory cancellation and refund rights under applicable consumer law remain unaffected. Additional details appear in the Cancellation and Refund Policy."]),
+            ("6. Fees, delivery and cancellation", ["Fees, billing periods and included features are those shown at purchase. The digital service is supplied by an account-activation link sent after payment confirmation, normally within minutes and no later than one business day. Subscriptions renew automatically until cancelled. Cancellation may be requested at any time before the next renewal through the available billing controls or by email to support@careil.net. Mandatory cancellation and refund rights under applicable law remain unaffected. Additional details appear in the Cancellation and Refund Policy."]),
             ("7. Intellectual property", ["CareIL and its software, design and branding remain the operator's property. Users retain rights in their clinic content and grant CareIL only the limited rights necessary to host, process, secure and transmit it to provide the service."]),
-            ("8. Liability", ["To the extent permitted by law, CareIL is not liable for clinical decisions, missed appointments, user-entered errors, third-party services or indirect losses. Nothing excludes liability or rights that cannot legally be excluded. Users remain responsible for professional insurance and compliance."]),
+            ("8. Service responsibility and limitation of liability", ["CareIL is clinic-management software. Information, tools and content displayed through the service do not constitute medical, therapeutic, legal or other professional advice and do not replace the therapist's professional judgment.", "To the maximum extent permitted by law, CareIL and anyone acting on its behalf will not be responsible for direct or indirect damage resulting from use of the service, inability to use it, reliance on information entered or displayed in it, user error, loss of data, missed appointments, clinical decisions or a third-party service. Users are responsible for verifying information, maintaining appropriate backups and continuity procedures, professional insurance and compliance with their professional duties.", "CareIL does not manufacture or supply a physical product and does not guarantee uninterrupted or error-free operation. Nothing in these Terms excludes liability or mandatory rights that cannot legally be excluded or limited."]),
             ("9. Termination", ["A user may request deletion through the Danger Zone. CareIL may suspend or terminate accounts for serious breach, unlawful activity, security risk or non-payment, subject to applicable law and reasonable data-return arrangements."]),
             ("10. Law and contact", ["These Terms are governed by the laws of the State of Israel, without limiting mandatory protections that apply to a user. Disputes are subject to the competent courts in Israel unless mandatory law provides otherwise."]),
         ]),
@@ -110,9 +110,9 @@ DOCUMENTS = {
             ("3. שימוש מותר", ["מותר להשתמש בשירות רק למטרות מקצועיות וחוקיות. אין לגשת לסביבה של מטפל אחר, להעלות תוכן בלתי חוקי או זדוני, לבדוק אבטחה ללא רשות, לעשות שימוש לרעה בקישורי פורטל, למכור גישה ללא אישור או להשתמש בשירות לפגיעה או אפליה."]),
             ("4. מידע רגיש", ["יש לאסוף ולהזין רק מידע שנדרש באופן סביר לטיפול ולניהול, למסור הודעות ולקבל הסכמות כנדרש, להגביל גישה ולהימנע מהצגת שמות או תוכן טיפולי ביומנים חיצוניים אלא אם הדבר חוקי והופעל במכוון."]),
             ("5. זמינות ושינויים", ["CareIL רשאית לתחזק, לשנות או להפסיק תכונות ולהשעות גישה לצורך הגנת משתמשים או השירות. השירות אינו מובטח כרציף או נטול שגיאות. על המטפל לקיים נהלי המשכיות וייצוא מתאימים לחובותיו המקצועיות."]),
-            ("6. תשלום וביטול", ["המחיר, תקופת החיוב והתכונות הם כפי שהוצגו בעת הרכישה. מנוי עשוי להתחדש עד לביטולו. זכויות ביטול והחזר קוגנטיות לפי דין נשמרות. פרטים נוספים במדיניות הביטול וההחזרים."]),
+            ("6. תשלום, אספקת השירות וביטול", ["המחיר, תקופת החיוב והתכונות הם כפי שהוצגו בעת הרכישה. השירות הדיגיטלי מסופק באמצעות קישור להפעלת החשבון שנשלח לאחר אישור התשלום, בדרך כלל בתוך דקות ולא יאוחר מיום עסקים אחד. המנוי מתחדש אוטומטית עד לביטולו. ניתן לבקש בכל עת לפני החידוש הבא להפסיק את החידוש באמצעות כלי החיוב הזמינים או בדוא״ל support@careil.net. זכויות ביטול והחזר קוגנטיות לפי דין נשמרות. פרטים נוספים במדיניות הביטול וההחזרים."]),
             ("7. קניין רוחני", ["התוכנה, העיצוב והמותג CareIL שייכים למפעיל. המשתמש שומר על זכויותיו בתוכן הקליניקה ומעניק ל-CareIL רק הרשאה מוגבלת הדרושה לאחסון, עיבוד, אבטחה והעברה לצורך אספקת השירות."]),
-            ("8. אחריות", ["בכפוף לדין, CareIL אינה אחראית להחלטות קליניות, פגישות שהוחמצו, שגיאות שהזין משתמש, שירותי צד שלישי או נזקים עקיפים. אין בכך כדי לשלול אחריות או זכויות שלא ניתן לשלול בדין. המטפל אחראי לביטוח מקצועי ולעמידה בדין."]),
+            ("8. אחריות לשירות והגבלת אחריות", ["במידה המרבית המותרת על פי דין, CareIL ו/או מי מטעמה לא יהיו אחראים לנזק ישיר ו/או עקיף שייגרם כתוצאה משימוש בשירות שנרכש באתר או מחוסר האפשרות להשתמש בו.", "CareIL היא תוכנה לניהול קליניקה. המידע, הכלים והתכנים המוצגים באמצעות השירות אינם מהווים ייעוץ רפואי, טיפולי, משפטי או מקצועי אחר ואינם תחליף לשיקול דעתו המקצועי של המטפל.", "הגבלת האחריות כוללת, בכפוף לדין, נזק הנובע מהסתמכות על מידע שהוזן או הוצג בשירות, טעות משתמש, אובדן מידע, פגישה שהוחמצה, החלטה קלינית או שירות של צד שלישי. המשתמש אחראי לבדוק את המידע, לקיים גיבוי ונהלי המשכיות מתאימים, להחזיק ביטוח מקצועי ולעמוד בחובותיו המקצועיות.", "CareIL אינה מייצרת או מספקת מוצר פיזי ואינה מתחייבת לפעילות רציפה או נטולת תקלות. אין בסעיף זה כדי לשלול אחריות או זכויות קוגנטיות שלא ניתן לשלול או להגביל לפי דין."]),
             ("9. סיום", ["ניתן לבקש מחיקה באזור הסכנה. CareIL רשאית להשעות או לסיים חשבון בשל הפרה מהותית, פעילות בלתי חוקית, סיכון אבטחה או אי-תשלום, בכפוף לדין ולהסדר סביר להחזרת מידע."]),
             ("10. דין ויצירת קשר", ["על התנאים חל דין מדינת ישראל, מבלי לגרוע מהגנות קוגנטיות החלות על המשתמש. סמכות השיפוט נתונה לבתי המשפט המוסמכים בישראל אלא אם דין מחייב קובע אחרת."]),
         ]),
@@ -165,13 +165,15 @@ DOCUMENTS = {
     },
     "refunds": {
         "en": _doc("Cancellation and Refund Policy", "This policy applies when CareIL offers paid subscriptions.", [
-            ("Subscription cancellation", ["A subscription may be cancelled through the available account or billing controls or by contacting support. Unless mandatory law requires otherwise, cancellation prevents the next renewal and access continues until the end of the paid billing period."]),
-            ("Refunds", ["Refund eligibility will be shown at purchase and will comply with mandatory consumer law. Duplicate charges, billing errors and legally required refunds will be corrected. Requests should include the account email, charge date and reason, but never client clinical information."]),
+            ("Service delivery", ["CareIL is a digital subscription service. After confirmed payment, an account-activation link is sent to the email entered at checkout, normally within minutes and no later than one business day. No physical product is shipped."]),
+            ("Subscription cancellation", ["A subscription may be cancelled at any time before the next renewal through available billing controls or by emailing support@careil.net with the account email and cancellation request. Unless mandatory law requires otherwise, cancellation prevents the next renewal and access continues until the end of the paid billing period."]),
+            ("Refunds", ["A request to cancel the initial purchase may be sent to support@careil.net promptly after purchase and will be handled within the periods and on the terms required by applicable Israeli law. Duplicate charges, billing errors and legally required refunds will be corrected. Requests should include the account email, charge date and reason, but never client clinical information."]),
             ("Data after cancellation", ["Cancelling payment does not itself request immediate data deletion. Users should export required information and use the Danger Zone only when they intend to delete the complete workspace, subject to the 24-hour recovery window."]),
         ]),
         "he": _doc("מדיניות ביטול והחזרים", "מדיניות זו תחול כאשר CareIL תציע מנויים בתשלום.", [
-            ("ביטול מנוי", ["ניתן לבטל מנוי בכלי החשבון או החיוב הזמינים או בפנייה לתמיכה. אלא אם דין מחייב קובע אחרת, הביטול מונע את החידוש הבא והגישה נמשכת עד סוף תקופת החיוב ששולמה."]),
-            ("החזרים", ["הזכאות להחזר תוצג בעת הרכישה ותכובד בהתאם לדיני צרכנות קוגנטיים. חיוב כפול, טעות חיוב והחזר הנדרש בדין יתוקנו. יש לציין דוא״ל חשבון, מועד חיוב וסיבה, אך לא למסור מידע קליני של לקוחות."]),
+            ("אספקת השירות", ["CareIL הוא שירות מנוי דיגיטלי. לאחר אישור התשלום נשלח לכתובת הדוא״ל שהוזנה בעמוד התשלום קישור להפעלת החשבון, בדרך כלל בתוך דקות ולא יאוחר מיום עסקים אחד. לא נשלח מוצר פיזי."]),
+            ("ביטול מנוי", ["ניתן לבטל את חידוש המנוי בכל עת לפני מועד החידוש הבא באמצעות כלי החיוב הזמינים או בשליחת בקשה ל-support@careil.net בציון כתובת הדוא״ל של החשבון. אלא אם דין מחייב קובע אחרת, הביטול מונע את החידוש הבא והגישה נמשכת עד סוף תקופת החיוב ששולמה."]),
+            ("ביטול עסקה והחזרים", ["בקשה לביטול הרכישה הראשונית ניתן לשלוח ל-support@careil.net סמוך לאחר הרכישה, והיא תטופל בתוך המועדים ובהתאם לתנאים הקבועים בדין הישראלי החל. חיוב כפול, טעות חיוב והחזר הנדרש בדין יתוקנו. יש לציין דוא״ל חשבון, מועד חיוב וסיבה, אך לא למסור מידע קליני של לקוחות."]),
             ("מידע לאחר ביטול", ["ביטול תשלום אינו בקשת מחיקת מידע. יש לייצא מידע נדרש ולהשתמש באזור הסכנה רק כאשר מבקשים למחוק את סביבת העבודה כולה, בכפוף לחלון שחזור של 24 שעות."]),
         ]),
     },
@@ -204,4 +206,3 @@ DOCUMENTS = {
         ]),
     },
 }
-
