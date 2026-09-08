@@ -25,6 +25,8 @@
     #calendar .full-day-view-title-bar,
     #calendar .header-days-container { background:var(--clinic-primary-soft) !important; color:var(--clinic-text) !important; }
     #calendar button { border-radius:9px !important; }
+    .calendar-attribution { margin:12px 4px 0; color:var(--clinic-muted); font-size:12px; }
+    .calendar-attribution a { color:var(--clinic-primary); text-decoration:underline; }
     @media(max-width:700px){ .calendar-page{padding:22px 14px 85px}.calendar-header{align-items:flex-start;flex-direction:column}.calendar-actions{width:100%;flex-direction:column}.calendar-actions form,.calendar-actions .btn{width:100%}.calendar-card{padding:10px} }
   </style>
   <link rel="manifest" href="/static/manifest.webmanifest">
@@ -53,19 +55,22 @@
     {% if request.args.get('synced') is not none %}<div id="calendar-sync-success" data-count="{{ request.args.get('synced') }}" class="alert alert-success"><i class="fa fa-check-circle" aria-hidden="true"></i> <span>{{ request.args.get('synced') }} upcoming appointment(s) synchronized with Google Calendar.</span></div>{% endif %}
     {% if request.args.get('sync_error') %}<div class="alert alert-danger">{{ request.args.get('sync_error') }}</div>{% endif %}
     <section class="calendar-card"><div id="calendar"></div></section>
+    <p class="calendar-attribution"><span id="calendar-holiday-label">Jewish holiday data provided by</span> <a href="https://www.hebcal.com" target="_blank" rel="noopener noreferrer">Hebcal.com</a>.</p>
   </main>
   <script src="/static/vendor/fullcalendar/calendar.js"></script>
+  <script src="/static/jewish-holidays.js?v=1"></script>
   <script>
     const calendarLanguage = window.careilCalendarLang;
     const isHebrew = calendarLanguage === 'HE';
     const copy = isHebrew ? {
-      title:'יומן פגישות', subtitle:'צפייה בפגישות טיפול לפי יום, שבוע או חודש.', sync:'סנכרון יומן Google', table:'תצוגת טבלה'
-    } : {title:'Appointment calendar', subtitle:'Review scheduled client sessions by day, week or month.', sync:'Sync Google Calendar', table:'Table view'};
+      title:'יומן פגישות', subtitle:'צפייה בפגישות טיפול לפי יום, שבוע או חודש.', sync:'סנכרון יומן Google', table:'תצוגת טבלה', holidays:'נתוני החגים היהודיים באדיבות'
+    } : {title:'Appointment calendar', subtitle:'Review scheduled client sessions by day, week or month.', sync:'Sync Google Calendar', table:'Table view', holidays:'Jewish holiday data provided by'};
     document.title = copy.title + ' · CareIL';
     document.getElementById('calendar-page-title').textContent = copy.title;
     document.getElementById('calendar-page-subtitle').textContent = copy.subtitle;
     document.getElementById('calendar-sync-label').textContent = copy.sync;
     document.getElementById('calendar-table-label').textContent = copy.table;
+    document.getElementById('calendar-holiday-label').textContent = copy.holidays;
     const syncSuccess = document.getElementById('calendar-sync-success');
     if (syncSuccess && isHebrew) syncSuccess.querySelector('span').textContent = syncSuccess.dataset.count + ' פגישות קרובות סונכרנו עם יומן Google.';
     document.documentElement.style.setProperty('--calendar-js-event-color','#708238');
@@ -94,6 +99,9 @@
       item.to = end;
     });
     calendar.addEvents(events);
+    CareILJewishHolidays.add(calendar, isHebrew).catch(function (error) {
+      console.warn('Jewish holidays could not be loaded:', error);
+    });
   </script>
   <script src="/static/modern-clinic.js?v=19"></script>
 </body>

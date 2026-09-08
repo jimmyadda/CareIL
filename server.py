@@ -72,6 +72,7 @@ from package.legal_documents import (
 )
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
+from package.jewish_holidays import holiday_name, holidays_for_year
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -2063,6 +2064,30 @@ def availability_api():
         'duration': int(settings['APPOINTMENT_DURATION'])
     })
 
+@app.route('/api/jewish-holidays', methods=['GET'])
+def jewish_holidays_api():
+    if not session.get('client_key'):
+        return jsonify({'error': 'Clinic context is required.'}), 401
+    current_year = datetime.date.today().year
+    try:
+        start_year = int(request.args.get('start_year', current_year))
+        years = min(max(int(request.args.get('years', 2)), 1), 3)
+        if start_year < current_year - 1 or start_year > current_year + 3:
+            raise ValueError
+    except ValueError:
+        return jsonify({'error': 'Invalid holiday date range.'}), 400
+    try:
+        holidays = {}
+        for year in range(start_year, start_year + years):
+            holidays.update(holidays_for_year(year))
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed')
+        return jsonify({'error': 'Holiday dates could not be loaded.'}), 503
+    return jsonify({
+        'dates': sorted(holidays),
+        'holidays': [{'date': day, 'title': holidays[day]} for day in sorted(holidays)],
+    })
+
 @app.route('/admin/availability', methods=['GET', 'POST'])
 @admin_only
 def availability_settings():
@@ -3173,6 +3198,13 @@ def chekappointmentdate():
     end_time = datetime.datetime.strptime(availability['AVAILABILITY_END'], '%H:%M').time()
     if requested_day not in allowed_days or not (start_time <= requested_at.time() < end_time):
         return "ERROR"
+
+    try:
+        if holiday_name(requested_at):
+            return "ERROR"
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed while checking an appointment')
+        return "ERROR", 503
 
     appoinmentindate = database_read(
         """SELECT app_id FROM appointment WHERE appointment_date = ?

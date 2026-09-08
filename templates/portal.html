@@ -64,6 +64,7 @@
     .portal-questionnaire textarea { min-height:90px; resize:vertical; }
     .portal-questionnaire .declaration { display:flex; align-items:flex-start; gap:8px; font-weight:500; }
     .datetimepicker .datetimepicker-hours span.disabled,.datetimepicker .datetimepicker-hours span.booked-hour,.datetimepicker .datetimepicker-hours span.disabled:hover { color:#969d99 !important; background:#e2e5e0 !important; cursor:not-allowed !important; text-decoration:line-through; opacity:.72; }
+    .datetimepicker td.day.disabled,.datetimepicker td.day.disabled:hover { color:#a0a6a2 !important; background:#edf0eb !important; cursor:not-allowed !important; text-decoration:line-through; opacity:.75; }
     @media (max-width:760px) {
       .portal-nav-inner,.portal-hero { align-items:flex-start; }
       .portal-user span { display:none; }
@@ -179,7 +180,7 @@
         <form id="appointmentForm">
           <input type="hidden" name="pat_id" value="{{ patientdata[0]['pat_id'] }}">
           <div class="form-group"><label for="appointmentDate">Available date and time</label><input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" required></div>
-          <p class="portal-note">Unavailable days, hours and already-booked times cannot be selected. The clinic will review and approve your request.</p>
+          <p class="portal-note">Unavailable days, Jewish holidays, hours and already-booked times cannot be selected. The clinic will review and approve your request.</p>
         </form>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button id="submitAppointment" type="button" class="portal-button">Send request</button></div>
@@ -189,7 +190,7 @@
   <script src="/static/vendor/jquery/dist/jquery.js"></script>
   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
   <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script>
-  <script src="/static/js/disabledatetime.js?v=5"></script>
+  <script src="/static/js/disabledatetime.js?v=6"></script>
   <script>
     $(function () {
       const bookedTimes = {{ allappointments | tojson }}.map(function (item) { return item.appointment_date; });
