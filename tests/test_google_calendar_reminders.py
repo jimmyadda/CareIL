@@ -27,3 +27,9 @@ def test_reminder_translations_exist():
     for language in ('EN', 'HE'):
         for key in ('dashboardReminderAction', 'reminderTitle', 'reminderName', 'reminderSave'):
             assert translations[language][key]
+
+
+def test_appointment_calendar_title_includes_client_name_by_default():
+    calendar = (ROOT / 'package' / 'google_calendar.py').read_text(encoding='utf-8')
+    assert "'GOOGLE_CALENDAR_INCLUDE_CLIENT_NAME', 'true'" in calendar
+    assert "'Therapy appointment – ' + client_name" in calendar

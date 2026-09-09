@@ -157,10 +157,14 @@ def sync_appointment_event(client_key, app_id):
             duration = 60
         end = start + datetime.timedelta(minutes=duration)
         timezone = os.environ.get('THERAPY_TIMEZONE', 'Asia/Jerusalem')
-        include_name = os.environ.get('GOOGLE_CALENDAR_INCLUDE_CLIENT_NAME', '').lower() in ('1', 'true', 'yes')
+        # The therapist needs to identify the appointment in their private calendar.
+        # It can still be disabled explicitly with GOOGLE_CALENDAR_INCLUDE_CLIENT_NAME=false.
+        include_name = os.environ.get(
+            'GOOGLE_CALENDAR_INCLUDE_CLIENT_NAME', 'true'
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
         client_name = ' '.join(filter(None, [appointment['pat_first_name'], appointment['pat_last_name']]))
         body = {
-            'summary': ('Therapy appointment – ' + client_name) if include_name else 'Therapy appointment',
+            'summary': ('Therapy appointment – ' + client_name) if include_name and client_name else 'Therapy appointment',
             'description': 'Appointment managed by CareIL.',
             'location': appointment['doc_address'] or '',
             'start': {'dateTime': start.isoformat(), 'timeZone': timezone},
