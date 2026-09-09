@@ -10,6 +10,7 @@ def test_dashboard_contains_google_reminder_form():
     assert 'id="googleReminderForm"' in template
     assert "fetch('/google-calendar/reminders'" in template
     assert 'type="datetime-local"' in template
+    assert "$('#reminderModal').appendTo(document.body)" in template
 
 
 def test_reminder_api_and_private_calendar_event_exist():

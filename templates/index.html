@@ -212,6 +212,10 @@
 <script>
    $( document ).ready(function() {
 
+      // The legacy dashboard wrapper creates its own stacking context. Keep the
+      // modal next to Bootstrap's backdrop so the backdrop cannot cover it.
+      $('#reminderModal').appendTo(document.body);
+
       $("#lang").change(function() {
             var optionValue = $(this).val();
             var url = window.location.href.split("?")[0];
