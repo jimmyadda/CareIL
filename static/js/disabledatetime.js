@@ -80,8 +80,20 @@ function loadClinicAvailability() {
     });
 }
 
+function loadJewishHolidayDates() {
+  var year = new Date().getFullYear();
+  return fetch('/api/jewish-holidays?start_year=' + year + '&years=2', { credentials: 'same-origin' })
+    .then(function (response) {
+      if (!response.ok) throw new Error('Holiday dates could not be loaded');
+      return response.json();
+    })
+    .then(function (payload) { return payload.dates || []; });
+}
+
 function availabilityPickerOptions(disabletime) {
-  return loadClinicAvailability().then(function (availability) {
+  return Promise.all([loadClinicAvailability(), loadJewishHolidayDates()]).then(function (values) {
+    var availability = values[0];
+    var holidayDates = values[1];
     var disabledSlots = new Set(changearrformat(disabletime));
     var startHour = parseInt(availability.start.split(':')[0], 10);
     var endHour = parseInt(availability.end.split(':')[0], 10);
@@ -94,7 +106,7 @@ function availabilityPickerOptions(disabletime) {
         .filter(function (hour) { return hour < startHour || hour >= endHour; }),
       daysOfWeekDisabled: Array.from({length: 7}, function (_, day) { return day; })
         .filter(function (day) { return availability.days.indexOf(day) === -1; }),
-      datesDisabled: availability.holidays || [],
+      datesDisabled: holidayDates,
       onRenderHour: function (date) {
         if (disabledSlots.has(appointmentSlotKey(date))) {
           return ['disabled', 'booked-hour'];

@@ -38,8 +38,16 @@ class Patients(Resource):
         pat_ph_no = patientInput['pat_ph_no']
         pat_email = patientInput['pat_email']
         pat_address = patientInput['pat_address']
-        patientInput['pat_id']=conn.execute('''INSERT INTO patient(pat_first_name,pat_last_name,pat_insurance_no,pat_dob,pat_ph_no,pat_email,pat_address,client_key)
-            VALUES(?,?,?,?,?,?,?,?)''', (pat_first_name, pat_last_name, pat_insurance_no,pat_dob,pat_ph_no,pat_email,pat_address,client_key)).lastrowid
+        pat_gender = patientInput.get('pat_gender') or None
+        parent1_name = str(patientInput.get('parent1_name') or '').strip() or None
+        parent2_name = str(patientInput.get('parent2_name') or '').strip() or None
+        patientInput['pat_id']=conn.execute('''INSERT INTO patient(
+            pat_first_name,pat_last_name,pat_insurance_no,pat_dob,pat_ph_no,pat_email,
+            pat_address,pat_gender,parent1_name,parent2_name,client_key)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)''', (
+                pat_first_name, pat_last_name, pat_insurance_no, pat_dob, pat_ph_no,
+                pat_email, pat_address, pat_gender, parent1_name, parent2_name, client_key
+            )).lastrowid
         conn.commit()
         #send_mail(notification)
         return patientInput
@@ -80,7 +88,13 @@ class Patient(Resource):
         pat_ph_no = patientInput['pat_ph_no']
         pat_email = patientInput['pat_email']
         pat_address = patientInput['pat_address']
-        conn.execute("UPDATE patient SET pat_first_name=?,pat_last_name=?,pat_insurance_no=?,pat_dob=?,pat_ph_no=?,pat_email=?,pat_address=? WHERE pat_id=?",
-                     (pat_first_name, pat_last_name, pat_insurance_no,pat_dob,pat_ph_no,pat_email,pat_address,id))
+        pat_gender = patientInput.get('pat_gender') or None
+        parent1_name = str(patientInput.get('parent1_name') or '').strip() or None
+        parent2_name = str(patientInput.get('parent2_name') or '').strip() or None
+        conn.execute("""UPDATE patient SET pat_first_name=?,pat_last_name=?,pat_insurance_no=?,
+                     pat_dob=?,pat_ph_no=?,pat_email=?,pat_address=?,pat_gender=?,
+                     parent1_name=?,parent2_name=? WHERE pat_id=?""",
+                     (pat_first_name, pat_last_name, pat_insurance_no, pat_dob, pat_ph_no,
+                      pat_email, pat_address, pat_gender, parent1_name, parent2_name, id))
         conn.commit()
         return patientInput

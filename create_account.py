@@ -51,9 +51,6 @@ def create_account(userpassed):
     name = userpassed['name'] #input("name: ")
     password = userpassed['password'] #getpass.getpass("password: ")
     client_key = userpassed['client_key']
-    plan_code = userpassed.get('plan_code', 'basic')
-    if plan_code not in ('basic', 'professional'):
-        plan_code = 'basic'
     session['client_key'] = client_key
     print("client_key create acc", session['client_key'])    
     salt = str(uuid.uuid1())
@@ -64,9 +61,7 @@ def create_account(userpassed):
       "client_key" : client_key
     }
     ok = database_write(sql,record)
-    sql = """Insert into accounts
-             (userid,salt,password,email,name,client_key,plan_code,plan_updated_at)
-             Values (:userid,:salt,:password,:email,:name,:client_key,:plan_code,CURRENT_TIMESTAMP);"""
+    sql = f"Insert into accounts (userid,salt,password,email,name,client_key,plan_code,plan_updated_at) Values (:userid,:salt,:password,:email,:name,:client_key,:plan_code,CURRENT_TIMESTAMP);"
     record ={
       "userid": userid,
       "salt": salt,
@@ -74,7 +69,7 @@ def create_account(userpassed):
       "email": email,
       "name": name,
       "client_key" : client_key,
-      "plan_code": plan_code
+      "plan_code": userpassed.get('plan_code', 'basic')
     }
     ok = database_write(sql,record)
     return ok

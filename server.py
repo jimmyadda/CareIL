@@ -24,6 +24,9 @@ import sqlite3
 import datetime
 import uuid
 import hashlib
+import re
+import urllib.error
+import urllib.request
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_restful import Resource, Api
@@ -45,30 +48,16 @@ from package.google_calendar import (
     disconnect as disconnect_google_calendar,
     is_configured as google_calendar_is_configured,
     save_connection as save_google_calendar_connection,
+    create_reminder as create_google_calendar_reminder,
     sync_all_upcoming as sync_all_google_appointments,
 )
 from package.morning import (
-    activate_environment as activate_morning_environment,
     MorningError,
     PAYMENT_TYPES as MORNING_PAYMENT_TYPES,
     connection_status as morning_connection_status,
-    connection_statuses as morning_connection_statuses,
     disconnect as disconnect_morning,
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
-)
-from package.meta_social import (
-    MetaSocialError,
-    approve_draft as approve_social_draft,
-    authorization_url as meta_authorization_url,
-    connection_status as meta_connection_status,
-    create_draft as create_social_draft,
-    disconnect as disconnect_meta,
-    exchange_code_and_find_page,
-    is_configured as meta_is_configured,
-    list_drafts as list_social_drafts,
-    publish_approved_draft,
-    save_connection as save_meta_connection,
 )
 from package.email_service import (
     careil_logo_attachment,
@@ -84,18 +73,8 @@ from package.legal_documents import (
 )
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
-from package.content_en import ENGLISH_ARTICLES, ENGLISH_FAQ
-from package.billing import (
-    PLANS as BILLING_PLANS,
-    accept_morning_payment,
-    create_checkout_order,
-    parse_morning_payment,
-    public_order,
-    selected_offer,
-    verify_morning_signature,
-)
+from package.jewish_holidays import holiday_name, holidays_for_year
 from package.Myutils import render_ics
-from package.israel_holidays import holiday_dates, holiday_records, is_holiday
 import json
 from package.Auth2fa import store_verification_code,verify_code
 
@@ -223,11 +202,8 @@ def _legal_operator_context():
     support_email = os.environ.get('CAREIL_SUPPORT_EMAIL', 'support@careil.net')
     privacy_email = os.environ.get('CAREIL_PRIVACY_EMAIL', 'privacy@careil.net')
     return {
-        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'קארין עדה – CareIL'),
-        'operator_address': os.environ.get(
-            'CAREIL_LEGAL_ADDRESS', 'שחף 22, דירה 1, עתלית, ישראל'
-        ),
-        'operator_phone': os.environ.get('CAREIL_LEGAL_PHONE', '050-9127180'),
+        'operator_name': os.environ.get('CAREIL_LEGAL_NAME', 'CareIL'),
+        'operator_address': os.environ.get('CAREIL_LEGAL_ADDRESS', ''),
         'support_email': support_email,
         'privacy_email': privacy_email,
         'accessibility_email': os.environ.get('CAREIL_ACCESSIBILITY_EMAIL', support_email),
@@ -316,8 +292,6 @@ def careil_workspace_lifecycle():
         'google_calendar_connect', 'google_calendar_callback',
         'google_calendar_sync_now', 'google_calendar_disconnect',
         'create_portal_invitation', 'request_account_deletion',
-        'meta_connect', 'meta_callback', 'meta_disconnect', 'social_create_draft',
-        'social_approve_draft', 'social_publish_draft',
     }
     if request.endpoint in blocked_endpoints:
         return render_template('demo-blocked.html'), 403
@@ -327,9 +301,7 @@ def careil_workspace_lifecycle():
 def protect_private_pages_from_indexing(response):
     public_paths = {'/', '/he', '/plans', '/he/plans', '/robots.txt', '/sitemap.xml'}
     public_legal = request.path.startswith('/legal/') or request.path.startswith('/he/legal/')
-    public_content = (request.path in ('/faq', '/he/faq')
-                      or request.path.startswith('/articles')
-                      or request.path.startswith('/he/articles'))
+    public_content = request.path == '/he/faq' or request.path.startswith('/he/articles')
     if (request.path not in public_paths and not public_legal and not public_content
             and not request.path.startswith('/static/')):
         response.headers['X-Robots-Tag'] = 'noindex, nofollow'
@@ -451,158 +423,39 @@ def close_db(exception=None):
 @app.route("/")
 def index_page():
     if not flask_login.current_user.is_authenticated:
-        return render_template(
-            'landing.html', lang='en', t=LANDING_CONTENT['en'],
-            **_legal_operator_context()
-        )
+        return render_template('landing.html', lang='en', t=LANDING_CONTENT['en'])
     logger.info(str(flask_login.current_user.get_dict()) + " Has Logged in")
     user = flask_login.current_user.get_dict()
     apps = Appointments()
     appointments = apps.get()
+    plan = _account_plan(user['client_key'], user['userid'])
+    calendar_connected = (
+        bool(google_calendar_connection_status(user['client_key'], user['userid']))
+        if google_calendar_is_configured() else False
+    )
     return render_template(
         '/index.html', Translate_data=Translate_data, user=user,
-        appointments=appointments, demo=session.get('client_key', '').startswith('demo_')
+        appointments=appointments, demo=session.get('client_key', '').startswith('demo_'),
+        account_plan=plan, google_calendar_connected=calendar_connected
     )
 
 @app.route("/he")
 def landing_hebrew_page():
     if flask_login.current_user.is_authenticated:
         return redirect('/')
-    return render_template(
-        'landing.html', lang='he', t=LANDING_CONTENT['he'],
-        **_legal_operator_context()
-    )
+    return render_template('landing.html', lang='he', t=LANDING_CONTENT['he'])
 
 
 @app.route('/plans')
 @app.route('/he/plans')
 def plans_page():
     lang = 'he' if request.path.startswith('/he/') else 'en'
-    return render_template('plans.html', lang=lang, billing_plans=BILLING_PLANS)
-
-
-def _billing_csrf_token():
-    if not session.get('billing_csrf'):
-        session['billing_csrf'] = secrets.token_urlsafe(32)
-    return session['billing_csrf']
-
-
-@app.route('/checkout', methods=['GET', 'POST'])
-def checkout_page():
-    language = 'he' if request.values.get('lang') == 'he' else 'en'
-    plan_code = request.values.get('plan', 'basic').strip().lower()
-    billing_cycle = request.values.get('cycle', 'monthly').strip().lower()
-    try:
-        offer = selected_offer(plan_code, billing_cycle)
-    except ValueError:
-        abort(404)
-    alert = ''
-    if request.method == 'POST':
-        if not hmac.compare_digest(
-                request.form.get('csrf_token', ''), session.get('billing_csrf', '')):
-            abort(400)
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        full_name = ' '.join(filter(None, (first_name, last_name)))
-        email = request.form.get('email', '').strip().lower()
-        phone = request.form.get('phone', '').strip()
-        clinic_name = request.form.get('clinic_name', '').strip()
-        country = request.form.get('country', '').strip()
-        billing_address = request.form.get('billing_address', '').strip()
-        if (not first_name or not last_name or not phone or not country
-                or not billing_address or not email or '@' not in email):
-            alert = ('נא למלא את כל שדות החובה וכתובת אימייל תקינה.' if language == 'he'
-                     else 'Complete all required fields and enter a valid email address.')
-        elif request.form.get('accept_terms') != 'yes':
-            alert = ('יש לאשר את תנאי השימוש ומדיניות הפרטיות.' if language == 'he'
-                     else 'Accept the Terms and Privacy Policy to continue.')
-        else:
-            conn = _central_database()
-            try:
-                order_id, public_token, offer = create_checkout_order(
-                    conn, full_name=full_name, email=email, phone=phone,
-                    clinic_name=clinic_name, language=language,
-                    country=country, billing_address=billing_address,
-                    plan_code=plan_code, billing_cycle=billing_cycle,
-                    requester_ip=_visitor_ip_address(),
-                    user_agent=request.headers.get('User-Agent', ''),
-                )
-            finally:
-                conn.close()
-            session['billing_order_token'] = public_token
-            return render_template(
-                'checkout-provider-pending.html', lang=language, offer=offer,
-                order_id=order_id, public_token=public_token,
-                billing_ready=False,
-            ), 503
-    return render_template(
-        'checkout.html', lang=language, offer=offer,
-        csrf_token=_billing_csrf_token(), alert=alert,
-    ), (400 if alert else 200)
-
-
-@app.route('/checkout/status/<public_token>')
-def checkout_status(public_token):
-    conn = _central_database()
-    try:
-        order = public_order(conn, public_token)
-    finally:
-        conn.close()
-    if not order:
-        abort(404)
-    language = 'he' if order['language'] == 'he' else 'en'
-    return render_template('checkout-status.html', lang=language, order=order)
-
-
-@app.route('/api/webhooks/morning', methods=['POST'])
-def morning_billing_webhook():
-    """Receive signed Morning payment events for CareIL subscriptions."""
-    raw_body = request.get_data(cache=True)
-    secret = os.environ.get('MORNING_WEBHOOK_SECRET', '').strip()
-    signature = request.headers.get('x-webhook-signature', '')
-    if not verify_morning_signature(raw_body, signature, secret):
-        return jsonify({'ok': False, 'error': 'invalid signature'}), 401
-
-    topic = request.headers.get('x-webhook-topic', '').strip().lower()
-    delivery_id = request.headers.get('x-webhook-delivery-id', '').strip()
-    try:
-        payment = parse_morning_payment(raw_body, topic)
-        conn = _central_database()
-        try:
-            if delivery_id:
-                duplicate = conn.execute(
-                    'SELECT 1 FROM billing_webhook_deliveries WHERE delivery_id=?',
-                    (delivery_id,),
-                ).fetchone()
-                if duplicate:
-                    return jsonify({'ok': True, 'duplicate': True}), 200
-            order, newly_paid = accept_morning_payment(conn, payment)
-            if delivery_id:
-                conn.execute(
-                    '''INSERT INTO billing_webhook_deliveries
-                       (delivery_id,topic,provider_transaction_id,status)
-                       VALUES(?,?,?,'processed')''',
-                    (delivery_id, topic, payment['provider_transaction_id']),
-                )
-                conn.commit()
-        finally:
-            conn.close()
-        if newly_paid:
-            _provision_paid_order(order)
-        return jsonify({'ok': True, 'duplicate': not newly_paid}), 200
-    except (ValueError, sqlite3.IntegrityError) as error:
-        logger.warning('Rejected Morning billing webhook: %s', str(error))
-        return jsonify({'ok': False, 'error': 'event rejected'}), 422
+    return render_template('plans.html', lang=lang)
 
 
 @app.route('/he/articles')
 def hebrew_articles():
     return render_template('content-hub-he.html', articles=HEBREW_ARTICLES)
-
-
-@app.route('/articles')
-def english_articles():
-    return render_template('content-hub-en.html', articles=ENGLISH_ARTICLES)
 
 
 @app.route('/he/articles/<slug>')
@@ -621,22 +474,6 @@ def hebrew_article(slug):
     return render_template('article-he.html', article=article, slug=slug, schema=schema)
 
 
-@app.route('/articles/<slug>')
-def english_article(slug):
-    article = ENGLISH_ARTICLES.get(slug)
-    if not article:
-        abort(404)
-    schema = {
-        '@context': 'https://schema.org', '@type': 'Article',
-        'headline': article['title'], 'description': article['description'],
-        'inLanguage': 'en',
-        'mainEntityOfPage': f'https://www.careil.net/articles/{slug}',
-        'author': {'@type': 'Organization', 'name': 'CareIL'},
-        'publisher': {'@type': 'Organization', 'name': 'CareIL'},
-    }
-    return render_template('article-en.html', article=article, slug=slug, schema=schema)
-
-
 @app.route('/he/faq')
 def hebrew_faq():
     schema = {
@@ -653,28 +490,103 @@ def hebrew_faq():
     return render_template('faq-he.html', faq=HEBREW_FAQ, schema=schema)
 
 
-@app.route('/faq')
-def english_faq():
-    schema = {
-        '@context': 'https://schema.org', '@type': 'FAQPage',
-        'inLanguage': 'en',
-        'mainEntity': [
-            {
-                '@type': 'Question', 'name': question,
-                'acceptedAnswer': {'@type': 'Answer', 'text': answer},
-            }
-            for question, answer in ENGLISH_FAQ
-        ],
-    }
-    return render_template('faq-en.html', faq=ENGLISH_FAQ, schema=schema)
-
-
 def _access_token_hash(token):
     return hashlib.sha256(str(token).encode('utf-8')).hexdigest()
 
 
 def _central_database():
     return db_manager.connect_to_db(Globalsetting['DEFAULT_CLIENT_KEY'])
+
+
+def _whatsapp_phone_hash(phone):
+    if not phone:
+        return None
+    return hmac.new(
+        app.config['SECRET_KEY'].encode('utf-8'),
+        str(phone).encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+@app.route('/webhooks/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    """Verify Meta and accept signed WhatsApp test events without storing content."""
+    if request.method == 'GET':
+        verify_token = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', '')
+        supplied_token = request.args.get('hub.verify_token', '')
+        if (request.args.get('hub.mode') == 'subscribe' and verify_token
+                and hmac.compare_digest(supplied_token, verify_token)):
+            return request.args.get('hub.challenge', ''), 200, {'Content-Type': 'text/plain'}
+        return 'Webhook verification failed', 403
+
+    app_secret = os.environ.get('META_APP_SECRET', '')
+    if not app_secret:
+        logger.error('WhatsApp webhook rejected because META_APP_SECRET is missing')
+        return '', 503
+
+    raw_body = request.get_data(cache=True)
+    supplied_signature = request.headers.get('X-Hub-Signature-256', '')
+    expected_signature = 'sha256=' + hmac.new(
+        app_secret.encode('utf-8'), raw_body, hashlib.sha256
+    ).hexdigest()
+    if not supplied_signature or not hmac.compare_digest(
+            supplied_signature, expected_signature):
+        logger.warning('Rejected WhatsApp webhook with an invalid signature')
+        return '', 401
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return '', 400
+
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
+    events = []
+    for entry in payload.get('entry', []):
+        for change in entry.get('changes', []):
+            if change.get('field') != 'messages':
+                continue
+            value = change.get('value') or {}
+            phone_number_id = (value.get('metadata') or {}).get('phone_number_id')
+            for message in value.get('messages') or []:
+                message_id = message.get('id')
+                event_key = f"message:{message_id}" if message_id else f"payload:{payload_hash}"
+                events.append((
+                    event_key, payload_hash, phone_number_id, message_id,
+                    'incoming_message', None,
+                    _whatsapp_phone_hash(message.get('from')),
+                ))
+            for status in value.get('statuses') or []:
+                message_id = status.get('id')
+                delivery_status = status.get('status')
+                timestamp = status.get('timestamp', '')
+                event_key = (
+                    f"status:{message_id}:{delivery_status}:{timestamp}"
+                    if message_id else f"payload:{payload_hash}"
+                )
+                events.append((
+                    event_key, payload_hash, phone_number_id, message_id,
+                    'message_status', delivery_status,
+                    _whatsapp_phone_hash(status.get('recipient_id')),
+                ))
+
+    if not events:
+        events.append((
+            f"payload:{payload_hash}", payload_hash, None, None,
+            'other', None, None,
+        ))
+
+    conn = _central_database()
+    try:
+        conn.executemany(
+            """INSERT OR IGNORE INTO whatsapp_webhook_events
+               (event_key, payload_sha256, phone_number_id, message_id,
+                event_type, delivery_status, sender_phone_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            events,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return '', 200
 
 
 def _approved_access_request(token):
@@ -712,10 +624,165 @@ def _careil_owner():
             or (user.get('email') or '').lower() in allowed_emails)
 
 
+def _account_plan(client_key, userid):
+    if str(client_key).startswith('demo_'):
+        return 'professional'
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        row = conn.execute(
+            'SELECT plan_code FROM accounts WHERE userid=? LIMIT 1', (userid,)
+        ).fetchone()
+    finally:
+        conn.close()
+    plan = (row or {}).get('plan_code', 'basic')
+    return plan if plan in {'basic', 'professional'} else 'basic'
+
+
+def _current_account_plan():
+    user = flask_login.current_user.get_dict()
+    return _account_plan(user['client_key'], user['userid'])
+
+
+def _require_professional_plan():
+    if _current_account_plan() != 'professional':
+        return render_template('professional-required.html'), 403
+    return None
+
+
+def _clinic_plan_csrf_token():
+    if not session.get('clinic_plan_csrf'):
+        session['clinic_plan_csrf'] = secrets.token_urlsafe(32)
+    return session['clinic_plan_csrf']
+
+
+def _registered_clinics():
+    clinics = []
+    base_path = pathlib.Path(db_manager.base_db_path)
+    if not base_path.is_dir():
+        return clinics
+    for db_path in sorted(base_path.glob('CareIL_client_*.db')):
+        client_key = _database_client_key(db_path.name)
+        if not client_key or not re.fullmatch(r'client_[0-9a-f]{64}', client_key):
+            continue
+        conn = None
+        try:
+            conn = db_manager.connect_to_db(client_key)
+            rows = conn.execute(
+                """SELECT userid, name, email, client_key, plan_code, plan_updated_at
+                   FROM accounts WHERE COALESCE(is_demo, 0)=0 ORDER BY userid"""
+            ).fetchall()
+        except (sqlite3.Error, OSError):
+            current_app.logger.exception('Could not read clinic plan metadata')
+            continue
+        finally:
+            if conn is not None:
+                conn.close()
+        clinics.extend(rows)
+    return clinics
+
+
 def _access_csrf_token():
     if not session.get('access_admin_csrf'):
         session['access_admin_csrf'] = secrets.token_urlsafe(32)
     return session['access_admin_csrf']
+
+
+def _whatsapp_test_csrf_token():
+    if not session.get('whatsapp_test_csrf'):
+        session['whatsapp_test_csrf'] = secrets.token_urlsafe(32)
+    return session['whatsapp_test_csrf']
+
+
+def _normalize_whatsapp_test_phone(value):
+    """Return an international digits-only test recipient without persisting it."""
+    raw = str(value or '').strip()
+    if raw.startswith('+'):
+        raw = raw[1:]
+    digits = re.sub(r'[^0-9]', '', raw)
+    if digits.startswith('00'):
+        digits = digits[2:]
+    elif digits.startswith('0'):
+        digits = '972' + digits[1:]
+    if not 8 <= len(digits) <= 15:
+        raise ValueError('Enter a valid mobile number, including the country code.')
+    return digits
+
+
+def _send_whatsapp_test_template(recipient):
+    access_token = os.environ.get('WHATSAPP_ACCESS_TOKEN_TEST', '').strip()
+    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID_TEST', '').strip()
+    api_version = os.environ.get('WHATSAPP_API_VERSION', 'v26.0').strip()
+    if not access_token or not phone_number_id:
+        raise RuntimeError('WhatsApp test credentials are not configured in Railway.')
+    if not re.fullmatch(r'v\d+\.\d+', api_version):
+        raise RuntimeError('WHATSAPP_API_VERSION is invalid.')
+
+    endpoint = f'https://graph.facebook.com/{api_version}/{phone_number_id}/messages'
+    body = json.dumps({
+        'messaging_product': 'whatsapp',
+        'to': recipient,
+        'type': 'template',
+        'template': {
+            'name': 'hello_world',
+            'language': {'code': 'en_US'},
+        },
+    }).encode('utf-8')
+    api_request = urllib.request.Request(
+        endpoint,
+        data=body,
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(api_request, timeout=15) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as error:
+        try:
+            details = json.loads(error.read().decode('utf-8'))
+            message = details.get('error', {}).get('message', '')
+        except (ValueError, AttributeError):
+            message = ''
+        raise RuntimeError(message or 'Meta rejected the test message.') from error
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise RuntimeError('Could not reach Meta. Please try again.') from error
+
+    message_id = ((result.get('messages') or [{}])[0].get('id'))
+    if not message_id:
+        raise RuntimeError('Meta did not return a message ID.')
+    return message_id
+
+
+@app.route('/careil-admin/whatsapp-test', methods=['GET', 'POST'])
+@flask_login.login_required
+def careil_whatsapp_test():
+    if not _careil_owner():
+        abort(403)
+    notice = ''
+    error = ''
+    if request.method == 'POST':
+        supplied = request.form.get('csrf_token', '')
+        expected = session.get('whatsapp_test_csrf', '')
+        if not expected or not hmac.compare_digest(supplied, expected):
+            abort(400)
+        last_sent = float(session.get('whatsapp_test_last_sent', 0) or 0)
+        if _utc_now().timestamp() - last_sent < 5:
+            error = 'Please wait a few seconds before sending another test.'
+        else:
+            try:
+                recipient = _normalize_whatsapp_test_phone(request.form.get('phone'))
+                message_id = _send_whatsapp_test_template(recipient)
+                session['whatsapp_test_last_sent'] = _utc_now().timestamp()
+                notice = f'Test accepted by Meta. Message ID: {message_id}'
+            except (ValueError, RuntimeError) as exc:
+                error = str(exc)
+        session['whatsapp_test_csrf'] = secrets.token_urlsafe(32)
+    return render_template(
+        'whatsapp-test-admin.html', csrf_token=_whatsapp_test_csrf_token(),
+        notice=notice, error=error,
+    )
 
 
 def _send_access_email(recipient, subject, content):
@@ -725,77 +792,6 @@ def _send_access_email(recipient, subject, content):
         email_brand_header() + content,
         attachments=[careil_logo_attachment(os.path.dirname(__file__))],
     )
-
-
-def _provision_paid_order(order):
-    """Create a one-time setup invitation and send payment notifications.
-
-    Called only after the billing adapter has verified a successful provider webhook.
-    """
-    raw_token = secrets.token_urlsafe(48)
-    expires = (_utc_now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
-    conn = _central_database()
-    try:
-        existing = conn.execute(
-            """SELECT request_id,status FROM access_requests WHERE email=?
-               ORDER BY request_id DESC LIMIT 1""",
-            (order['email'],),
-        ).fetchone()
-        if existing and existing['status'] == 'registered':
-            registration_url = url_for('login_page', _external=True)
-        else:
-            if existing:
-                conn.execute(
-                    """UPDATE access_requests SET full_name=?,phone=?,clinic_name=?,
-                              language=?,preferred_plan=?,status='approved',token_hash=?,
-                              token_expires_at=?,approved_at=CURRENT_TIMESTAMP,
-                              declined_at=NULL,used_at=NULL WHERE request_id=?""",
-                    (order['full_name'], order['phone'], order['clinic_name'],
-                     order['language'], order['plan_code'], _access_token_hash(raw_token),
-                     expires, existing['request_id']),
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO access_requests
-                       (full_name,email,phone,clinic_name,language,preferred_plan,status,
-                        token_hash,token_expires_at,approved_at,requester_ip,user_agent)
-                       VALUES(?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?)""",
-                    (order['full_name'], order['email'], order['phone'],
-                     order['clinic_name'], order['language'], order['plan_code'],
-                     _access_token_hash(raw_token), expires, order['requester_ip'],
-                     order['user_agent']),
-                )
-            registration_url = url_for('registration_page', token=raw_token, _external=True)
-        conn.commit()
-    finally:
-        conn.close()
-
-    cycle = 'Annual' if order['billing_cycle'] == 'annual' else 'Monthly'
-    receipt = (f'<p><a href="{html.escape(order["receipt_url"])}">View receipt</a></p>'
-               if order.get('receipt_url') else '')
-    next_charge = (f'<p>Next billing date: {html.escape(order["next_billing_date"])}</p>'
-                   if order.get('next_billing_date') else '')
-    _send_access_email(
-        order['email'], 'CareIL | Payment received and account setup',
-        f'<p>Hello {html.escape(order["full_name"])},</p>'
-        f'<p>Your payment for CareIL {html.escape(order["plan_code"].title())} '
-        f'({cycle}) was confirmed.</p>{receipt}{next_charge}'
-        f'<p><a href="{registration_url}" style="display:inline-block;padding:12px 18px;'
-        'border-radius:10px;background:#588157;color:white;text-decoration:none">'
-        'Set up your CareIL account</a></p>'
-        '<p>The setup link is personal, can be used once and is valid for seven days.</p>',
-    )
-    owner_email = os.environ.get('CAREIL_OWNER_EMAIL', '').strip()
-    if owner_email:
-        _send_access_email(
-            owner_email, 'CareIL | New paid customer',
-            f'<p><strong>{html.escape(order["full_name"])}</strong> '
-            f'({html.escape(order["email"])}) purchased '
-            f'<strong>{html.escape(order["plan_code"].title())} · {cycle}</strong>.</p>'
-            f'<p>Amount: ₪{order["amount"]} · Order #{order["order_id"]}</p>'
-            f'<p>Provider transaction: {html.escape(order.get("provider_transaction_id") or "Pending reference")}</p>',
-        )
-    return registration_url
 
 
 @app.route('/request-access', methods=['GET', 'POST'])
@@ -883,6 +879,56 @@ def careil_access_requests():
     )
 
 
+@app.route('/careil-admin/clinics')
+@flask_login.login_required
+def careil_clinics():
+    if not _careil_owner():
+        abort(403)
+    return render_template(
+        'clinics-admin.html', clinics=_registered_clinics(),
+        csrf_token=_clinic_plan_csrf_token(),
+        message=request.args.get('message', ''),
+    )
+
+
+@app.route('/careil-admin/clinics/<client_key>/plan', methods=['POST'])
+@flask_login.login_required
+def careil_clinic_plan(client_key):
+    if not _careil_owner():
+        abort(403)
+    supplied = request.form.get('csrf_token', '')
+    expected = session.get('clinic_plan_csrf', '')
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(400)
+    if not re.fullmatch(r'client_[0-9a-f]{64}', client_key):
+        abort(404)
+    plan_code = request.form.get('plan_code', '').strip().lower()
+    if plan_code not in {'basic', 'professional'}:
+        abort(400)
+    db_path = pathlib.Path(db_manager.get_db_path(client_key))
+    try:
+        db_path.resolve().relative_to(pathlib.Path(db_manager.base_db_path).resolve())
+    except ValueError:
+        abort(404)
+    if not db_path.is_file():
+        abort(404)
+    conn = db_manager.connect_to_db(client_key)
+    try:
+        updated = conn.execute(
+            'UPDATE accounts SET plan_code=?, plan_updated_at=CURRENT_TIMESTAMP',
+            (plan_code,),
+        ).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    if not updated:
+        abort(404)
+    session['clinic_plan_csrf'] = secrets.token_urlsafe(32)
+    return redirect(url_for(
+        'careil_clinics', message=f'Clinic plan updated to {plan_code.title()}.'
+    ))
+
+
 @app.route('/careil-admin/access-requests/<int:request_id>/<action>', methods=['POST'])
 @flask_login.login_required
 def careil_access_request_action(request_id, action):
@@ -965,7 +1011,10 @@ def registration_request():
     form = dict(request.values)
     form['name'] = invitation['full_name']
     form['email'] = invitation['email']
-    form['plan_code'] = invitation.get('preferred_plan') or 'basic'
+    preferred_plan = invitation.get('preferred_plan', 'basic')
+    form['plan_code'] = (
+        preferred_plan if preferred_plan in {'basic', 'professional'} else 'basic'
+    )
     required_legal = ('accept_privacy', 'accept_terms', 'accept_dpa')
     if not all(request.form.get(field) == 'yes' for field in required_legal):
         return render_template(
@@ -1389,14 +1438,10 @@ def sitemap_xml():
     urls = [
         'https://www.careil.net/', 'https://www.careil.net/he',
         'https://www.careil.net/plans', 'https://www.careil.net/he/plans',
-        'https://www.careil.net/articles', 'https://www.careil.net/faq',
         'https://www.careil.net/he/articles', 'https://www.careil.net/he/faq',
     ]
     urls.extend(
         f'https://www.careil.net/he/articles/{slug}' for slug in HEBREW_ARTICLES
-    )
-    urls.extend(
-        f'https://www.careil.net/articles/{slug}' for slug in ENGLISH_ARTICLES
     )
     for key in LEGAL_DOCUMENTS:
         urls.extend([
@@ -1557,12 +1602,7 @@ def calendar_page():
     apps = Appointments()
     appointments = apps.get()
     duration = int(_availability_settings(user['client_key'])['APPOINTMENT_DURATION'])
-    current_year = _utc_now().year
-    return render_template(
-        'calendar.html', user=user, appointments=appointments,
-        appointment_duration=duration,
-        holidays=holiday_records(current_year - 1, current_year + 5),
-    )
+    return render_template('calendar.html',user=user,appointments=appointments,appointment_duration=duration)
 
 @app.route('/service-worker.js')
 def service_worker():
@@ -1717,6 +1757,9 @@ def _google_calendar_return_path(value):
 @app.route('/admin/google-calendar')
 @admin_only
 def google_calendar_settings():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     configured = google_calendar_is_configured()
     connected = google_calendar_connection_status(user['client_key'], user['userid']) if configured else None
@@ -1728,6 +1771,9 @@ def google_calendar_settings():
 @app.route('/google-calendar/connect')
 @admin_only
 def google_calendar_connect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not google_calendar_is_configured():
         return redirect(url_for('google_calendar_settings', error='Google credentials are not configured'))
     return_path = _google_calendar_return_path(request.args.get('next'))
@@ -1751,6 +1797,9 @@ def google_calendar_connect():
 @app.route('/google-calendar/callback')
 @admin_only
 def google_calendar_callback():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     expected_state = session.pop('google_oauth_state', None)
     code_verifier = session.pop('google_oauth_code_verifier', None)
     if not expected_state or request.args.get('state') != expected_state:
@@ -1782,6 +1831,9 @@ def google_calendar_callback():
 @app.route('/google-calendar/sync', methods=['POST'])
 @admin_only
 def google_calendar_sync_now():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     return_to_calendar = request.form.get('next') == '/calendar'
     if not google_calendar_is_configured():
@@ -1807,9 +1859,56 @@ def google_calendar_sync_now():
 @app.route('/google-calendar/disconnect', methods=['POST'])
 @admin_only
 def google_calendar_disconnect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     disconnect_google_calendar(user['client_key'], user['userid'])
     return redirect(url_for('google_calendar_settings', disconnected='1'))
+
+
+@app.route('/google-calendar/reminders', methods=['POST'])
+@admin_only
+def google_calendar_reminder_create():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return jsonify({'error': 'Google Calendar reminders require the Professional plan.'}), 403
+    user = flask_login.current_user.get_dict()
+    if session.get('client_key', '').startswith('demo_'):
+        return jsonify({'error': 'Google Calendar is unavailable in the demo.'}), 403
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title') or '').strip()
+    starts_at = str(payload.get('starts_at') or '').strip()
+    notes = str(payload.get('notes') or '').strip()
+    try:
+        minutes_before = int(payload.get('minutes_before', 30))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Choose a valid reminder time.'}), 400
+    if not title or len(title) > 120:
+        return jsonify({'error': 'Enter a reminder title of up to 120 characters.'}), 400
+    if len(notes) > 1000:
+        return jsonify({'error': 'Reminder notes may contain up to 1,000 characters.'}), 400
+    if minutes_before not in (0, 10, 30, 60, 1440):
+        return jsonify({'error': 'Choose a supported reminder time.'}), 400
+    try:
+        parsed_start = datetime.datetime.strptime(starts_at, '%Y-%m-%dT%H:%M')
+    except ValueError:
+        return jsonify({'error': 'Choose a valid date and time.'}), 400
+    if parsed_start < datetime.datetime.now() - datetime.timedelta(minutes=1):
+        return jsonify({'error': 'The reminder time must be in the future.'}), 400
+    try:
+        result = create_google_calendar_reminder(
+            user['client_key'], user['userid'], title,
+            parsed_start.strftime('%Y-%m-%d %H:%M:%S'), minutes_before, notes,
+        )
+    except PermissionError as error:
+        return jsonify({'error': str(error)}), 403
+    except ValueError as error:
+        return jsonify({'error': str(error), 'connect_url': url_for('google_calendar_settings')}), 409
+    except Exception:
+        current_app.logger.exception('Could not create Google Calendar reminder')
+        return jsonify({'error': 'The reminder could not be created. Reconnect Google Calendar and try again.'}), 502
+    return jsonify({'message': 'Reminder added to Google Calendar.', **result}), 201
 
 
 def _morning_csrf_token():
@@ -1827,6 +1926,9 @@ def _valid_morning_csrf():
 @app.route('/admin/morning', methods=['GET', 'POST'])
 @admin_only
 def morning_settings():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     user = flask_login.current_user.get_dict()
     client_key = user['client_key']
     if request.method == 'POST':
@@ -1835,13 +1937,6 @@ def morning_settings():
         client_id = request.form.get('client_id', '').strip()
         client_secret = request.form.get('client_secret', '').strip()
         environment = request.form.get('environment', 'production')
-        action = request.form.get('action', 'connect')
-        if action == 'activate':
-            try:
-                activate_morning_environment(client_key, environment)
-            except MorningError as error:
-                return redirect(url_for('morning_settings', error=str(error)))
-            return redirect(url_for('morning_settings', activated=environment))
         if not client_id or not client_secret:
             return redirect(url_for('morning_settings', error='Enter both Morning API key values.'))
         try:
@@ -1853,7 +1948,6 @@ def morning_settings():
     return render_template(
         'morning-settings.html', user=user,
         connected=morning_connection_status(client_key),
-        connections=morning_connection_statuses(client_key),
         csrf_token=_morning_csrf_token(),
     )
 
@@ -1861,30 +1955,22 @@ def morning_settings():
 @app.route('/admin/morning/disconnect', methods=['POST'])
 @admin_only
 def morning_disconnect():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
-    disconnect_morning(user['client_key'], request.form.get('environment'))
+    disconnect_morning(user['client_key'])
     return redirect(url_for('morning_settings', disconnected='1'))
 
 
 @app.route('/patients/<int:pat_id>/appointments/<int:app_id>/receipt', methods=['POST'])
 @flask_login.login_required
 def create_appointment_receipt(pat_id, app_id):
-    return _create_morning_receipt(pat_id, app_id, default_tab='appointments')
-
-
-@app.route('/patients/<int:pat_id>/receipt', methods=['POST'])
-@flask_login.login_required
-def create_patient_receipt(pat_id):
-    app_id = request.form.get('app_id', type=int)
-    if app_id is None:
-        flash('Please select a completed appointment.', 'danger')
-        return redirect(url_for('patient_folder_Load', id=pat_id) + '#payments')
-    return _create_morning_receipt(pat_id, app_id, default_tab='payments')
-
-
-def _create_morning_receipt(pat_id, app_id, default_tab):
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return plan_error
     if not _valid_morning_csrf():
         abort(400)
     user = flask_login.current_user.get_dict()
@@ -1905,10 +1991,7 @@ def _create_morning_receipt(pat_id, app_id, default_tab):
     except Exception:
         current_app.logger.exception('Morning receipt creation failed')
         flash('The receipt could not be issued. Please try again or check Morning Settings.', 'danger')
-    return_tab = request.form.get('return_tab', default_tab)
-    if return_tab not in {'appointments', 'payments'}:
-        return_tab = default_tab
-    return redirect(url_for('patient_folder_Load', id=pat_id) + '#' + return_tab)
+    return redirect(url_for('patient_folder_Load', id=pat_id) + '#appointments')
 
 
 @app.route('/admin/mail-settings', methods=['GET', 'POST'])
@@ -1995,313 +2078,10 @@ def update_clinic_info():
 @app.route('/admin/adminPanel', methods=['GET'])
 @admin_only
 def admin_panel():
-    return render_template('adminPanel.html', careil_owner=_careil_owner())
-
-
-def _require_careil_owner():
-    if not _careil_owner():
-        abort(403)
-
-
-def _clinic_keys():
-    """Return only database-backed tenant keys; never trust a key from a form."""
-    keys = {Globalsetting['DEFAULT_CLIENT_KEY']}
-    base_path = pathlib.Path(db_manager.base_db_path)
-    if base_path.is_dir():
-        for db_path in base_path.glob('CareIL_*.db'):
-            client_key = _database_client_key(db_path.name)
-            if client_key and not client_key.startswith('demo_'):
-                keys.add(client_key)
-    return sorted(keys)
-
-
-def _careil_clinics():
-    central = _central_database()
-    try:
-        subscriptions = {
-            row['email'].strip().lower(): row
-            for row in central.execute(
-                "SELECT email,plan_code,billing_cycle,status,current_period_end "
-                "FROM subscriptions ORDER BY updated_at DESC"
-            ).fetchall()
-        }
-    finally:
-        central.close()
-    clinics = []
-    for client_key in _clinic_keys():
-        try:
-            conn = db_manager.connect_to_db(client_key)
-            accounts = conn.execute('''
-                SELECT userid,email,name,client_key,plan_code,plan_updated_at,
-                       email_verified,is_demo
-                FROM accounts ORDER BY name,userid
-            ''').fetchall()
-            conn.close()
-        except (FileNotFoundError, sqlite3.Error):
-            current_app.logger.exception('Could not read clinic %s', client_key)
-            continue
-        for account in accounts:
-            email_key = (account.get('email') or '').strip().lower()
-            subscription = subscriptions.get(email_key)
-            effective_plan = (
-                subscription['plan_code']
-                if subscription and subscription['status'] == 'active'
-                else account.get('plan_code') or 'basic'
-            )
-            clinics.append({
-                **account,
-                'client_key': client_key,
-                'effective_plan': effective_plan,
-                'subscription': subscription,
-            })
-    return sorted(clinics, key=lambda row: ((row.get('name') or '').lower(), row['client_key']))
-
-
-@app.route('/careil-admin/clinics')
-@flask_login.login_required
-def careil_clinics():
-    _require_careil_owner()
     return render_template(
-        'careil-clinics.html', clinics=_careil_clinics(),
-        csrf_token=_access_csrf_token(), message=request.args.get('message', ''),
+        'adminPanel.html', careil_owner=_careil_owner(),
+        account_plan=_current_account_plan(),
     )
-
-
-@app.route('/careil-admin/clinics/plan', methods=['POST'])
-@flask_login.login_required
-def careil_clinic_plan():
-    _require_careil_owner()
-    if not hmac.compare_digest(
-        request.form.get('csrf_token', ''), session.get('access_admin_csrf', '')
-    ):
-        abort(400)
-    client_key = request.form.get('client_key', '')
-    userid = request.form.get('userid', '')
-    plan_code = request.form.get('plan_code', '')
-    if client_key not in _clinic_keys() or plan_code not in BILLING_PLANS or not userid:
-        abort(400)
-    conn = db_manager.connect_to_db(client_key)
-    try:
-        account = conn.execute(
-            'SELECT email FROM accounts WHERE userid=?', (userid,)
-        ).fetchone()
-        if not account:
-            abort(404)
-        conn.execute('''
-            UPDATE accounts SET plan_code=?, plan_updated_at=CURRENT_TIMESTAMP
-            WHERE userid=?
-        ''', (plan_code, userid))
-        conn.commit()
-    finally:
-        conn.close()
-    email = (account.get('email') or '').strip()
-    if email:
-        central = _central_database()
-        try:
-            central.execute('''
-                UPDATE subscriptions SET plan_code=?,updated_at=CURRENT_TIMESTAMP
-                WHERE email=?
-            ''', (plan_code, email))
-            central.execute('''
-                UPDATE access_requests SET preferred_plan=?
-                WHERE request_id=(SELECT request_id FROM access_requests
-                                  WHERE email=? ORDER BY request_id DESC LIMIT 1)
-            ''', (plan_code, email))
-            central.commit()
-        finally:
-            central.close()
-    return redirect(url_for(
-        'careil_clinics', message=f'{userid} is now on {plan_code.title()}.'
-    ))
-
-
-def _meta_redirect_uri():
-    return os.environ.get('META_REDIRECT_URI') or url_for('meta_callback', _external=True)
-
-
-def _social_csrf_token():
-    if not session.get('social_csrf'):
-        session['social_csrf'] = secrets.token_urlsafe(32)
-    return session['social_csrf']
-
-
-def _valid_social_csrf():
-    return hmac.compare_digest(
-        request.form.get('csrf_token', ''), session.get('social_csrf', '')
-    )
-
-
-def _agent_api_authorized():
-    expected = os.environ.get('CAREIL_SOCIAL_AGENT_KEY', '')
-    header = request.headers.get('Authorization', '')
-    supplied = header[7:].strip() if header.startswith('Bearer ') else ''
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
-
-
-@app.route('/careil-admin/social')
-@flask_login.login_required
-def meta_social_settings():
-    _require_careil_owner()
-    conn = _central_database()
-    try:
-        connected = meta_connection_status(conn)
-        drafts = list_social_drafts(conn)
-    finally:
-        conn.close()
-    return render_template(
-        'meta-social.html', configured=meta_is_configured(), connected=connected,
-        drafts=drafts, csrf_token=_social_csrf_token(),
-    )
-
-
-@app.route('/meta/connect')
-@flask_login.login_required
-def meta_connect():
-    _require_careil_owner()
-    if not meta_is_configured():
-        return redirect(url_for('meta_social_settings', error='Meta credentials are not configured.'))
-    state = secrets.token_urlsafe(32)
-    session['meta_oauth_state'] = state
-    try:
-        return redirect(meta_authorization_url(_meta_redirect_uri(), state))
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-
-
-@app.route('/meta/callback')
-@flask_login.login_required
-def meta_callback():
-    _require_careil_owner()
-    expected_state = session.pop('meta_oauth_state', '')
-    if not expected_state or not hmac.compare_digest(request.args.get('state', ''), expected_state):
-        abort(400, description='Invalid Meta OAuth state')
-    if request.args.get('error'):
-        return redirect(url_for(
-            'meta_social_settings', error=request.args.get('error_description', 'Meta access was declined.')
-        ))
-    code = request.args.get('code', '')
-    if not code:
-        return redirect(url_for('meta_social_settings', error='Meta did not return an authorization code.'))
-    try:
-        page = exchange_code_and_find_page(code, _meta_redirect_uri())
-        conn = _central_database()
-        try:
-            user = flask_login.current_user.get_dict()
-            save_meta_connection(conn, page, user['userid'])
-        finally:
-            conn.close()
-    except MetaSocialError as error:
-        current_app.logger.warning('Meta connection failed: %s', error)
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    return redirect(url_for('meta_social_settings', connected='1'))
-
-
-@app.route('/meta/disconnect', methods=['POST'])
-@flask_login.login_required
-def meta_disconnect():
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        disconnect_meta(conn)
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', disconnected='1'))
-
-
-@app.route('/careil-admin/social/drafts', methods=['POST'])
-@flask_login.login_required
-def social_create_draft():
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        user = flask_login.current_user.get_dict()
-        create_social_draft(
-            conn, request.form.get('message'), request.form.get('image_url'), user['userid']
-        )
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', drafted='1'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/approve', methods=['POST'])
-@flask_login.login_required
-def social_approve_draft(draft_id):
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        user = flask_login.current_user.get_dict()
-        approve_social_draft(conn, draft_id, user['userid'], 'CareIL owner dashboard approval')
-    except MetaSocialError as error:
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', approved='1'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/publish', methods=['POST'])
-@flask_login.login_required
-def social_publish_draft(draft_id):
-    _require_careil_owner()
-    if not _valid_social_csrf():
-        abort(400)
-    conn = _central_database()
-    try:
-        publish_approved_draft(conn, draft_id)
-    except MetaSocialError as error:
-        current_app.logger.warning('Meta publishing failed: %s', error)
-        return redirect(url_for('meta_social_settings', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('meta_social_settings', published='1'))
-
-
-@app.route('/careil-api/social/drafts', methods=['POST'])
-def social_agent_create_draft():
-    if not _agent_api_authorized():
-        return jsonify({'error': 'Unauthorized'}), 401
-    payload = request.get_json(silent=True) or {}
-    conn = _central_database()
-    try:
-        draft_id = create_social_draft(
-            conn, payload.get('message'), payload.get('image_url'), 'CareIL marketing agent'
-        )
-    except MetaSocialError as error:
-        return jsonify({'error': str(error)}), 400
-    finally:
-        conn.close()
-    return jsonify({'draft_id': draft_id, 'status': 'draft'}), 201
-
-
-@app.route('/careil-api/social/drafts/<int:draft_id>/approve-and-publish', methods=['POST'])
-def social_agent_approve_and_publish(draft_id):
-    if not _agent_api_authorized():
-        return jsonify({'error': 'Unauthorized'}), 401
-    payload = request.get_json(silent=True) or {}
-    if payload.get('approval_confirmation') != 'APPROVED':
-        return jsonify({'error': 'Explicit approval_confirmation=APPROVED is required.'}), 400
-    approval_reference = str(payload.get('approval_reference') or '').strip()
-    if not approval_reference:
-        return jsonify({'error': 'approval_reference is required for the audit log.'}), 400
-    conn = _central_database()
-    try:
-        approve_social_draft(
-            conn, draft_id, 'CareIL marketing agent', approval_reference
-        )
-        post_id = publish_approved_draft(conn, draft_id)
-    except MetaSocialError as error:
-        current_app.logger.warning('Agent Meta publishing failed: %s', error)
-        return jsonify({'error': str(error)}), 400
-    finally:
-        conn.close()
-    return jsonify({'draft_id': draft_id, 'status': 'published', 'meta_post_id': post_id})
 
 def _availability_settings(client_key):
     defaults = {
@@ -2328,13 +2108,35 @@ def availability_api():
     if not client_key:
         return jsonify({'error': 'Clinic context is required.'}), 401
     settings = _availability_settings(client_key)
-    current_year = _utc_now().year
     return jsonify({
         'days': [int(day) for day in settings['AVAILABILITY_DAYS'].split(',') if day != ''],
         'start': settings['AVAILABILITY_START'],
         'end': settings['AVAILABILITY_END'],
-        'duration': int(settings['APPOINTMENT_DURATION']),
-        'holidays': holiday_dates(current_year - 1, current_year + 3),
+        'duration': int(settings['APPOINTMENT_DURATION'])
+    })
+
+@app.route('/api/jewish-holidays', methods=['GET'])
+def jewish_holidays_api():
+    if not session.get('client_key'):
+        return jsonify({'error': 'Clinic context is required.'}), 401
+    current_year = datetime.date.today().year
+    try:
+        start_year = int(request.args.get('start_year', current_year))
+        years = min(max(int(request.args.get('years', 2)), 1), 3)
+        if start_year < current_year - 1 or start_year > current_year + 3:
+            raise ValueError
+    except ValueError:
+        return jsonify({'error': 'Invalid holiday date range.'}), 400
+    try:
+        holidays = {}
+        for year in range(start_year, start_year + years):
+            holidays.update(holidays_for_year(year))
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed')
+        return jsonify({'error': 'Holiday dates could not be loaded.'}), 503
+    return jsonify({
+        'dates': sorted(holidays),
+        'holidays': [{'date': day, 'title': holidays[day]} for day in sorted(holidays)],
     })
 
 @app.route('/admin/availability', methods=['GET', 'POST'])
@@ -2582,14 +2384,6 @@ def patient_folder_Load():
     for appointment in appointments:
         appointment['is_past'] = str(appointment.get('appointment_date') or '') < now_value
         appointment['summary_rec_id'] = summaries_by_appointment.get(appointment.get('app_id'))
-        appointment['display_date'] = str(appointment.get('appointment_date') or '')
-        try:
-            appointment_value = datetime.datetime.fromisoformat(
-                appointment['display_date'].replace('Z', '')
-            )
-            appointment['display_date'] = appointment_value.strftime('%d/%m/%Y · %H:%M')
-        except ValueError:
-            pass
     receipts_by_appointment = {
         row['app_id']: row
         for row in database_read(
@@ -2601,11 +2395,6 @@ def patient_folder_Load():
     }
     for appointment in appointments:
         appointment['receipt'] = receipts_by_appointment.get(appointment.get('app_id'))
-    unreceipted_past_appointments = [
-        appointment for appointment in appointments
-        if appointment.get('is_past')
-        and not (appointment.get('receipt') and appointment['receipt'].get('status') == 'issued')
-    ]
     payment_rows = sorted(
         receipts_by_appointment.values(),
         key=lambda row: (row.get('payment_date') or row.get('session_date') or ''),
@@ -2646,7 +2435,6 @@ def patient_folder_Load():
     print("patientdata",patientdata)
     if not patientdata:
         abort(404)
-    morning_status = morning_connection_status(client_key)
     return render_template(
         'patientform.html', Translate_data=Translate_data, user=user,
         patient=patientdata[0], patientdata=patientdata, messages=messages,
@@ -2654,11 +2442,12 @@ def patient_folder_Load():
         diagnosis_types=diagnosis_types, patient_diagnoses=patient_diagnoses,
         questionnaire_templates=questionnaire_templates,
         patient_questionnaires=patient_questionnaires,
-        morning_connected=bool(morning_status),
-        morning_environment=(morning_status['environment'] if morning_status else None),
+        morning_connected=(
+            _account_plan(client_key, user['userid']) == 'professional'
+            and bool(morning_connection_status(client_key))
+        ),
         morning_payment_types=MORNING_PAYMENT_TYPES,
         payment_rows=payment_rows, payment_summary=payment_summary,
-        unreceipted_past_appointments=unreceipted_past_appointments,
         morning_csrf_token=_morning_csrf_token(),
         today=datetime.date.today().isoformat(), alert=""
     )
@@ -2670,12 +2459,19 @@ def update_patien():
     client_key =  user['client_key']
     form = dict(request.values)
     id = form['pat_id']
-    sql = "UPDATE patient SET pat_first_name =:pat_first_name, pat_last_name =:pat_last_name, pat_ph_no =:pat_ph_no, pat_address=:pat_address, pat_email =:pat_email, pat_insurance_no =:pat_insurance_no where pat_id =:pat_id"
+    form['pat_gender'] = form.get('pat_gender') or None
+    form['parent1_name'] = str(form.get('parent1_name') or '').strip() or None
+    form['parent2_name'] = str(form.get('parent2_name') or '').strip() or None
+    form['pat_dob'] = form.get('pat_dob') or None
+    sql = """UPDATE patient SET pat_first_name=:pat_first_name, pat_last_name=:pat_last_name,
+             pat_ph_no=:pat_ph_no, pat_address=:pat_address, pat_email=:pat_email,
+             pat_insurance_no=:pat_insurance_no, pat_dob=:pat_dob,
+             pat_gender=:pat_gender, parent1_name=:parent1_name,
+             parent2_name=:parent2_name WHERE pat_id=:pat_id"""
     ok = database_write(sql,form)   
     if ok == 1:
-        patientdata = database_read(f"select * from patient where pat_id= '{id}';",client_key=client_key)
-        message = 'Success'
-        return render_template('patientform.html',user=user,patient=patientdata,message=message)
+        flash('Client details updated successfully.', 'success')
+        return redirect(url_for('patient_folder_Load', id=id))
     else:
        return "ERROR"
 
@@ -2910,6 +2706,24 @@ def updatemedicalnote():
         )
         if not appointment:
             abort(400)
+
+    def saved_summary_response(rec_id=None):
+        receipt_prompt = False
+        receipt_url = None
+        if app_id and _account_plan(client_key, user['userid']) == 'professional':
+            already_issued = database_read(
+                "SELECT 1 FROM morning_receipts WHERE app_id = ? AND status = 'issued' LIMIT 1",
+                (app_id,), client_key=client_key
+            )
+            if not already_issued and morning_connection_status(client_key):
+                receipt_prompt = True
+                receipt_url = url_for(
+                    'patient_folder_Load', id=id, receipt_app_id=int(app_id)
+                ) + '#appointments'
+        result = {'ok': True, 'receipt_prompt': receipt_prompt, 'receipt_url': receipt_url}
+        if rec_id is not None:
+            result['rec_id'] = int(rec_id)
+        return jsonify(result)
     if 'noteid' in request.values:
         noteid = request.values['noteid']
         #update
@@ -2918,7 +2732,7 @@ def updatemedicalnote():
         sql = "UPDATE medrecords SET pat_id = ?, app_id = ?, create_date = ?, body = ? WHERE rec_id = ? AND pat_id = ?"
         ok = database_write(sql, (id, app_id, now, contentbdy, noteid, id))
         if ok == 1:
-            return jsonify({'ok': True, 'rec_id': int(noteid)})
+            return saved_summary_response(noteid)
         else:
             return "ERROR"
     else:
@@ -2934,7 +2748,7 @@ def updatemedicalnote():
         sql = "INSERT INTO medrecords (pat_id, app_id, create_date, body) VALUES (?, ?, ?, ?)"
         ok = database_write(sql, (id, app_id, now, contentbdy))
         if ok == 1:
-            return jsonify({'ok': True})
+            return saved_summary_response()
         else:
             return "ERROR"
 
@@ -3434,9 +3248,6 @@ def chekappointmentdate():
     except ValueError:
         return "ERROR", 400
 
-    if is_holiday(requested_at):
-        return "ERROR"
-
     availability = _availability_settings(client_key)
     allowed_days = {int(day) for day in availability['AVAILABILITY_DAYS'].split(',') if day != ''}
     # JavaScript uses Sunday=0; Python uses Monday=0.
@@ -3445,6 +3256,13 @@ def chekappointmentdate():
     end_time = datetime.datetime.strptime(availability['AVAILABILITY_END'], '%H:%M').time()
     if requested_day not in allowed_days or not (start_time <= requested_at.time() < end_time):
         return "ERROR"
+
+    try:
+        if holiday_name(requested_at):
+            return "ERROR"
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed while checking an appointment')
+        return "ERROR", 503
 
     appoinmentindate = database_read(
         """SELECT app_id FROM appointment WHERE appointment_date = ?

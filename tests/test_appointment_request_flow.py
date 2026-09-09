@@ -55,7 +55,8 @@ class AppointmentRequestFlowTest(unittest.TestCase):
             self.seed(manager)
             manager_factory = lambda client_key=None: manager
             payload = {'pat_id': 1, 'appointment_date': '2026-08-31 10:00:00', 'language': 'HE'}
-            with patch('package.appointment.DatabaseManager', manager_factory):
+            with patch('package.appointment.DatabaseManager', manager_factory), \
+                    patch('package.appointment.holiday_name', return_value=None):
                 with self.app.test_request_context(json=payload):
                     session['client_key'] = 'default_client'
                     first = RequestAppointments().post()
@@ -80,21 +81,21 @@ class AppointmentRequestFlowTest(unittest.TestCase):
             ).fetchone()['status'], 1)
             conn.close()
 
-    def test_portal_request_is_rejected_on_israel_holiday(self):
+    def test_holiday_request_is_rejected_without_creating_a_pending_row(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)
             self.seed(manager)
-            payload = {
-                'pat_id': 1,
-                'appointment_date': '2026-09-21 10:00:00',  # Yom Kippur
-                'language': 'HE',
-            }
-            with patch('package.appointment.DatabaseManager', lambda client_key=None: manager):
+            payload = {'pat_id': 1, 'appointment_date': '2026-09-14 10:00:00', 'language': 'HE'}
+            with patch('package.appointment.DatabaseManager', lambda client_key=None: manager), \
+                    patch('package.appointment.holiday_name', return_value='ראש השנה'):
                 with self.app.test_request_context(json=payload):
                     session['client_key'] = 'default_client'
                     response = RequestAppointments().post()
             self.assertEqual(response[1], 409)
-            self.assertIn('outside', response[0]['error'])
+            self.assertEqual(response[0]['holiday'], 'ראש השנה')
+            conn = manager.connect_to_db('default_client')
+            self.assertEqual(conn.execute('SELECT COUNT(*) AS n FROM pendingappointment').fetchone()['n'], 0)
+            conn.close()
 
     def test_confirmation_has_exact_time_duration_google_link_and_ics(self):
         patient = {'pat_first_name': 'Test', 'pat_last_name': 'Client', 'pat_email': 'client@example.com'}

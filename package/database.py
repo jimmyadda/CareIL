@@ -59,91 +59,63 @@ class DatabaseManager:
         conn = sqlite3.connect(db_path)
         self.ensure_account_verification_schema(conn)
         self.ensure_access_request_schema(conn)
-        self.ensure_subscription_billing_schema(conn)
         self.ensure_legal_acceptance_schema(conn)
         self.ensure_portal_invitation_schema(conn)
         self.ensure_google_calendar_schema(conn)
         self.ensure_morning_schema(conn)
-        self.ensure_meta_social_schema(conn)
         self.ensure_pending_appointment_schema(conn)
+        self.ensure_patient_profile_schema(conn)
         self.ensure_session_summary_schema(conn)
         self.ensure_clinical_forms_schema(conn)
+        self.ensure_whatsapp_webhook_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
 
     @staticmethod
-    def ensure_subscription_billing_schema(conn):
-        """Store checkout attempts and active CareIL subscriptions centrally."""
+    def ensure_patient_profile_schema(conn):
+        """Add optional demographic and parent details to existing clinic databases."""
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(patient)").fetchall()
+        }
+        migrations = {
+            'pat_gender': "TEXT",
+            'parent1_name': "TEXT",
+            'parent2_name': "TEXT",
+        }
+        changed = False
+        for column, definition in migrations.items():
+            if columns and column not in columns:
+                conn.execute(f"ALTER TABLE patient ADD COLUMN {column} {definition}")
+                changed = True
+        if changed:
+            conn.commit()
+
+    @staticmethod
+    def ensure_whatsapp_webhook_schema(conn):
+        """Store only non-content metadata for verified WhatsApp webhook events."""
         conn.executescript('''
-            CREATE TABLE IF NOT EXISTS billing_orders (
-                order_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                public_token_hash TEXT NOT NULL UNIQUE,
-                full_name TEXT NOT NULL,
-                email TEXT NOT NULL COLLATE NOCASE,
-                phone TEXT,
-                clinic_name TEXT,
-                language TEXT NOT NULL DEFAULT 'en',
-                country TEXT,
-                billing_address TEXT,
-                plan_code TEXT NOT NULL CHECK(plan_code IN ('basic','professional')),
-                billing_cycle TEXT NOT NULL CHECK(billing_cycle IN ('monthly','annual')),
-                amount INTEGER NOT NULL,
-                currency TEXT NOT NULL DEFAULT 'ILS',
-                status TEXT NOT NULL DEFAULT 'pending'
-                    CHECK(status IN ('pending','checkout_created','payment_processing',
-                                     'paid','failed','cancelled','refunded')),
-                provider_session_id TEXT UNIQUE,
-                provider_transaction_id TEXT UNIQUE,
-                checkout_url TEXT,
-                receipt_url TEXT,
-                next_billing_date TEXT,
-                requester_ip TEXT,
-                user_agent TEXT,
-                error_message TEXT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                paid_at DATETIME
-            );
-            CREATE INDEX IF NOT EXISTS idx_billing_orders_email
-                ON billing_orders(email, created_at);
-            CREATE INDEX IF NOT EXISTS idx_billing_orders_status
-                ON billing_orders(status, created_at);
-
-            CREATE TABLE IF NOT EXISTS subscriptions (
-                subscription_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
-                plan_code TEXT NOT NULL,
-                billing_cycle TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                provider_subscription_id TEXT UNIQUE,
-                current_period_end TEXT,
-                billing_order_id INTEGER NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (billing_order_id) REFERENCES billing_orders(order_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS billing_webhook_deliveries (
-                delivery_id TEXT PRIMARY KEY,
-                topic TEXT NOT NULL,
-                provider_transaction_id TEXT,
-                status TEXT NOT NULL,
+            CREATE TABLE IF NOT EXISTS whatsapp_webhook_events (
+                event_key TEXT PRIMARY KEY,
+                payload_sha256 TEXT NOT NULL,
+                phone_number_id TEXT,
+                message_id TEXT,
+                event_type TEXT NOT NULL,
+                delivery_status TEXT,
+                sender_phone_hash TEXT,
                 received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_events_received
+                ON whatsapp_webhook_events(received_at);
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_events_message
+                ON whatsapp_webhook_events(message_id);
         ''')
-        existing_columns = {
-            row[1] for row in conn.execute('PRAGMA table_info(billing_orders)').fetchall()
-        }
-        if 'country' not in existing_columns:
-            conn.execute('ALTER TABLE billing_orders ADD COLUMN country TEXT')
-        if 'billing_address' not in existing_columns:
-            conn.execute('ALTER TABLE billing_orders ADD COLUMN billing_address TEXT')
+        conn.execute('PRAGMA optimize')
         conn.commit()
 
     @staticmethod
     def ensure_morning_schema(conn):
-        """Store encrypted Morning connections per environment and issued receipts."""
+        """Store one encrypted Morning connection and issued receipts per clinic."""
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS morning_connections (
                 connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
@@ -151,22 +123,6 @@ class DatabaseManager:
                 client_secret_encrypted TEXT NOT NULL,
                 environment TEXT NOT NULL DEFAULT 'production',
                 connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS morning_environment_connections (
-                environment TEXT PRIMARY KEY
-                    CHECK (environment IN ('production', 'sandbox')),
-                client_id_encrypted TEXT NOT NULL,
-                client_secret_encrypted TEXT NOT NULL,
-                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS morning_connection_preferences (
-                preference_id INTEGER PRIMARY KEY CHECK (preference_id = 1),
-                active_environment TEXT NOT NULL DEFAULT 'production'
-                    CHECK (active_environment IN ('production', 'sandbox')),
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -192,63 +148,6 @@ class DatabaseManager:
             );
             CREATE INDEX IF NOT EXISTS idx_morning_receipts_patient
                 ON morning_receipts(pat_id, created_at);
-        ''')
-        # Preserve a connection saved by versions that supported only one
-        # environment, then clear the legacy row so a deliberate disconnect
-        # cannot be silently undone on the next schema check.
-        legacy = conn.execute('''
-            SELECT client_id_encrypted, client_secret_encrypted, environment,
-                   connected_at, updated_at
-            FROM morning_connections WHERE connection_id=1
-        ''').fetchone()
-        if legacy:
-            environment = legacy[2] if legacy[2] in ('production', 'sandbox') else 'production'
-            conn.execute('''
-                INSERT OR IGNORE INTO morning_environment_connections
-                    (environment, client_id_encrypted, client_secret_encrypted,
-                     connected_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (environment, legacy[0], legacy[1], legacy[3], legacy[4]))
-            conn.execute('''
-                INSERT OR IGNORE INTO morning_connection_preferences
-                    (preference_id, active_environment) VALUES (1, ?)
-            ''', (environment,))
-            conn.execute('DELETE FROM morning_connections WHERE connection_id=1')
-        conn.commit()
-
-    @staticmethod
-    def ensure_meta_social_schema(conn):
-        """Store the CareIL Facebook Page connection and approval-gated posts."""
-        conn.executescript('''
-            CREATE TABLE IF NOT EXISTS meta_social_connections (
-                connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
-                page_id TEXT NOT NULL,
-                page_name TEXT NOT NULL,
-                page_access_token_encrypted TEXT NOT NULL,
-                connected_by TEXT NOT NULL,
-                granted_scopes TEXT,
-                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS social_post_drafts (
-                draft_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                message TEXT NOT NULL,
-                image_url TEXT,
-                status TEXT NOT NULL DEFAULT 'draft'
-                    CHECK (status IN ('draft', 'approved', 'publishing', 'published', 'failed')),
-                created_by TEXT NOT NULL,
-                approval_reference TEXT,
-                approved_by TEXT,
-                approved_at DATETIME,
-                meta_post_id TEXT,
-                published_at DATETIME,
-                error_message TEXT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE INDEX IF NOT EXISTS idx_social_post_drafts_status
-                ON social_post_drafts(status, created_at);
         ''')
         conn.commit()
 
@@ -531,9 +430,9 @@ class DatabaseManager:
             deletion_purge_at DATETIME,
             deletion_token_hash TEXT,
             is_demo INTEGER NOT NULL DEFAULT 0,
-            marketing_consent INTEGER NOT NULL DEFAULT 0
-            ,plan_code TEXT NOT NULL DEFAULT 'basic'
-            ,plan_updated_at DATETIME
+            marketing_consent INTEGER NOT NULL DEFAULT 0,
+            plan_code TEXT NOT NULL DEFAULT 'basic',
+            plan_updated_at DATETIME
         );
         CREATE TABLE IF NOT EXISTS users (
             userid TEXT PRIMARY KEY,
@@ -549,6 +448,9 @@ class DatabaseManager:
             pat_email TEXT NOT NULL,
             pat_dob DATE,
             pat_address TEXT NOT NULL,
+            pat_gender TEXT,
+            parent1_name TEXT,
+            parent2_name TEXT,
             client_key TEXT
         );
 
@@ -698,3 +600,4 @@ class DatabaseManager:
         db = g.pop("db", None)
         if db is not None:
             db.close()
+

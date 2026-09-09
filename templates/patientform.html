@@ -62,8 +62,6 @@
     .patient-tab-panel[hidden] { display:none !important; }
     .clinical-card { max-width:980px; margin:18px auto; padding:24px; border:1px solid #dfe5d1; border-radius:18px; background:#fff; color:#35443d; }
     .clinical-card h3 { margin:0 0 18px; font-weight:800; }
-    .clinical-card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
-    .clinical-card-heading h3 { margin:0; }
     .clinical-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
     .clinical-form-grid .wide { grid-column:1/-1; }
     .clinical-card label { display:block; margin-bottom:6px; color:#355e3b; font-weight:700; }
@@ -76,26 +74,7 @@
     .status-pill { display:inline-block; padding:4px 9px; border-radius:999px; background:#edf2e9; font-weight:700; }
     .questionnaire-answer { margin:7px 0; padding:9px; border-inline-start:3px solid #8ba17d; background:#f7f8f4; }
     .appointment-actions { display:flex; flex-wrap:wrap; gap:7px; }
-    .patient-date-field { position:relative; display:flex; width:min(100%,260px); }
-    .patient-date-field .patient-dob-display { width:100%; padding-inline-end:48px; }
-    .patient-date-picker-button { position:absolute; inset-inline-end:0; top:0; width:44px; min-width:44px; height:44px; margin:0; padding:0; border:0; border-inline-start:1px solid #d9e0dc; border-radius:0 11px 11px 0; background:transparent; color:#355e3b; pointer-events:none; }
-    .patient-dob-picker { position:absolute; inset-inline-end:0; top:0; width:44px !important; height:44px; min-height:44px; opacity:0; cursor:pointer; }
-    .morning-status-label { display:inline-flex; align-items:center; gap:7px; width:max-content; max-width:100%; margin:0 0 15px; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:750; }
-    .morning-status-label.is-connected { color:#24643b; background:#e7f6eb; border:1px solid #add9b9; }
-    .morning-status-label.is-pending { color:#24598a; background:#eaf4ff; border:1px solid #b7d7f5; }
-    .appointment-date-value { display:block; min-width:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
-    @media(max-width:767px) {
-      .patient-tabs { overflow-x:auto; justify-content:flex-start; }
-      .patient-tab { flex:0 0 auto; min-width:120px; }
-      .clinical-form-grid { grid-template-columns:1fr; }
-      .clinical-form-grid .wide { grid-column:auto; }
-      .clinical-table { display:block; overflow-x:auto; }
-      .payment-summary { grid-template-columns:1fr; }
-      .patient-date-field { width:220px; max-width:100%; }
-      #datatable5.clinic-responsive-table tbody td { grid-template-columns:minmax(125px,42%) minmax(0,1fr); }
-      #datatable5 .appointment-actions { display:grid; grid-template-columns:minmax(0,1fr); width:100%; min-width:0; }
-      #datatable5 .appointment-actions .btn { width:100%; min-width:0; height:auto; min-height:42px; padding:9px 10px; font-size:13px; line-height:1.25; white-space:normal; overflow-wrap:anywhere; }
-    }
+    @media(max-width:767px) { .patient-tabs { overflow-x:auto; justify-content:flex-start; } .patient-tab { flex:0 0 auto; min-width:120px; } .clinical-form-grid { grid-template-columns:1fr; } .clinical-form-grid .wide { grid-column:auto; } .clinical-table { display:block; overflow-x:auto; } .payment-summary { grid-template-columns:1fr; } }
     </style>
 
 
@@ -105,7 +84,7 @@
    <meta name="apple-mobile-web-app-capable" content="yes">
    <meta name="apple-mobile-web-app-title" content="CareIL">
    <meta name="theme-color" content="#708238">
-   <link rel="stylesheet" href="/static/modern-clinic.css?v=22">
+   <link rel="stylesheet" href="/static/modern-clinic.css?v=19">
 </head>
  <body>
     <nav role="navigation" class="navbar topnavbar">
@@ -229,20 +208,29 @@
                     </div>
                 </td>
                 <td>
-                   
+                    <div class="form-group">
+                        <label key="gender" class="col-lg-2 control-label translate EN">Gender</label>
+                        <div class="col-lg-10">
+                            <select name="pat_gender" class="form-control">
+                                <option key="genderNotSpecified" class="translate EN" value="" {% if not patient['pat_gender'] %}selected{% endif %}>Not specified</option>
+                                <option key="genderFemale" class="translate EN" value="female" {% if patient['pat_gender'] == 'female' %}selected{% endif %}>Female</option>
+                                <option key="genderMale" class="translate EN" value="male" {% if patient['pat_gender'] == 'male' %}selected{% endif %}>Male</option>
+                                <option key="genderOther" class="translate EN" value="other" {% if patient['pat_gender'] == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                    </div>
                 </td>
+            </tr>
+            <tr>
+                <td><div class="form-group"><label key="parent1Name" class="col-lg-2 control-label translate EN">Parent 1 name</label><div class="col-lg-10"><input type="text" name="parent1_name" value="{{ patient['parent1_name'] or '' }}" class="form-control"></div></div></td>
+                <td><div class="form-group"><label key="parent2Name" class="col-lg-2 control-label translate EN">Parent 2 name</label><div class="col-lg-10"><input type="text" name="parent2_name" value="{{ patient['parent2_name'] or '' }}" class="form-control"></div></div></td>
             </tr>
             <tr>
                 <td>
                     <div class="form-group">
                         <label key="dob" class="col-lg-2 control-label translate EN">Date of birth</label>
                         <div class="col-lg-10">
-                            <div class="patient-date-field">
-                              <input id="patDobDisplay" type="text" class="form-control patient-dob-display" inputmode="numeric" autocomplete="bday" maxlength="10" placeholder="DD/MM/YYYY" aria-label="Date of birth">
-                              <button type="button" class="patient-date-picker-button" tabindex="-1" aria-hidden="true"><i class="fa fa-calendar"></i></button>
-                              <input id="patDobPicker" class="patient-dob-picker" type="date" value="{{ patient['pat_dob'] or '' }}" max="{{ today }}" aria-label="Choose date of birth">
-                              <input id="patDobValue" type="hidden" name="pat_dob" value="{{ patient['pat_dob'] or '' }}">
-                            </div>
+                            <input type="date" name="pat_dob" value="{{ patient['pat_dob'] or '' }}" class="form-control" placeholder="date of birth">
                         </div>
                     </div>
                 </td>
@@ -407,19 +395,7 @@
         </section>
 
         <section class="clinical-card patient-tab-panel" data-patient-panel="payments" hidden>
-          <div class="clinical-card-heading">
-            <h3><span key="paymentsTitle" class="translate EN">Payments and receipts</span></h3>
-            {% if morning_connected and unreceipted_past_appointments %}
-            <button type="button" class="btn btn-success translate EN" key="issueReceipt" data-toggle="modal" data-target="#patientReceiptModal">Issue receipt</button>
-            {% elif not morning_connected %}
-            <a class="btn btn-default translate EN" key="connectMorning" href="/admin/morning">Connect Morning</a>
-            {% endif %}
-          </div>
-          {% if morning_connected %}
-          <div class="morning-status-label is-connected"><span aria-hidden="true">✓</span><span><span class="translate EN" key="morningConnected">Morning connected</span> · <span class="translate EN" key="{{ 'morningSandbox' if morning_environment == 'sandbox' else 'morningProduction' }}">{{ morning_environment|capitalize }}</span></span></div>
-          {% else %}
-          <a class="morning-status-label is-pending" href="/admin/morning"><span aria-hidden="true">i</span><span class="translate EN" key="morningNotConnected">Morning not connected yet</span></a>
-          {% endif %}
+          <h3><span key="paymentsTitle" class="translate EN">Payments and receipts</span></h3>
           <div class="payment-summary">
             <div class="payment-stat"><span key="paymentsTotal" class="translate EN">Total documented payments</span><strong>₪{{ '%.2f'|format(payment_summary['total']) }}</strong></div>
             <div class="payment-stat"><span key="receiptsIssued" class="translate EN">Receipts issued</span><strong>{{ payment_summary['receipt_count'] }}</strong></div>
@@ -433,44 +409,7 @@
             </tr>{% endfor %}</tbody>
           </table>
           {% else %}<p key="paymentsEmpty" class="translate EN">No payments have been documented for this client yet.</p>{% endif %}
-          {% if morning_connected and not unreceipted_past_appointments %}
-          <p class="help-block translate EN" key="noReceiptAppointments">There are no completed appointments awaiting a receipt.</p>
-          {% endif %}
           <p class="help-block"><span key="paymentsScope" class="translate EN">This list includes receipts issued through CareIL. Documents created directly in Morning require a separate synchronization.</span></p>
-
-          {% if morning_connected and unreceipted_past_appointments %}
-          <div id="patientReceiptModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="patientReceiptTitle">
-            <div class="modal-dialog" role="document"><div class="modal-content">
-              <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="patientReceiptTitle" class="modal-title translate EN" key="issueMorningReceipt">Issue Morning receipt</h4></div>
-              <form method="post" action="/patients/{{ patient['pat_id'] }}/receipt">
-                <div class="modal-body">
-                  <input type="hidden" name="csrf_token" value="{{ morning_csrf_token }}">
-                  <input type="hidden" name="return_tab" value="payments">
-                  <p><strong>Client:</strong> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</p>
-                  <div class="form-group">
-                    <label for="receiptAppointment"><span class="translate EN" key="completedAppointment">Completed appointment</span></label>
-                    <select id="receiptAppointment" class="form-control" name="app_id" required>
-                      <option class="translate EN" key="selectAppointment" value="">Select an appointment</option>
-                      {% for appointment in unreceipted_past_appointments %}
-                      <option value="{{ appointment['app_id'] }}">{{ appointment['display_date'] }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div class="form-group"><label for="patientReceiptAmount"><span class="translate EN" key="amountIls">Amount (ILS)</span></label><input id="patientReceiptAmount" class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div>
-                  <div class="form-group"><label for="patientReceiptMethod"><span class="translate EN" key="paymentMethod">Payment method</span></label><select id="patientReceiptMethod" class="form-control" name="payment_type" required>{% for code, label in morning_payment_types.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
-                  <div class="form-group"><label for="patientReceiptDate"><span class="translate EN" key="paymentDate">Payment date</span></label><input id="patientReceiptDate" class="form-control" name="payment_date" type="date" max="{{ today }}" value="{{ today }}" required></div>
-                  <div class="form-group"><label for="patientReceiptLanguage"><span class="translate EN" key="receiptLanguage">Receipt language</span></label><select id="patientReceiptLanguage" class="form-control" name="language"><option value="he">עברית</option><option value="en">English</option></select></div>
-                  {% if patient['pat_email'] %}
-                  <p class="help-block">Morning will create the digitally signed receipt using the clinic's Morning document design and email it to {{ patient['pat_email'] }}, with the receipt attached.</p>
-                  {% else %}
-                  <p class="help-block text-warning">No email address is saved for this client. Morning will create the receipt, but cannot email it. Add an email address under Details first if delivery is required.</p>
-                  {% endif %}
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-default translate EN" key="cancel" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success translate EN" key="issueReceipt">Issue receipt</button></div>
-              </form>
-            </div></div>
-          </div>
-          {% endif %}
         </section>
 
           <!-- Records section-->
@@ -543,11 +482,6 @@
                      </div>
                   </div>
                </div>
-               {% if morning_connected %}
-               <div class="morning-status-label is-connected"><span aria-hidden="true">✓</span><span><span class="translate EN" key="morningConnected">Morning connected</span> · <span class="translate EN" key="{{ 'morningSandbox' if morning_environment == 'sandbox' else 'morningProduction' }}">{{ morning_environment|capitalize }}</span></span></div>
-               {% else %}
-               <a class="morning-status-label is-pending" href="/admin/morning"><span aria-hidden="true">i</span><span class="translate EN" key="morningNotConnected">Morning not connected yet</span></a>
-               {% endif %}
          {%if appointments %}            
               <div class="row">
                      <div class="col-lg-12">
@@ -565,7 +499,7 @@
                                  <tbody>
                                     {% for appointment in appointments %}
                                     <tr>
-                                      <td><span class="appointment-date-value">{{ appointment['display_date'] }}</span></td>
+                                      <td>{{ appointment['appointment_date'] }}</td>
                                       <td><span class="translate EN" key="{{ 'pastAppointment' if appointment['is_past'] else 'upcomingAppointment' }}">{{ 'Past' if appointment['is_past'] else 'Upcoming' }}</span></td>
                                       <td>
                                         <div class="appointment-actions">
@@ -609,18 +543,13 @@
              <form method="post" action="/patients/{{ patient['pat_id'] }}/appointments/{{ appointment['app_id'] }}/receipt">
                <div class="modal-body">
                  <input type="hidden" name="csrf_token" value="{{ morning_csrf_token }}">
-                 <input type="hidden" name="return_tab" value="appointments">
                  <p><strong>Client:</strong> {{ patient['pat_first_name'] }} {{ patient['pat_last_name'] }}</p>
-                 <p><strong>Session:</strong> {{ appointment['display_date'] }}</p>
+                 <p><strong>Session:</strong> {{ appointment['appointment_date'] }}</p>
                  <div class="form-group"><label>Amount (ILS)</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div>
                  <div class="form-group"><label>Payment method</label><select class="form-control" name="payment_type" required>{% for code, label in morning_payment_types.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
                  <div class="form-group"><label>Payment date</label><input class="form-control" name="payment_date" type="date" max="{{ today }}" value="{{ today }}" required></div>
                  <div class="form-group"><label>Receipt language</label><select class="form-control" name="language"><option value="he">עברית</option><option value="en">English</option></select></div>
-                 {% if patient['pat_email'] %}
-                 <p class="help-block">The receipt item will include the session date. Morning will email the signed receipt to {{ patient['pat_email'] }} and attach it to the message.</p>
-                 {% else %}
-                 <p class="help-block text-warning">No email address is saved for this client. Morning will create the receipt, but cannot email it.</p>
-                 {% endif %}
+                 <p class="help-block">The receipt item will include the session date. Morning will email the signed receipt to the client's saved email address.</p>
                </div>
                <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Issue receipt</button></div>
              </form>
@@ -679,59 +608,12 @@
 
             
  
-     function isoToDisplayDate(value) {
-        var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        return match ? match[3] + '/' + match[2] + '/' + match[1] : '';
-     }
-
-     function displayToIsoDate(value) {
-        var match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (!match) return '';
-        var iso = match[3] + '-' + match[2] + '-' + match[1];
-        var parsed = new Date(iso + 'T00:00:00');
-        return !isNaN(parsed.getTime()) && parsed.getFullYear() === Number(match[3]) &&
-          parsed.getMonth() + 1 === Number(match[2]) && parsed.getDate() === Number(match[1]) ? iso : '';
-     }
-
-     function syncPatientDob() {
-        var display = document.getElementById('patDobDisplay');
-        var hidden = document.getElementById('patDobValue');
-        if (!display || !hidden) return true;
-        if (!display.value.trim()) { hidden.value = ''; return true; }
-        var iso = displayToIsoDate(display.value);
-        if (!iso) return false;
-        hidden.value = iso;
-        return true;
-     }
-
-     (function setupPatientDob() {
-        var display = document.getElementById('patDobDisplay');
-        var picker = document.getElementById('patDobPicker');
-        var hidden = document.getElementById('patDobValue');
-        if (!display || !picker || !hidden) return;
-        display.value = isoToDisplayDate(hidden.value);
-        display.addEventListener('input', function () {
-          var digits = display.value.replace(/\D/g, '').slice(0, 8);
-          display.value = digits.slice(0, 2) + (digits.length > 2 ? '/' + digits.slice(2, 4) : '') + (digits.length > 4 ? '/' + digits.slice(4) : '');
-        });
-        display.addEventListener('blur', syncPatientDob);
-        picker.addEventListener('change', function () {
-          hidden.value = picker.value;
-          display.value = isoToDisplayDate(picker.value);
-        });
-     })();
-
      function updatePatientdet() {
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
         const id = urlParams.get('id')
      
-        if (!syncPatientDob()) {
-            $('#patDobDisplay').focus();
-            $.notify(sessionStorage.getItem('lang') === 'HE' ? 'יש להזין תאריך בפורמט יום/חודש/שנה' : 'Enter the date as DD/MM/YYYY', {"status":"danger"});
-            return;
-        }
-        var data = JSON.stringify($('#maintbl :input').serializeJSON());
+        var data = JSON.stringify($('form').serializeJSON());
         console.log(data);
         
         var settings = {
@@ -930,7 +812,7 @@
     var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');
   
   </script>
-  <script type="text/javascript" src="/static/js/patient.js?v=2"></script>
+  <script type="text/javascript" src="/static/js/patient.js?v=3"></script>
 
   <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
   <script src="/static/js/medicalnote.js?v=2"></script>
@@ -1246,6 +1128,17 @@
         }
     } */
 
+ </script>
+
+ <script>
+   (function () {
+     var appId = new URLSearchParams(window.location.search).get('receipt_app_id');
+     if (!appId || !/^\d+$/.test(appId)) return;
+     $(function () {
+       var modal = document.getElementById('receiptModal' + appId);
+       if (modal) $(modal).modal('show');
+     });
+   })();
  </script>
 
 

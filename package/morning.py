@@ -100,21 +100,15 @@ def save_connection(client_key, client_id, client_secret, environment='productio
     conn = DatabaseManager(client_key).connect_to_db(client_key)
     try:
         conn.execute('''
-            INSERT INTO morning_environment_connections
-                (environment, client_id_encrypted, client_secret_encrypted)
-            VALUES (?, ?, ?)
-            ON CONFLICT(environment) DO UPDATE SET
+            INSERT INTO morning_connections
+                (connection_id, client_id_encrypted, client_secret_encrypted, environment)
+            VALUES (1, ?, ?, ?)
+            ON CONFLICT(connection_id) DO UPDATE SET
                 client_id_encrypted=excluded.client_id_encrypted,
                 client_secret_encrypted=excluded.client_secret_encrypted,
+                environment=excluded.environment,
                 updated_at=CURRENT_TIMESTAMP
-        ''', (environment, _encrypt(client_id), _encrypt(client_secret)))
-        conn.execute('''
-            INSERT INTO morning_connection_preferences
-                (preference_id, active_environment) VALUES (1, ?)
-            ON CONFLICT(preference_id) DO UPDATE SET
-                active_environment=excluded.active_environment,
-                updated_at=CURRENT_TIMESTAMP
-        ''', (environment,))
+        ''', (_encrypt(client_id), _encrypt(client_secret), environment))
         conn.commit()
     finally:
         conn.close()
@@ -124,106 +118,25 @@ def connection_status(client_key):
     conn = DatabaseManager(client_key).connect_to_db(client_key)
     try:
         row = conn.execute('''
-            SELECT c.environment, c.connected_at, c.updated_at
-            FROM morning_environment_connections c
-            LEFT JOIN morning_connection_preferences p ON p.preference_id=1
-            WHERE c.environment=COALESCE(p.active_environment, 'production')
+            SELECT environment, connected_at, updated_at
+            FROM morning_connections WHERE connection_id=1
         ''').fetchone()
-        if not row:
-            row = conn.execute('''
-                SELECT environment, connected_at, updated_at
-                FROM morning_environment_connections
-                ORDER BY CASE environment WHEN 'production' THEN 0 ELSE 1 END
-                LIMIT 1
-            ''').fetchone()
         return row
     finally:
         conn.close()
 
 
-def connection_statuses(client_key):
+def disconnect(client_key):
     conn = DatabaseManager(client_key).connect_to_db(client_key)
     try:
-        rows = conn.execute('''
-            SELECT c.environment, c.connected_at, c.updated_at,
-                   CASE WHEN c.environment=COALESCE(p.active_environment, 'production')
-                        THEN 1 ELSE 0 END AS is_active
-            FROM morning_environment_connections c
-            LEFT JOIN morning_connection_preferences p ON p.preference_id=1
-            ORDER BY CASE c.environment WHEN 'production' THEN 0 ELSE 1 END
-        ''').fetchall()
-        return {row['environment']: row for row in rows}
-    finally:
-        conn.close()
-
-
-def activate_environment(client_key, environment):
-    environment = 'sandbox' if environment == 'sandbox' else 'production'
-    conn = DatabaseManager(client_key).connect_to_db(client_key)
-    try:
-        exists = conn.execute(
-            'SELECT 1 FROM morning_environment_connections WHERE environment=?',
-            (environment,),
-        ).fetchone()
-        if not exists:
-            raise MorningError(f'Connect Morning {environment.title()} before activating it.')
-        conn.execute('''
-            INSERT INTO morning_connection_preferences
-                (preference_id, active_environment) VALUES (1, ?)
-            ON CONFLICT(preference_id) DO UPDATE SET
-                active_environment=excluded.active_environment,
-                updated_at=CURRENT_TIMESTAMP
-        ''', (environment,))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def disconnect(client_key, environment=None):
-    conn = DatabaseManager(client_key).connect_to_db(client_key)
-    try:
-        if environment not in ('production', 'sandbox'):
-            active = conn.execute('''
-                SELECT c.environment FROM morning_environment_connections c
-                LEFT JOIN morning_connection_preferences p ON p.preference_id=1
-                WHERE c.environment=COALESCE(p.active_environment, 'production')
-            ''').fetchone()
-            environment = active['environment'] if active else None
-        if environment:
-            conn.execute(
-                'DELETE FROM morning_environment_connections WHERE environment=?',
-                (environment,),
-            )
-            remaining = conn.execute('''
-                SELECT environment FROM morning_environment_connections
-                ORDER BY CASE environment WHEN 'production' THEN 0 ELSE 1 END LIMIT 1
-            ''').fetchone()
-            if remaining:
-                conn.execute('''
-                    INSERT INTO morning_connection_preferences
-                        (preference_id, active_environment) VALUES (1, ?)
-                    ON CONFLICT(preference_id) DO UPDATE SET
-                        active_environment=excluded.active_environment,
-                        updated_at=CURRENT_TIMESTAMP
-                ''', (remaining['environment'],))
-            else:
-                conn.execute('DELETE FROM morning_connection_preferences WHERE preference_id=1')
+        conn.execute('DELETE FROM morning_connections WHERE connection_id=1')
         conn.commit()
     finally:
         conn.close()
 
 
 def _credentials(conn):
-    row = conn.execute('''
-        SELECT c.* FROM morning_environment_connections c
-        LEFT JOIN morning_connection_preferences p ON p.preference_id=1
-        WHERE c.environment=COALESCE(p.active_environment, 'production')
-    ''').fetchone()
-    if not row:
-        row = conn.execute('''
-            SELECT * FROM morning_environment_connections
-            ORDER BY CASE environment WHEN 'production' THEN 0 ELSE 1 END LIMIT 1
-        ''').fetchone()
+    row = conn.execute('SELECT * FROM morning_connections WHERE connection_id=1').fetchone()
     if not row:
         raise MorningError('Connect the clinic to Morning in Settings before issuing a receipt.')
     return _decrypt(row['client_id_encrypted']), _decrypt(row['client_secret_encrypted']), row['environment']

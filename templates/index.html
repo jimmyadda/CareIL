@@ -149,10 +149,34 @@
                   <a class="clinic-action" href="/appointment"><i class="fa fa-calendar-plus-o"></i><span key="dashboardScheduleAction" class="translate EN">Manage schedule</span></a>
                   <a class="clinic-action" href="/patient"><i class="fa fa-file-text-o"></i><span key="dashboardNotesAction" class="translate EN">Session summaries</span></a>
                   <a class="clinic-action" href="/admin/adminPanel"><i class="fa fa-sliders"></i><span key="dashboardSettingsAction" class="translate EN">Clinic settings</span></a>
+                  <button class="clinic-action" type="button" data-toggle="modal" data-target="#reminderModal" style="width:100%;text-align:left;border:0;">
+                     <i class="fa fa-bell-o"></i><span key="dashboardReminderAction" class="translate EN">Add Google reminder</span>
+                  </button>
                </div>
             </section>
          </main>
       </section>
+
+      <div id="reminderModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="reminderModalTitle">
+         <div class="modal-dialog" role="document"><div class="modal-content">
+            <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="reminderModalTitle" key="reminderTitle" class="modal-title translate EN">New Google Calendar reminder</h4></div>
+            <div class="modal-body">
+               {% if account_plan != 'professional' %}
+               <div class="alert alert-info"><span key="reminderProfessionalOnly" class="translate EN">Google reminders are available on the Professional plan.</span> <a href="/plans">View plans</a></div>
+               {% elif not google_calendar_connected %}
+               <div class="alert alert-warning"><span key="reminderConnectFirst" class="translate EN">Connect Google Calendar before creating a reminder.</span> <a href="/admin/google-calendar" key="reminderConnect" class="translate EN">Connect calendar</a></div>
+               {% endif %}
+               <form id="googleReminderForm">
+                  <div class="form-group"><label for="reminderName" key="reminderName" class="translate EN">Reminder</label><input id="reminderName" class="form-control" maxlength="120" required></div>
+                  <div class="form-group"><label for="reminderDate" key="reminderDate" class="translate EN">Date and time</label><input id="reminderDate" type="datetime-local" class="form-control" required></div>
+                  <div class="form-group"><label for="reminderAdvance" key="reminderAdvance" class="translate EN">Notify me</label><select id="reminderAdvance" class="form-control"><option key="reminderAtTime" class="translate EN" value="0">At the event time</option><option key="reminder10Minutes" class="translate EN" value="10">10 minutes before</option><option key="reminder30Minutes" class="translate EN" value="30" selected>30 minutes before</option><option key="reminder1Hour" class="translate EN" value="60">1 hour before</option><option key="reminder1Day" class="translate EN" value="1440">1 day before</option></select></div>
+                  <div class="form-group"><label for="reminderNotes" key="reminderNotes" class="translate EN">Notes (optional)</label><textarea id="reminderNotes" class="form-control" maxlength="1000"></textarea></div>
+                  <p id="reminderResult" class="help-block" aria-live="polite"></p>
+               </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal" key="closebtn">Close</button><button id="saveGoogleReminder" type="button" class="btn btn-primary" {% if account_plan != 'professional' or not google_calendar_connected %}disabled{% endif %}><span key="reminderSave" class="translate EN">Add reminder</span></button></div>
+         </div></div>
+      </div>
       <!-- Page footer-->
       <footer>
          <span>&copy; 2026 - CareIL</span>
@@ -203,8 +227,36 @@
       $(".language-flag[data-language='" + activeLanguage + "']").addClass("is-active").attr("aria-pressed", "true");
 
      // sessionStorage.setItem("lang",'EN');
-     var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');     
-     translate_DOM_element('translate',Translate_jsonData,'EN',activeLanguage);
+      var Translate_jsonData = JSON.parse('{{ Translate_data | tojson | safe }}');     
+      translate_DOM_element('translate',Translate_jsonData,'EN',activeLanguage);
+
+      $('#saveGoogleReminder').on('click', async function () {
+         var form = document.getElementById('googleReminderForm');
+         if (!form.reportValidity()) return;
+         var button = this;
+         var resultNode = document.getElementById('reminderResult');
+         button.disabled = true;
+         resultNode.textContent = '';
+         try {
+            var response = await fetch('/google-calendar/reminders', {
+               method: 'POST', headers: {'Content-Type': 'application/json'},
+               body: JSON.stringify({
+                  title: document.getElementById('reminderName').value,
+                  starts_at: document.getElementById('reminderDate').value,
+                  minutes_before: document.getElementById('reminderAdvance').value,
+                  notes: document.getElementById('reminderNotes').value
+               })
+            });
+            var data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'The reminder could not be created.');
+            resultNode.textContent = activeLanguage === 'HE' ? 'התזכורת נוספה ליומן Google.' : 'Reminder added to Google Calendar.';
+            form.reset();
+            window.setTimeout(function () { $('#reminderModal').modal('hide'); }, 900);
+         } catch (error) {
+            resultNode.textContent = error.message;
+            button.disabled = false;
+         }
+      });
 
      
 

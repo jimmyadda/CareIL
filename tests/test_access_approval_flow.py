@@ -98,37 +98,6 @@ class AccessApprovalFlowTest(unittest.TestCase):
             self.assertEqual(saved['token_hash'], hashlib.sha256(token.encode()).hexdigest())
             self.assertNotIn(token, saved['token_hash'])
 
-    def test_owner_can_open_clinics_and_change_plan(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = temporary_manager(temp_dir)
-            manager.create_default_database()
-            conn = manager.connect_to_db('default_client')
-            conn.execute(
-                "INSERT INTO accounts(userid,email,name,client_key,email_verified) "
-                "VALUES('karin','karin@example.com','Karin','default_client',1)"
-            )
-            conn.commit()
-            conn.close()
-            with self.client.session_transaction() as browser_session:
-                browser_session['access_admin_csrf'] = 'csrf-test'
-            with patch.object(server, 'db_manager', manager), \
-                    patch.object(server, '_careil_owner', return_value=True), \
-                    patch.dict(server.app.config, {'LOGIN_DISABLED': True}):
-                page = self.client.get('/careil-admin/clinics')
-                response = self.client.post('/careil-admin/clinics/plan', data={
-                    'csrf_token': 'csrf-test', 'client_key': 'default_client',
-                    'userid': 'karin', 'plan_code': 'professional',
-                })
-            self.assertEqual(page.status_code, 200)
-            self.assertIn(b'Karin', page.data)
-            self.assertEqual(response.status_code, 302)
-            conn = manager.connect_to_db('default_client')
-            saved = conn.execute(
-                "SELECT plan_code FROM accounts WHERE userid='karin'"
-            ).fetchone()
-            conn.close()
-            self.assertEqual(saved['plan_code'], 'professional')
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -135,6 +135,12 @@ def sync_appointment_event(client_key, app_id):
         ''', (app_id,)).fetchone()
         if not appointment:
             return None
+        account = conn.execute(
+            'SELECT plan_code FROM accounts WHERE userid=? LIMIT 1',
+            (appointment['userid'],),
+        ).fetchone()
+        if not account or account.get('plan_code', 'basic') != 'professional':
+            return None
         connection = conn.execute('''
             SELECT * FROM google_calendar_connections WHERE userid=?
         ''', (appointment['userid'],)).fetchone()
@@ -226,3 +232,42 @@ def sync_all_upcoming(client_key):
         if sync_appointment_event(client_key, row['app_id']):
             synced += 1
     return synced
+
+
+def create_reminder(client_key, userid, title, starts_at, minutes_before=30, notes=''):
+    """Create a private CareIL reminder event in the therapist's primary calendar."""
+    conn = DatabaseManager(client_key).connect_to_db(client_key)
+    try:
+        connection = conn.execute(
+            'SELECT * FROM google_calendar_connections WHERE userid=?', (userid,)
+        ).fetchone()
+        if not connection:
+            raise ValueError('Google Calendar is not connected.')
+        account = conn.execute(
+            'SELECT plan_code FROM accounts WHERE userid=? LIMIT 1', (userid,)
+        ).fetchone()
+        if not account or account.get('plan_code', 'basic') != 'professional':
+            raise PermissionError('Google Calendar reminders require the Professional plan.')
+    finally:
+        conn.close()
+
+    start = _parse_appointment_datetime(starts_at)
+    end = start + datetime.timedelta(minutes=15)
+    timezone = os.environ.get('THERAPY_TIMEZONE', 'Asia/Jerusalem')
+    event = _calendar_service(connection).events().insert(
+        calendarId=connection['calendar_id'] or 'primary',
+        body={
+            'summary': title,
+            'description': notes,
+            'visibility': 'private',
+            'transparency': 'transparent',
+            'start': {'dateTime': start.isoformat(), 'timeZone': timezone},
+            'end': {'dateTime': end.isoformat(), 'timeZone': timezone},
+            'reminders': {
+                'useDefault': False,
+                'overrides': [{'method': 'popup', 'minutes': int(minutes_before)}],
+            },
+            'extendedProperties': {'private': {'careil_type': 'reminder'}},
+        },
+    ).execute()
+    return {'id': event.get('id'), 'htmlLink': event.get('htmlLink')}

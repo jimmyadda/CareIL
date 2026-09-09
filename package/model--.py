@@ -36,6 +36,9 @@ def initialize_database_schema(conn):
     pat_date DATE DEFAULT (datetime('now','localtime')),
     pat_email TEXT NOT NULL,
     pat_dob DATE,
+    pat_gender TEXT,
+    parent1_name TEXT,
+    parent2_name TEXT,
     pat_address TEXT NOT NULL);''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS doctor
