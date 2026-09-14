@@ -53,3 +53,14 @@ def test_all_booking_screens_share_supported_availability_picker():
     assert 'attachBookedSlotGuard($picker, disabled)' in patient_booking
     assert "$.getJSON('/appointmentrequestapi')" in patient_booking
     assert "$.getJSON('/appointmentrequestapi')" in appointment_booking
+
+
+def test_picker_highlights_reserved_days_and_uses_selected_day_for_hours():
+    picker = (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')
+    styles = (ROOT / 'static' / 'css' / 'booking-picker.css').read_text(encoding='utf-8')
+    assert 'picker.viewDate || picker.date' in picker
+    assert "toggleClass('has-booking', reserved)" in picker
+    assert "toggleClass('disabled booked-hour', booked)" in picker
+    assert 'refreshBookingMarks' in picker
+    assert 'td.day.has-booking' in styles
+    assert 'span.hour.disabled.booked-hour' in styles

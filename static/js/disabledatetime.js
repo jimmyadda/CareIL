@@ -33,33 +33,74 @@ function appointmentSlotKey(date) {
 function attachBookedSlotGuard(input, disabletime) {
   var $input = window.jQuery(input);
   var disabledSlots = new Set(changearrformat(disabletime));
+  var reservedDates = new Set(Array.from(disabledSlots).map(function (slot) {
+    return String(slot).slice(0, 10);
+  }));
+
+  function selectedPickerDate(picker) {
+    // This datepicker updates viewDate when a day is selected, while `date`
+    // still contains the old value until an hour is chosen.
+    return picker && (picker.viewDate || picker.date);
+  }
+
+  function dateKey(date) {
+    return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
+  }
+
+  function markBookedDays() {
+    var picker = $input.data('datetimepicker');
+    var visibleDate = selectedPickerDate(picker);
+    if (!picker || !picker.picker || !visibleDate) return;
+    var viewYear = visibleDate.getUTCFullYear();
+    var viewMonth = visibleDate.getUTCMonth();
+    picker.picker.find('.datetimepicker-days td.day').each(function () {
+      var $day = window.jQuery(this);
+      var year = viewYear;
+      var month = viewMonth;
+      if ($day.hasClass('old')) {
+        month -= 1;
+        if (month < 0) { month = 11; year -= 1; }
+      } else if ($day.hasClass('new')) {
+        month += 1;
+        if (month > 11) { month = 0; year += 1; }
+      }
+      var key = year + '-' + pad(month + 1) + '-' + pad(parseInt($day.text(), 10));
+      var reserved = reservedDates.has(key);
+      $day.toggleClass('has-booking', reserved)
+        .attr('title', reserved ? 'This day has booked or requested appointments' : '');
+    });
+  }
 
   function markBookedHours() {
     var picker = $input.data('datetimepicker');
     if (!picker || !picker.picker) return;
-    var selectedDate = typeof picker.getUTCDate === 'function' ? picker.getUTCDate() :
-      (picker.date || picker.viewDate);
+    var selectedDate = selectedPickerDate(picker);
     if (!selectedDate || isNaN(selectedDate.getTime())) return;
-    var datePrefix = selectedDate.getUTCFullYear() + '-' +
-      pad(selectedDate.getUTCMonth() + 1) + '-' + pad(selectedDate.getUTCDate());
+    var datePrefix = dateKey(selectedDate);
     picker.picker.find('.datetimepicker-hours span.hour').each(function () {
       var hour = parseInt(window.jQuery(this).text(), 10);
       var booked = disabledSlots.has(datePrefix + ':' + pad(hour));
       window.jQuery(this).toggleClass('disabled booked-hour', booked)
-        .attr('aria-disabled', booked ? 'true' : 'false');
+        .attr('aria-disabled', booked ? 'true' : 'false')
+        .attr('title', booked ? 'Unavailable' : '');
     });
+  }
+
+  function refreshBookingMarks() {
+    markBookedDays();
+    markBookedHours();
   }
 
   $input.off('.bookedSlots').on(
     'show.bookedSlots changeDay.bookedSlots changeMonth.bookedSlots changeYear.bookedSlots changeMode.bookedSlots',
-    function () { window.setTimeout(markBookedHours, 0); }
+    function () { window.setTimeout(refreshBookingMarks, 0); }
   );
   var picker = $input.data('datetimepicker');
   if (picker && picker.picker) {
     var oldObserver = $input.data('bookedSlotsObserver');
     if (oldObserver) oldObserver.disconnect();
     var observer = new MutationObserver(function () {
-      window.setTimeout(markBookedHours, 0);
+      window.setTimeout(refreshBookingMarks, 0);
     });
     observer.observe(picker.picker[0], {childList: true, subtree: true});
     $input.data('bookedSlotsObserver', observer);
@@ -78,7 +119,7 @@ function attachBookedSlotGuard(input, disabletime) {
     pickerElement.addEventListener('click', captureHandler, true);
     $input.data('bookedSlotsCapture', {element: pickerElement, handler: captureHandler});
   }
-  window.setTimeout(markBookedHours, 0);
+  window.setTimeout(refreshBookingMarks, 0);
 }
 
 function loadClinicAvailability() {
