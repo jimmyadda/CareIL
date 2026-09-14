@@ -1,0 +1,25 @@
+CareIL Social Publishing route restoration
+
+Included files:
+- server.py
+- package/database.py
+- package/meta_social.py
+- templates/adminPanel.html
+- templates/meta-social.html
+- tests/test_meta_social.py
+- tests/test_saas_features.py
+- static/img/social/careil-launch-post.jpeg
+
+The update restores the owner-only /careil-admin/social route, Meta OAuth
+callbacks, CSRF-protected draft/approve/publish actions, required database
+tables, and the Admin Panel entry.
+
+Verification:
+python -m unittest discover -s tests -v
+38 tests passed.
+
+After deployment, open:
+https://www.careil.net/careil-admin/social
+
+The approved CareIL image is already public at:
+https://www.careil.net/static/img/social/careil-launch-post.jpeg
