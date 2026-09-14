@@ -213,41 +213,6 @@ class SaasFeatureTest(unittest.TestCase):
         self.assertEqual(forbidden.status_code, 403)
         self.assertEqual(bad_csrf.status_code, 400)
 
-    def test_owner_social_publishing_routes_are_registered_and_audited(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = temporary_manager(temp_dir)
-            manager.create_default_database()
-            with self.client.session_transaction() as browser_session:
-                browser_session['social_csrf'] = 'social-csrf-test'
-            with patch.object(server, 'db_manager', manager), \
-                    patch.object(server, '_careil_owner', return_value=True), \
-                    patch.object(server, '_owner_identity', return_value='owner@example.com'), \
-                    patch.dict(server.app.config, {'LOGIN_DISABLED': True}):
-                page = self.client.get('/careil-admin/social')
-                created = self.client.post('/careil-admin/social/drafts', data={
-                    'csrf_token': 'social-csrf-test',
-                    'message': 'Approved CareIL post',
-                    'image_url': 'https://www.careil.net/static/img/social/careil-launch-post.jpeg',
-                })
-                approved = self.client.post(
-                    '/careil-admin/social/drafts/1/approve',
-                    data={
-                        'csrf_token': 'social-csrf-test',
-                        'approval_reference': 'Explicit user approval in chat',
-                    },
-                )
-            conn = manager.connect_to_db(manager.default_client_key)
-            draft = conn.execute(
-                'SELECT * FROM social_post_drafts WHERE draft_id=1'
-            ).fetchone()
-            conn.close()
-        self.assertEqual(page.status_code, 200)
-        self.assertEqual(created.status_code, 302)
-        self.assertEqual(approved.status_code, 302)
-        self.assertEqual(draft['status'], 'approved')
-        self.assertEqual(draft['approval_reference'], 'Explicit user approval in chat')
-        self.assertEqual(draft['created_by'], 'owner@example.com')
-
     def test_owner_can_assign_registered_clinic_professional_plan(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)

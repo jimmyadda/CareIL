@@ -33,3 +33,11 @@ def test_appointment_calendar_title_includes_client_name_by_default():
     calendar = (ROOT / 'package' / 'google_calendar.py').read_text(encoding='utf-8')
     assert "'Therapy appointment – ' + client_name" in calendar
     assert 'GOOGLE_CALENDAR_INCLUDE_CLIENT_NAME' not in calendar
+
+
+def test_client_portal_has_visible_and_resilient_appointment_date_picker():
+    template = (ROOT / 'templates' / 'portal.html').read_text(encoding='utf-8')
+    assert 'id="openAppointmentDate"' in template
+    assert 'placeholder="Choose date and time"' in template
+    assert 'showAppointmentPicker();' in template
+    assert "appointmentDate.attr({type:'datetime-local'" in template

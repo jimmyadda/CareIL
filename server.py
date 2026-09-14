@@ -48,6 +48,7 @@ from package.google_calendar import (
     disconnect as disconnect_google_calendar,
     is_configured as google_calendar_is_configured,
     save_connection as save_google_calendar_connection,
+    create_reminder as create_google_calendar_reminder,
     sync_all_upcoming as sync_all_google_appointments,
 )
 from package.morning import (
@@ -57,19 +58,6 @@ from package.morning import (
     disconnect as disconnect_morning,
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
-)
-from package.meta_social import (
-    MetaSocialError,
-    approve_draft as approve_social_draft,
-    authorization_url as meta_authorization_url,
-    connection_status as meta_connection_status,
-    create_draft as create_social_draft,
-    disconnect as disconnect_meta_social,
-    exchange_code_and_find_page,
-    is_configured as meta_social_is_configured,
-    list_drafts as list_social_drafts,
-    publish_approved_draft,
-    save_connection as save_meta_connection,
 )
 from package.email_service import (
     careil_logo_attachment,
@@ -85,6 +73,7 @@ from package.legal_documents import (
 )
 from package.landing_content import LANDING_CONTENT
 from package.content_he import HEBREW_ARTICLES, HEBREW_FAQ
+from package.jewish_holidays import holiday_name, holidays_for_year
 from package.Myutils import render_ics
 import json
 from package.Auth2fa import store_verification_code,verify_code
@@ -439,9 +428,15 @@ def index_page():
     user = flask_login.current_user.get_dict()
     apps = Appointments()
     appointments = apps.get()
+    plan = _account_plan(user['client_key'], user['userid'])
+    calendar_connected = (
+        bool(google_calendar_connection_status(user['client_key'], user['userid']))
+        if google_calendar_is_configured() else False
+    )
     return render_template(
         '/index.html', Translate_data=Translate_data, user=user,
-        appointments=appointments, demo=session.get('client_key', '').startswith('demo_')
+        appointments=appointments, demo=session.get('client_key', '').startswith('demo_'),
+        account_plan=plan, google_calendar_connected=calendar_connected
     )
 
 @app.route("/he")
@@ -698,24 +693,6 @@ def _whatsapp_test_csrf_token():
     return session['whatsapp_test_csrf']
 
 
-def _social_csrf_token():
-    if not session.get('social_csrf'):
-        session['social_csrf'] = secrets.token_urlsafe(32)
-    return session['social_csrf']
-
-
-def _require_social_csrf():
-    supplied = request.form.get('csrf_token', '')
-    expected = session.get('social_csrf', '')
-    if not expected or not hmac.compare_digest(supplied, expected):
-        abort(400)
-
-
-def _owner_identity():
-    user = flask_login.current_user.get_dict()
-    return str(user.get('email') or user.get('userid') or 'careil-owner')
-
-
 def _normalize_whatsapp_test_phone(value):
     """Return an international digits-only test recipient without persisting it."""
     raw = str(value or '').strip()
@@ -806,145 +783,6 @@ def careil_whatsapp_test():
         'whatsapp-test-admin.html', csrf_token=_whatsapp_test_csrf_token(),
         notice=notice, error=error,
     )
-
-
-@app.route('/careil-admin/social')
-@flask_login.login_required
-def careil_social_publishing():
-    if not _careil_owner():
-        abort(403)
-    conn = _central_database()
-    try:
-        connected = meta_connection_status(conn)
-        drafts = list_social_drafts(conn)
-    finally:
-        conn.close()
-    return render_template(
-        'meta-social.html',
-        configured=meta_social_is_configured(), connected=connected, drafts=drafts,
-        csrf_token=_social_csrf_token(),
-    )
-
-
-@app.route('/meta/connect')
-@flask_login.login_required
-def meta_connect():
-    if not _careil_owner():
-        abort(403)
-    state = secrets.token_urlsafe(32)
-    session['meta_oauth_state'] = state
-    redirect_uri = os.environ.get(
-        'META_REDIRECT_URI', url_for('meta_callback', _external=True)
-    ).strip()
-    try:
-        return redirect(meta_authorization_url(redirect_uri, state))
-    except MetaSocialError as error:
-        return redirect(url_for('careil_social_publishing', error=str(error)))
-
-
-@app.route('/meta/callback')
-@flask_login.login_required
-def meta_callback():
-    if not _careil_owner():
-        abort(403)
-    supplied_state = request.args.get('state', '')
-    expected_state = session.pop('meta_oauth_state', '')
-    if not expected_state or not hmac.compare_digest(supplied_state, expected_state):
-        abort(400)
-    if request.args.get('error'):
-        return redirect(url_for(
-            'careil_social_publishing',
-            error=request.args.get('error_description') or request.args['error'],
-        ))
-    code = request.args.get('code', '')
-    if not code:
-        return redirect(url_for(
-            'careil_social_publishing',
-            error='Meta did not return an authorization code.',
-        ))
-    redirect_uri = os.environ.get(
-        'META_REDIRECT_URI', url_for('meta_callback', _external=True)
-    ).strip()
-    conn = _central_database()
-    try:
-        page = exchange_code_and_find_page(code, redirect_uri)
-        save_meta_connection(conn, page, _owner_identity())
-    except MetaSocialError as error:
-        return redirect(url_for('careil_social_publishing', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('careil_social_publishing', connected='1'))
-
-
-@app.route('/meta/disconnect', methods=['POST'])
-@flask_login.login_required
-def meta_disconnect():
-    if not _careil_owner():
-        abort(403)
-    _require_social_csrf()
-    conn = _central_database()
-    try:
-        disconnect_meta_social(conn)
-    finally:
-        conn.close()
-    session['social_csrf'] = secrets.token_urlsafe(32)
-    return redirect(url_for('careil_social_publishing'))
-
-
-@app.route('/careil-admin/social/drafts', methods=['POST'])
-@flask_login.login_required
-def careil_social_create_draft():
-    if not _careil_owner():
-        abort(403)
-    _require_social_csrf()
-    conn = _central_database()
-    try:
-        create_social_draft(
-            conn, request.form.get('message'), request.form.get('image_url'),
-            _owner_identity(),
-        )
-    except MetaSocialError as error:
-        return redirect(url_for('careil_social_publishing', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('careil_social_publishing'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/approve', methods=['POST'])
-@flask_login.login_required
-def careil_social_approve_draft(draft_id):
-    if not _careil_owner():
-        abort(403)
-    _require_social_csrf()
-    conn = _central_database()
-    try:
-        approve_social_draft(
-            conn, draft_id, _owner_identity(),
-            request.form.get('approval_reference', 'Explicit owner approval in CareIL'),
-        )
-    except MetaSocialError as error:
-        return redirect(url_for('careil_social_publishing', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for('careil_social_publishing'))
-
-
-@app.route('/careil-admin/social/drafts/<int:draft_id>/publish', methods=['POST'])
-@flask_login.login_required
-def careil_social_publish_draft(draft_id):
-    if not _careil_owner():
-        abort(403)
-    _require_social_csrf()
-    conn = _central_database()
-    try:
-        post_id = publish_approved_draft(conn, draft_id)
-    except MetaSocialError as error:
-        return redirect(url_for('careil_social_publishing', error=str(error)))
-    finally:
-        conn.close()
-    return redirect(url_for(
-        'careil_social_publishing', published='1', meta_id=post_id,
-    ))
 
 
 def _send_access_email(recipient, subject, content):
@@ -2029,6 +1867,50 @@ def google_calendar_disconnect():
     return redirect(url_for('google_calendar_settings', disconnected='1'))
 
 
+@app.route('/google-calendar/reminders', methods=['POST'])
+@admin_only
+def google_calendar_reminder_create():
+    plan_error = _require_professional_plan()
+    if plan_error:
+        return jsonify({'error': 'Google Calendar reminders require the Professional plan.'}), 403
+    user = flask_login.current_user.get_dict()
+    if session.get('client_key', '').startswith('demo_'):
+        return jsonify({'error': 'Google Calendar is unavailable in the demo.'}), 403
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title') or '').strip()
+    starts_at = str(payload.get('starts_at') or '').strip()
+    notes = str(payload.get('notes') or '').strip()
+    try:
+        minutes_before = int(payload.get('minutes_before', 30))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Choose a valid reminder time.'}), 400
+    if not title or len(title) > 120:
+        return jsonify({'error': 'Enter a reminder title of up to 120 characters.'}), 400
+    if len(notes) > 1000:
+        return jsonify({'error': 'Reminder notes may contain up to 1,000 characters.'}), 400
+    if minutes_before not in (0, 10, 30, 60, 1440):
+        return jsonify({'error': 'Choose a supported reminder time.'}), 400
+    try:
+        parsed_start = datetime.datetime.strptime(starts_at, '%Y-%m-%dT%H:%M')
+    except ValueError:
+        return jsonify({'error': 'Choose a valid date and time.'}), 400
+    if parsed_start < datetime.datetime.now() - datetime.timedelta(minutes=1):
+        return jsonify({'error': 'The reminder time must be in the future.'}), 400
+    try:
+        result = create_google_calendar_reminder(
+            user['client_key'], user['userid'], title,
+            parsed_start.strftime('%Y-%m-%d %H:%M:%S'), minutes_before, notes,
+        )
+    except PermissionError as error:
+        return jsonify({'error': str(error)}), 403
+    except ValueError as error:
+        return jsonify({'error': str(error), 'connect_url': url_for('google_calendar_settings')}), 409
+    except Exception:
+        current_app.logger.exception('Could not create Google Calendar reminder')
+        return jsonify({'error': 'The reminder could not be created. Reconnect Google Calendar and try again.'}), 502
+    return jsonify({'message': 'Reminder added to Google Calendar.', **result}), 201
+
+
 def _morning_csrf_token():
     if not session.get('morning_csrf'):
         session['morning_csrf'] = secrets.token_urlsafe(32)
@@ -2231,6 +2113,30 @@ def availability_api():
         'start': settings['AVAILABILITY_START'],
         'end': settings['AVAILABILITY_END'],
         'duration': int(settings['APPOINTMENT_DURATION'])
+    })
+
+@app.route('/api/jewish-holidays', methods=['GET'])
+def jewish_holidays_api():
+    if not session.get('client_key'):
+        return jsonify({'error': 'Clinic context is required.'}), 401
+    current_year = datetime.date.today().year
+    try:
+        start_year = int(request.args.get('start_year', current_year))
+        years = min(max(int(request.args.get('years', 2)), 1), 3)
+        if start_year < current_year - 1 or start_year > current_year + 3:
+            raise ValueError
+    except ValueError:
+        return jsonify({'error': 'Invalid holiday date range.'}), 400
+    try:
+        holidays = {}
+        for year in range(start_year, start_year + years):
+            holidays.update(holidays_for_year(year))
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed')
+        return jsonify({'error': 'Holiday dates could not be loaded.'}), 503
+    return jsonify({
+        'dates': sorted(holidays),
+        'holidays': [{'date': day, 'title': holidays[day]} for day in sorted(holidays)],
     })
 
 @app.route('/admin/availability', methods=['GET', 'POST'])
@@ -2553,12 +2459,19 @@ def update_patien():
     client_key =  user['client_key']
     form = dict(request.values)
     id = form['pat_id']
-    sql = "UPDATE patient SET pat_first_name =:pat_first_name, pat_last_name =:pat_last_name, pat_ph_no =:pat_ph_no, pat_address=:pat_address, pat_email =:pat_email, pat_insurance_no =:pat_insurance_no where pat_id =:pat_id"
+    form['pat_gender'] = form.get('pat_gender') or None
+    form['parent1_name'] = str(form.get('parent1_name') or '').strip() or None
+    form['parent2_name'] = str(form.get('parent2_name') or '').strip() or None
+    form['pat_dob'] = form.get('pat_dob') or None
+    sql = """UPDATE patient SET pat_first_name=:pat_first_name, pat_last_name=:pat_last_name,
+             pat_ph_no=:pat_ph_no, pat_address=:pat_address, pat_email=:pat_email,
+             pat_insurance_no=:pat_insurance_no, pat_dob=:pat_dob,
+             pat_gender=:pat_gender, parent1_name=:parent1_name,
+             parent2_name=:parent2_name WHERE pat_id=:pat_id"""
     ok = database_write(sql,form)   
     if ok == 1:
-        patientdata = database_read(f"select * from patient where pat_id= '{id}';",client_key=client_key)
-        message = 'Success'
-        return render_template('patientform.html',user=user,patient=patientdata,message=message)
+        flash('Client details updated successfully.', 'success')
+        return redirect(url_for('patient_folder_Load', id=id))
     else:
        return "ERROR"
 
@@ -3343,6 +3256,13 @@ def chekappointmentdate():
     end_time = datetime.datetime.strptime(availability['AVAILABILITY_END'], '%H:%M').time()
     if requested_day not in allowed_days or not (start_time <= requested_at.time() < end_time):
         return "ERROR"
+
+    try:
+        if holiday_name(requested_at):
+            return "ERROR"
+    except Exception:
+        current_app.logger.exception('Jewish holiday lookup failed while checking an appointment')
+        return "ERROR", 503
 
     appoinmentindate = database_read(
         """SELECT app_id FROM appointment WHERE appointment_date = ?

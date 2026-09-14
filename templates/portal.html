@@ -57,6 +57,9 @@
     .modal-body { padding:24px; }
     .modal-footer { padding:16px 24px; }
     .form-control { min-height:44px; border-color:var(--line); border-radius:10px; }
+    .appointment-date-group .form-control { border-radius:10px 0 0 10px; background:#fff; cursor:pointer; }
+    .appointment-date-group .input-group-addon { min-width:48px; border-color:var(--line); border-radius:0 10px 10px 0; color:var(--olive-dark); background:var(--soft); cursor:pointer; }
+    .appointment-date-status { min-height:18px; margin:7px 0 0; color:var(--muted); font-size:12px; }
     .portal-note { margin-top:12px; color:var(--muted); font-size:13px; }
     .portal-questionnaire { margin-top:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:#fbfcf9; }
     .portal-questionnaire label { display:block; margin:12px 0 6px; font-weight:700; }
@@ -179,7 +182,14 @@
       <div class="modal-body">
         <form id="appointmentForm">
           <input type="hidden" name="pat_id" value="{{ patientdata[0]['pat_id'] }}">
-          <div class="form-group"><label for="appointmentDate">Available date and time</label><input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" required></div>
+          <div class="form-group">
+            <label for="appointmentDate">Available date and time</label>
+            <div class="input-group appointment-date-group">
+              <input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" placeholder="Choose date and time" required>
+              <span id="openAppointmentDate" class="input-group-addon" role="button" tabindex="0" aria-label="Open date picker"><i class="fa fa-calendar" aria-hidden="true"></i></span>
+            </div>
+            <p id="appointmentDateStatus" class="appointment-date-status" aria-live="polite"></p>
+          </div>
           <p class="portal-note">Unavailable days, Jewish holidays, hours and already-booked times cannot be selected. The clinic will review and approve your request.</p>
         </form>
       </div>
@@ -194,13 +204,35 @@
   <script>
     $(function () {
       const bookedTimes = {{ allappointments | tojson }}.map(function (item) { return item.appointment_date; });
+      const appointmentDate = $('#appointmentDate');
+
+      function showAppointmentPicker() {
+        if (appointmentDate.data('datetimepicker')) appointmentDate.datetimepicker('show');
+        else if (appointmentDate[0].showPicker) appointmentDate[0].showPicker();
+        else appointmentDate.trigger('focus');
+      }
+
+      $('#openAppointmentDate').on('click keydown', function (event) {
+        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        showAppointmentPicker();
+      });
+
       $('#openAppointment').on('click', function () {
         $('#appointmentModal').modal('show').one('shown.bs.modal', function () {
+          const status = $('#appointmentDateStatus').text('Loading available dates…');
           const disabled = changearrformat(bookedTimes.slice());
           availabilityPickerOptions(disabled).then(function (options) {
-            if ($('.form_datetime').data('datetimepicker')) $('.form_datetime').datetimepicker('remove');
-            $('.form_datetime').datetimepicker(options);
-            attachBookedSlotGuard($('.form_datetime'), disabled);
+            if (appointmentDate.data('datetimepicker')) appointmentDate.datetimepicker('remove');
+            appointmentDate.attr('type', 'text').datetimepicker(options);
+            attachBookedSlotGuard(appointmentDate, disabled);
+            status.text('');
+            showAppointmentPicker();
+          }).catch(function (error) {
+            console.warn('Availability picker could not be loaded:', error);
+            appointmentDate.attr({type:'datetime-local', min:new Date().toISOString().slice(0, 16)});
+            status.text('Choose a date and time. Unavailable times will still be checked before sending.');
+            showAppointmentPicker();
           });
         });
       });
