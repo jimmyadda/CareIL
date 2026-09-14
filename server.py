@@ -59,6 +59,19 @@ from package.morning import (
     issue_receipt as issue_morning_receipt,
     save_connection as save_morning_connection,
 )
+from package.meta_social import (
+    MetaSocialError,
+    approve_draft as approve_social_draft,
+    authorization_url as meta_authorization_url,
+    connection_status as meta_connection_status,
+    create_draft as create_social_draft,
+    disconnect as disconnect_meta_social,
+    exchange_code_and_find_page,
+    is_configured as meta_social_is_configured,
+    list_drafts as list_social_drafts,
+    publish_approved_draft,
+    save_connection as save_meta_connection,
+)
 from package.email_service import (
     careil_logo_attachment,
     encoded_attachment,
@@ -693,6 +706,24 @@ def _whatsapp_test_csrf_token():
     return session['whatsapp_test_csrf']
 
 
+def _social_csrf_token():
+    if not session.get('social_csrf'):
+        session['social_csrf'] = secrets.token_urlsafe(32)
+    return session['social_csrf']
+
+
+def _require_social_csrf():
+    supplied = request.form.get('csrf_token', '')
+    expected = session.get('social_csrf', '')
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(400)
+
+
+def _owner_identity():
+    user = flask_login.current_user.get_dict()
+    return str(user.get('email') or user.get('userid') or 'careil-owner')
+
+
 def _normalize_whatsapp_test_phone(value):
     """Return an international digits-only test recipient without persisting it."""
     raw = str(value or '').strip()
@@ -783,6 +814,145 @@ def careil_whatsapp_test():
         'whatsapp-test-admin.html', csrf_token=_whatsapp_test_csrf_token(),
         notice=notice, error=error,
     )
+
+
+@app.route('/careil-admin/social')
+@flask_login.login_required
+def careil_social_publishing():
+    if not _careil_owner():
+        abort(403)
+    conn = _central_database()
+    try:
+        connected = meta_connection_status(conn)
+        drafts = list_social_drafts(conn)
+    finally:
+        conn.close()
+    return render_template(
+        'meta-social.html',
+        configured=meta_social_is_configured(), connected=connected, drafts=drafts,
+        csrf_token=_social_csrf_token(),
+    )
+
+
+@app.route('/meta/connect')
+@flask_login.login_required
+def meta_connect():
+    if not _careil_owner():
+        abort(403)
+    state = secrets.token_urlsafe(32)
+    session['meta_oauth_state'] = state
+    redirect_uri = os.environ.get(
+        'META_REDIRECT_URI', url_for('meta_callback', _external=True)
+    ).strip()
+    try:
+        return redirect(meta_authorization_url(redirect_uri, state))
+    except MetaSocialError as error:
+        return redirect(url_for('careil_social_publishing', error=str(error)))
+
+
+@app.route('/meta/callback')
+@flask_login.login_required
+def meta_callback():
+    if not _careil_owner():
+        abort(403)
+    supplied_state = request.args.get('state', '')
+    expected_state = session.pop('meta_oauth_state', '')
+    if not expected_state or not hmac.compare_digest(supplied_state, expected_state):
+        abort(400)
+    if request.args.get('error'):
+        return redirect(url_for(
+            'careil_social_publishing',
+            error=request.args.get('error_description') or request.args['error'],
+        ))
+    code = request.args.get('code', '')
+    if not code:
+        return redirect(url_for(
+            'careil_social_publishing',
+            error='Meta did not return an authorization code.',
+        ))
+    redirect_uri = os.environ.get(
+        'META_REDIRECT_URI', url_for('meta_callback', _external=True)
+    ).strip()
+    conn = _central_database()
+    try:
+        page = exchange_code_and_find_page(code, redirect_uri)
+        save_meta_connection(conn, page, _owner_identity())
+    except MetaSocialError as error:
+        return redirect(url_for('careil_social_publishing', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('careil_social_publishing', connected='1'))
+
+
+@app.route('/meta/disconnect', methods=['POST'])
+@flask_login.login_required
+def meta_disconnect():
+    if not _careil_owner():
+        abort(403)
+    _require_social_csrf()
+    conn = _central_database()
+    try:
+        disconnect_meta_social(conn)
+    finally:
+        conn.close()
+    session['social_csrf'] = secrets.token_urlsafe(32)
+    return redirect(url_for('careil_social_publishing'))
+
+
+@app.route('/careil-admin/social/drafts', methods=['POST'])
+@flask_login.login_required
+def careil_social_create_draft():
+    if not _careil_owner():
+        abort(403)
+    _require_social_csrf()
+    conn = _central_database()
+    try:
+        create_social_draft(
+            conn, request.form.get('message'), request.form.get('image_url'),
+            _owner_identity(),
+        )
+    except MetaSocialError as error:
+        return redirect(url_for('careil_social_publishing', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('careil_social_publishing'))
+
+
+@app.route('/careil-admin/social/drafts/<int:draft_id>/approve', methods=['POST'])
+@flask_login.login_required
+def careil_social_approve_draft(draft_id):
+    if not _careil_owner():
+        abort(403)
+    _require_social_csrf()
+    conn = _central_database()
+    try:
+        approve_social_draft(
+            conn, draft_id, _owner_identity(),
+            request.form.get('approval_reference', 'Explicit owner approval in CareIL'),
+        )
+    except MetaSocialError as error:
+        return redirect(url_for('careil_social_publishing', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for('careil_social_publishing'))
+
+
+@app.route('/careil-admin/social/drafts/<int:draft_id>/publish', methods=['POST'])
+@flask_login.login_required
+def careil_social_publish_draft(draft_id):
+    if not _careil_owner():
+        abort(403)
+    _require_social_csrf()
+    conn = _central_database()
+    try:
+        post_id = publish_approved_draft(conn, draft_id)
+    except MetaSocialError as error:
+        return redirect(url_for('careil_social_publishing', error=str(error)))
+    finally:
+        conn.close()
+    return redirect(url_for(
+        'careil_social_publishing', published='1', meta_id=post_id,
+    ))
 
 
 def _send_access_email(recipient, subject, content):

@@ -68,9 +68,46 @@ class DatabaseManager:
         self.ensure_session_summary_schema(conn)
         self.ensure_clinical_forms_schema(conn)
         self.ensure_whatsapp_webhook_schema(conn)
+        self.ensure_meta_social_schema(conn)
         #conn.row_factory = sqlite3.Row  # Enable dict-like row access
         conn.row_factory = self.dict_factory
         return conn
+
+    @staticmethod
+    def ensure_meta_social_schema(conn):
+        """Create the owner-only Facebook publishing connection and approval queue."""
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS meta_social_connections (
+                connection_id INTEGER PRIMARY KEY CHECK (connection_id = 1),
+                page_id TEXT NOT NULL,
+                page_name TEXT NOT NULL,
+                page_access_token_encrypted TEXT NOT NULL,
+                connected_by TEXT NOT NULL,
+                granted_scopes TEXT,
+                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS social_post_drafts (
+                draft_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT NOT NULL,
+                image_url TEXT,
+                status TEXT NOT NULL DEFAULT 'draft',
+                created_by TEXT NOT NULL,
+                approval_reference TEXT,
+                approved_by TEXT,
+                approved_at DATETIME,
+                meta_post_id TEXT,
+                published_at DATETIME,
+                error_message TEXT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_social_post_drafts_status
+                ON social_post_drafts(status, created_at);
+        ''')
+        conn.commit()
 
     @staticmethod
     def ensure_patient_profile_schema(conn):
