@@ -207,12 +207,26 @@ function attachBookedSlotGuard(input, disabletime) {
         var $day = window.jQuery(day);
         if ($day.hasClass('old')) { month -= 1; if (month < 0) { month = 11; year -= 1; } }
         if ($day.hasClass('new')) { month += 1; if (month > 11) { month = 0; year += 1; } }
-        $input.data('bookedSlotsSelectedDate', new Date(Date.UTC(year, month, parseInt($day.text(), 10))));
+        var clickedDate = new Date(Date.UTC(year, month, parseInt($day.text(), 10)));
+        // Apply before the vendor click handler changes from day view to hour
+        // view, so its first hour render already contains disabled cells.
+        applyDisabledHours(clickedDate);
+        window.setTimeout(function () { markBookedHours(clickedDate); }, 50);
+        window.setTimeout(function () { markBookedHours(clickedDate); }, 150);
       }
-      var target = event.target.closest ? event.target.closest('.booked-hour') : null;
-      if (!target) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
+      var hourTarget = event.target.closest ? event.target.closest('.datetimepicker-hours span.hour') : null;
+      if (!hourTarget) return;
+      var selectedDate = $input.data('bookedSlotsSelectedDate') || selectedPickerDate(picker);
+      var selectedHour = parseInt(window.jQuery(hourTarget).text(), 10);
+      var isBooked = selectedDate && disabledSlots.has(dateKey(selectedDate) + ':' + pad(selectedHour));
+      if (isBooked) {
+        window.jQuery(hourTarget).addClass('disabled booked-hour')
+          .attr({'aria-disabled':'true', 'title':'Unavailable'});
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        picker.picker.find('.booked-slot-message').remove().end()
+          .prepend('<div class="booked-slot-message" role="alert">This time is unavailable</div>');
+      }
     };
     pickerElement.addEventListener('click', captureHandler, true);
     $input.data('bookedSlotsCapture', {element: pickerElement, handler: captureHandler});

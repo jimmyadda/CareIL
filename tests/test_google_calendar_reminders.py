@@ -63,6 +63,9 @@ def test_picker_highlights_reserved_days_and_uses_selected_day_for_hours():
     assert "picker.hoursDisabled = hours" in picker
     assert "toggleClass('booked-hour', booked)" in picker
     assert "bookedHoursForDate" in picker
+    assert "applyDisabledHours(clickedDate)" in picker
+    assert "event.stopImmediatePropagation()" in picker
+    assert "disabledSlots.has(dateKey(selectedDate)" in picker
     assert 'refreshBookingMarks' in picker
     assert 'td.day.has-booking' in styles
     assert 'span.hour.disabled.booked-hour' in styles
