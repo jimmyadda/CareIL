@@ -278,7 +278,10 @@ function availabilityPickerOptions(disabletime) {
         .filter(function (hour) { return hour < startHour || hour >= endHour; }),
       daysOfWeekDisabled: Array.from({length: 7}, function (_, day) { return day; })
         .filter(function (day) { return availability.days.indexOf(day) === -1; }),
-      datesDisabled: holidayDates,
+      // This vendor parses disabled dates using the picker's full date-time
+      // format. Supplying YYYY-MM-DD alone throws "Invalid format type" and
+      // prevents the booked-slot guard from being attached.
+      datesDisabled: holidayDates.map(function (date) { return date + ' 00:00:00'; }),
       autoclose: true,
       todayHighlight: true
     };
