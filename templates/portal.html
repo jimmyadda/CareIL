@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/font-awesome.min.css">
   <link rel="stylesheet" href="/static/vendor/bootstrap/dist/css/bootstrap.css">
   <link rel="stylesheet" href="/static/vendor/datepicker/build/css/bootstrap-datetimepicker.min.css">
-  <link rel="stylesheet" href="/static/css/booking-picker.css?v=4">
+  <link rel="stylesheet" href="/static/css/booking-picker.css?v=5">
   <link rel="manifest" href="/static/manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -181,12 +181,13 @@
     <div class="modal-dialog" role="document"><div class="modal-content">
       <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><h4 id="appointmentTitle" class="modal-title">Request an appointment</h4></div>
       <div class="modal-body">
+        <div class="appointment-inline-error alert alert-danger" role="alert" hidden></div>
         <form id="appointmentForm">
           <input type="hidden" name="pat_id" value="{{ patientdata[0]['pat_id'] }}">
           <div class="form-group">
             <label for="appointmentDate">Available date and time</label>
             <div class="input-group appointment-date-group">
-              <input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" placeholder="Choose date and time" required>
+              <input id="appointmentDate" type="text" name="appointment_date" class="form-control form_datetime" autocomplete="off" placeholder="Choose date and time" required readonly>
               <span id="openAppointmentDate" class="input-group-addon" role="button" tabindex="0" aria-label="Open date picker"><i class="fa fa-calendar" aria-hidden="true"></i></span>
             </div>
             <p id="appointmentDateStatus" class="appointment-date-status" aria-live="polite"></p>
@@ -201,10 +202,10 @@
   <script src="/static/vendor/jquery/dist/jquery.js"></script>
   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
   <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script>
-  <script src="/static/js/disabledatetime.js?v=11"></script>
+  <script src="/static/js/disabledatetime.js?v=12"></script>
   <script>
     $(function () {
-      const bookedTimes = {{ allappointments | tojson }}.map(function (item) { return item.appointment_date; });
+      let bookedTimes = [];
       const appointmentDate = $('#appointmentDate');
 
       function showAppointmentPicker() {
@@ -220,10 +221,13 @@
       });
 
       $('#openAppointment').on('click', function () {
+        clearAppointmentModalError($('#appointmentModal'));
         $('#appointmentModal').modal('show').one('shown.bs.modal', function () {
           const status = $('#appointmentDateStatus').text('Loading available dates…');
-          const disabled = changearrformat(bookedTimes.slice());
-          availabilityPickerOptions(disabled).then(function (options) {
+          Promise.all([loadReservedAppointmentTimes(), availabilityPickerOptions([])]).then(function (values) {
+            bookedTimes = values[0];
+            const disabled = changearrformat(bookedTimes);
+            const options = values[1];
             if (appointmentDate.data('datetimepicker')) appointmentDate.datetimepicker('remove');
             appointmentDate.attr('type', 'text').datetimepicker(options);
             attachBookedSlotGuard(appointmentDate, disabled);
@@ -271,6 +275,7 @@
       });
 
       $('#submitAppointment').on('click', async function () {
+        clearAppointmentModalError($('#appointmentModal'));
         const form = document.getElementById('appointmentForm');
         if (!form.reportValidity()) return;
         const button = this;
@@ -294,7 +299,7 @@
           $('#appointmentModal').modal('hide');
           form.reset();
           window.alert('Your appointment request was sent successfully.');
-        } catch (error) { window.alert(error.message); }
+        } catch (error) { showAppointmentModalError($('#appointmentModal'), error.message); }
         finally { button.disabled = false; }
       });
     });

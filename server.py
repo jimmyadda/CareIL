@@ -2285,6 +2285,36 @@ def availability_api():
         'duration': int(settings['APPOINTMENT_DURATION'])
     })
 
+@app.route('/api/appointment-slots', methods=['GET'])
+def appointment_slots_api():
+    """Return one canonical reservation list for every booking interface."""
+    client_key = session.get('client_key')
+    if not client_key:
+        return jsonify({'error': 'Clinic context is required.'}), 401
+    conn = db_manager.connect_to_db(client_key=client_key)
+    try:
+        rows = conn.execute(
+            "SELECT appointment_date FROM appointment "
+            "UNION ALL "
+            "SELECT appointment_date FROM pendingappointment WHERE status=0"
+        ).fetchall()
+    finally:
+        conn.close()
+    slots = []
+    for row in rows:
+        raw = str(row.get('appointment_date') or '').strip().replace('T', ' ')
+        try:
+            parsed = datetime.datetime.fromisoformat(raw)
+        except ValueError:
+            current_app.logger.warning('Ignoring invalid appointment slot value: %s', raw)
+            continue
+        slots.append(parsed.strftime('%Y-%m-%d %H:%M:%S'))
+    slots = sorted(set(slots))
+    by_date = defaultdict(list)
+    for slot in slots:
+        by_date[slot[:10]].append(slot[11:16])
+    return jsonify({'slots': slots, 'by_date': dict(by_date)})
+
 @app.route('/api/jewish-holidays', methods=['GET'])
 def jewish_holidays_api():
     if not session.get('client_key'):

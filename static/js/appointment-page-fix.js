@@ -7,7 +7,8 @@ $(function () {
   }
 
   function notifyError(message) {
-    if ($.notify) $.notify(message, {status: 'danger'});
+    if ($modal.hasClass('in')) showAppointmentModalError($modal, message);
+    else if ($.notify) $.notify(message, {status: 'danger'});
     else window.alert(message);
   }
 
@@ -20,13 +21,11 @@ $(function () {
   }
 
   $('#addpatient').off('click').on('click.appointmentPage', function () {
-    $.when($.getJSON('/patientapi'), $.getJSON('/appointmentapi'), $.getJSON('/appointmentrequestapi'))
-      .done(function (patientResult, appointmentResult, pendingResult) {
+    clearAppointmentModalError($modal);
+    $.when($.getJSON('/patientapi'), $.getJSON('/api/appointment-slots'))
+      .done(function (patientResult, slotResult) {
         const patients = patientResult[0] || [];
-        const reservedAppointments = (appointmentResult[0] || []).concat(pendingResult[0] || []);
-        bookedAppointmentTimes = reservedAppointments.map(function (item) {
-          return item.appointment_date;
-        });
+        bookedAppointmentTimes = (slotResult[0] && slotResult[0].slots) || [];
         const $patient = $modal.find('#patient_select').empty();
         $('<option>').val('').prop('disabled', true).prop('selected', true)
           .text(text('Select a client', 'בחרו מטופל')).appendTo($patient);
@@ -52,6 +51,7 @@ $(function () {
   });
 
   $modal.find('#savethepatient').off('click').on('click.appointmentPage', function () {
+    clearAppointmentModalError($modal);
     const $form = $modal.find('#detailform');
     const validation = $form.parsley();
     validation.validate();

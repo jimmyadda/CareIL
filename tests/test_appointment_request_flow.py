@@ -98,6 +98,32 @@ class AppointmentRequestFlowTest(unittest.TestCase):
             self.assertEqual(second[1], 409)
             self.assertIn('already booked', second[0]['error'])
 
+    def test_availability_endpoint_returns_confirmed_and_pending_slots(self):
+        import server
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = temporary_manager(temp_dir)
+            self.seed(manager)
+            conn = manager.connect_to_db('default_client')
+            conn.execute(
+                "INSERT INTO appointment(pat_id,doc_id,appointment_date) VALUES(1,1,?)",
+                ('2026-09-15 13:00:00',),
+            )
+            conn.execute(
+                "INSERT INTO pendingappointment(pat_id,doc_id,appointment_date,status) VALUES(1,1,?,0)",
+                ('2026-09-16 14:00:00',),
+            )
+            conn.commit()
+            conn.close()
+            with patch.object(server, 'db_manager', manager):
+                with server.app.test_request_context('/api/appointment-slots'):
+                    session['client_key'] = 'default_client'
+                    response = server.appointment_slots_api()
+            payload = response.get_json()
+            self.assertEqual(payload['slots'], [
+                '2026-09-15 13:00:00', '2026-09-16 14:00:00'
+            ])
+            self.assertEqual(payload['by_date']['2026-09-15'], ['13:00'])
+
     def test_holiday_request_is_rejected_without_creating_a_pending_row(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = temporary_manager(temp_dir)

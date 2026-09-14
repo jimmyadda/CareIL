@@ -51,8 +51,8 @@ def test_all_booking_screens_share_supported_availability_picker():
     assert "return [];" in picker
     assert 'availabilityPickerOptions(disabled)' in patient_booking
     assert 'attachBookedSlotGuard($picker, disabled)' in patient_booking
-    assert "$.getJSON('/appointmentrequestapi')" in patient_booking
-    assert "$.getJSON('/appointmentrequestapi')" in appointment_booking
+    assert "$.getJSON('/api/appointment-slots')" in patient_booking
+    assert "$.getJSON('/api/appointment-slots')" in appointment_booking
 
 
 def test_picker_highlights_reserved_days_and_uses_selected_day_for_hours():
@@ -76,3 +76,23 @@ def test_booking_screens_have_explicit_calendar_buttons():
     assert 'open-appointment-picker' in patient
     assert 'id="openAppointmentDate"' in portal
     assert 'bindAppointmentPickerButtons' in (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')
+
+
+def test_booking_screens_use_canonical_slots_and_visible_modal_errors():
+    server = (ROOT / 'server.py').read_text(encoding='utf-8')
+    picker = (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')
+    appointment_js = (ROOT / 'static' / 'js' / 'appointment-page-fix.js').read_text(encoding='utf-8')
+    patient_js = (ROOT / 'static' / 'js' / 'appointmentpatientform.js').read_text(encoding='utf-8')
+    templates = [
+        (ROOT / 'templates' / name).read_text(encoding='utf-8')
+        for name in ('appointment.html', 'patientform.html', 'portal.html')
+    ]
+    assert "@app.route('/api/appointment-slots', methods=['GET'])" in server
+    assert "fetch('/api/appointment-slots'" in picker
+    assert "$.getJSON('/api/appointment-slots')" in appointment_js
+    assert "$.getJSON('/api/appointment-slots')" in patient_js
+    assert 'showAppointmentModalError' in appointment_js
+    assert 'showAppointmentModalError' in patient_js
+    for template in templates:
+        assert 'appointment-inline-error' in template
+        assert 'readonly' in template

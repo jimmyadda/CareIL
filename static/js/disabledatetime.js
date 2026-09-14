@@ -33,6 +33,31 @@ function normalizeAppointmentDateValue(value) {
   return normalized;
 }
 
+function loadReservedAppointmentTimes() {
+  return fetch('/api/appointment-slots', {credentials: 'same-origin'})
+    .then(function (response) {
+      if (!response.ok) throw new Error('Reserved appointment times could not be loaded');
+      return response.json();
+    })
+    .then(function (payload) { return payload.slots || []; });
+}
+
+function showAppointmentModalError(modal, message) {
+  var $modal = window.jQuery(modal);
+  var $error = $modal.find('.appointment-inline-error').first();
+  if (!$error.length) {
+    $error = window.jQuery('<div class="appointment-inline-error alert alert-danger" role="alert"></div>');
+    $modal.find('.modal-body').first().prepend($error);
+  }
+  $error.text(message).prop('hidden', false).show().attr('tabindex', '-1').focus();
+  var content = $modal.find('.modal-content').first()[0];
+  if (content) content.scrollTop = 0;
+}
+
+function clearAppointmentModalError(modal) {
+  window.jQuery(modal).find('.appointment-inline-error').prop('hidden', true).hide().text('');
+}
+
 function bindAppointmentPickerButtons(scope) {
   var $scope = window.jQuery(scope || document);
   $scope.off('click.bookingPicker keydown.bookingPicker', '.open-appointment-picker')
