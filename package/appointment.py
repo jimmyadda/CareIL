@@ -87,9 +87,27 @@ class Appointments(Resource):
             return {"error": "Complete the therapist profile before booking appointments."}, 409
         appointment['doc_id'] = doc_id
         appointment['pat_mail'] = pat_Mail
-        appointment_date = appointment['appointment_date']
-        appointment['app_id'] = conn.execute('''INSERT INTO appointment(pat_id,doc_id,appointment_date) VALUES(?,?,?)''', (pat_id, doc_id,appointment_date)).lastrowid
-        conn.commit()
+        appointment_date = str(appointment['appointment_date']).strip().replace('T', ' ')
+        if len(appointment_date) == 16:
+            appointment_date += ':00'
+        try:
+            datetime.datetime.strptime(appointment_date, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return {"error": "Choose a valid appointment date and time."}, 400
+        appointment['appointment_date'] = appointment_date
+        try:
+            conn.execute('BEGIN IMMEDIATE')
+            if not _slot_is_available(conn, appointment_date):
+                conn.rollback()
+                return {"error": "This appointment time is already booked."}, 409
+            appointment['app_id'] = conn.execute(
+                '''INSERT INTO appointment(pat_id,doc_id,appointment_date) VALUES(?,?,?)''',
+                (pat_id, doc_id, appointment_date),
+            ).lastrowid
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         try:
             sync_appointment_event(client_key, appointment['app_id'])
         except Exception:

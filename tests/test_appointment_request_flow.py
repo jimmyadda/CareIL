@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from flask import Flask, session
 
-from package.appointment import RequestAppointment, RequestAppointments
+from package.appointment import Appointments, RequestAppointment, RequestAppointments
 from package.appointment_notifications import send_appointment_decision
 from package.database import DatabaseManager
 
@@ -80,6 +80,23 @@ class AppointmentRequestFlowTest(unittest.TestCase):
                 'SELECT status FROM pendingappointment WHERE app_id=?', (first['app_id'],)
             ).fetchone()['status'], 1)
             conn.close()
+
+    def test_direct_booking_cannot_create_a_duplicate_slot(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = temporary_manager(temp_dir)
+            self.seed(manager)
+            payload = {'pat_id': 1, 'appointment_date': '2026-09-15 13:00:00'}
+            with patch('package.appointment.DatabaseManager', lambda client_key=None: manager), \
+                    patch('package.appointment.sync_appointment_event', return_value=True):
+                with self.app.test_request_context(json=payload):
+                    session['client_key'] = 'default_client'
+                    first = Appointments().post()
+                with self.app.test_request_context(json=payload):
+                    session['client_key'] = 'default_client'
+                    second = Appointments().post()
+            self.assertIn('app_id', first)
+            self.assertEqual(second[1], 409)
+            self.assertIn('already booked', second[0]['error'])
 
     def test_holiday_request_is_rejected_without_creating_a_pending_row(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -19,6 +19,12 @@ function changearrformat(arr){
     });
 }
 
+function normalizeAppointmentDateValue(value) {
+  var normalized = String(value || '').trim().replace('T', ' ');
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) normalized += ':00';
+  return normalized;
+}
+
 function appointmentSlotKey(date) {
   return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' +
     pad(date.getUTCDate()) + ':' + pad(date.getUTCHours());
@@ -30,9 +36,12 @@ function attachBookedSlotGuard(input, disabletime) {
 
   function markBookedHours() {
     var picker = $input.data('datetimepicker');
-    if (!picker || !picker.picker || !picker.viewDate) return;
-    var datePrefix = picker.viewDate.getUTCFullYear() + '-' +
-      pad(picker.viewDate.getUTCMonth() + 1) + '-' + pad(picker.viewDate.getUTCDate());
+    if (!picker || !picker.picker) return;
+    var selectedDate = typeof picker.getUTCDate === 'function' ? picker.getUTCDate() :
+      (picker.date || picker.viewDate);
+    if (!selectedDate || isNaN(selectedDate.getTime())) return;
+    var datePrefix = selectedDate.getUTCFullYear() + '-' +
+      pad(selectedDate.getUTCMonth() + 1) + '-' + pad(selectedDate.getUTCDate());
     picker.picker.find('.datetimepicker-hours span.hour').each(function () {
       var hour = parseInt(window.jQuery(this).text(), 10);
       var booked = disabledSlots.has(datePrefix + ':' + pad(hour));
@@ -77,6 +86,10 @@ function loadClinicAvailability() {
     .then(function (response) {
       if (!response.ok) throw new Error('Availability could not be loaded');
       return response.json();
+    })
+    .catch(function (error) {
+      console.warn('Clinic availability could not be loaded; using safe defaults:', error);
+      return {days:[0,1,2,3,4], start:'08:00', end:'18:00', duration:60};
     });
 }
 
@@ -87,7 +100,11 @@ function loadJewishHolidayDates() {
       if (!response.ok) throw new Error('Holiday dates could not be loaded');
       return response.json();
     })
-    .then(function (payload) { return payload.dates || []; });
+    .then(function (payload) { return payload.dates || []; })
+    .catch(function (error) {
+      console.warn('Jewish holidays could not be loaded in the picker:', error);
+      return [];
+    });
 }
 
 function availabilityPickerOptions(disabletime) {
@@ -107,12 +124,8 @@ function availabilityPickerOptions(disabletime) {
       daysOfWeekDisabled: Array.from({length: 7}, function (_, day) { return day; })
         .filter(function (day) { return availability.days.indexOf(day) === -1; }),
       datesDisabled: holidayDates,
-      onRenderHour: function (date) {
-        if (disabledSlots.has(appointmentSlotKey(date))) {
-          return ['disabled', 'booked-hour'];
-        }
-        return [];
-      }
+      autoclose: true,
+      todayHighlight: true
     };
   });
 }

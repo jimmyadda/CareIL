@@ -10,8 +10,10 @@ $(function () {
         else window.alert(message);
     }
     function loadOptions() {
-        return $.getJSON('/appointmentapi').then(function (appointments) {
-                bookedAppointmentTimes = (appointments || []).map(function (item) {
+        return $.when($.getJSON('/appointmentapi'), $.getJSON('/appointmentrequestapi'))
+            .then(function (appointmentResult, pendingResult) {
+                const reservedAppointments = (appointmentResult[0] || []).concat(pendingResult[0] || []);
+                bookedAppointmentTimes = reservedAppointments.map(function (item) {
                     return item.appointment_date;
                 });
             });
@@ -19,17 +21,13 @@ $(function () {
     function configureDatePicker() {
         if (!$.fn.datetimepicker) return;
         const disabled = typeof changearrformat === 'function' ? changearrformat(bookedAppointmentTimes) : bookedAppointmentTimes;
-        $('.form_datetime').datetimepicker('remove').datetimepicker({
-            format: 'yyyy-mm-dd hh:ii:00', minuteStep: 60, startDate: new Date(), initialDate: new Date(),
-            onRenderHour: function (date) {
-                if (typeof formatDate === 'function' && typeof pad === 'function' &&
-                    disabled.indexOf(formatDate(date) + ':' + pad(date.getHours())) > -1) return ['disabled', 'booked-hour'];
-                return [];
-            }
+        availabilityPickerOptions(disabled).then(function (options) {
+            const $picker = $modal.find('.form_datetime');
+            if ($picker.data('datetimepicker')) $picker.datetimepicker('remove');
+            $picker.datetimepicker(options);
+            attachBookedSlotGuard($picker, disabled);
+            $picker.datetimepicker('show');
         });
-        if (typeof attachBookedSlotGuard === 'function') {
-            attachBookedSlotGuard($('.form_datetime'), disabled);
-        }
     }
     $('#addApp_pat_form').off('click').on('click.patientAppointment', function () {
         if (!patientId) return showError(text('Please select a client first.', 'יש לבחור מטופל תחילה.'));
@@ -45,6 +43,7 @@ $(function () {
         }
         const data = $form.serializeJSON ? $form.serializeJSON() : {};
         data.pat_id = patientId;
+        data.appointment_date = normalizeAppointmentDateValue($form.find('[name="appointment_date"]').val());
         $.ajax({url: '/appointmentapi', method: 'POST', contentType: 'application/json', data: JSON.stringify(data)})
             .done(function () {
                 const message = text('Appointment added successfully', 'פגישת טיפול נקבעה בהצלחה');

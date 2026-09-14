@@ -200,7 +200,7 @@
   <script src="/static/vendor/jquery/dist/jquery.js"></script>
   <script src="/static/vendor/bootstrap/dist/js/bootstrap.js"></script>
   <script src="/static/vendor/datepicker/build/js/bootstrap-datetimepicker.min.js"></script>
-  <script src="/static/js/disabledatetime.js?v=6"></script>
+  <script src="/static/js/disabledatetime.js?v=7"></script>
   <script>
     $(function () {
       const bookedTimes = {{ allappointments | tojson }}.map(function (item) { return item.appointment_date; });
@@ -274,10 +274,11 @@
         if (!form.reportValidity()) return;
         const button = this;
         button.disabled = true;
-        const appointmentDate = form.elements.appointment_date.value;
+        const selectedAppointmentDate = normalizeAppointmentDateValue(form.elements.appointment_date.value);
+        form.elements.appointment_date.value = selectedAppointmentDate;
         const payload = {
           pat_id: form.elements.pat_id.value,
-          appointment_date: appointmentDate,
+          appointment_date: selectedAppointmentDate,
           language: (sessionStorage.getItem('lang') || 'EN').toUpperCase()
         };
         const check = new FormData();

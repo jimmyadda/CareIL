@@ -41,3 +41,15 @@ def test_client_portal_has_visible_and_resilient_appointment_date_picker():
     assert 'placeholder="Choose date and time"' in template
     assert 'showAppointmentPicker();' in template
     assert "appointmentDate.attr({type:'datetime-local'" in template
+
+
+def test_all_booking_screens_share_supported_availability_picker():
+    picker = (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')
+    patient_booking = (ROOT / 'static' / 'js' / 'appointmentpatientform.js').read_text(encoding='utf-8')
+    appointment_booking = (ROOT / 'static' / 'js' / 'appointment-page-fix.js').read_text(encoding='utf-8')
+    assert 'onRenderHour' not in picker
+    assert "return [];" in picker
+    assert 'availabilityPickerOptions(disabled)' in patient_booking
+    assert 'attachBookedSlotGuard($picker, disabled)' in patient_booking
+    assert "$.getJSON('/appointmentrequestapi')" in patient_booking
+    assert "$.getJSON('/appointmentrequestapi')" in appointment_booking
