@@ -110,12 +110,11 @@ function attachBookedSlotGuard(input, disabletime) {
   function applyDisabledHours(date) {
     var picker = $input.data('datetimepicker');
     if (!picker || !date || isNaN(date.getTime())) return;
-    var bookedHours = bookedHoursForDate(date);
-    var hours = Array.from(new Set(clinicDisabledHours.concat(bookedHours))).sort(function (a, b) { return a - b; });
-    // Use the datepicker's own disabled-hours state. Calling its public setter
-    // also runs update(), which resets the just-selected day while the input is
-    // still empty, so update the instance and render it directly instead.
-    picker.hoursDisabled = hours;
+    // Keep booked hours visible. The vendor removes hours placed in
+    // hoursDisabled, so only clinic-closed hours belong there; booked hours are
+    // rendered and then marked grey/disabled by markBookedHours and the capture
+    // guard below.
+    picker.hoursDisabled = clinicDisabledHours.slice();
     picker.fill();
     $input.data('bookedSlotsSelectedDate', new Date(date.getTime()));
     window.setTimeout(function () { markBookedHours(date); }, 0);
