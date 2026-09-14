@@ -24,7 +24,7 @@
    <!-- <link rel="stylesheet" href="static/app/css/bootstrap.css" id="bscss"> -->
       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
    <link rel="stylesheet" href="static/vendor/datepicker/build/css/bootstrap-datetimepicker.min.css">
-   <link rel="stylesheet" href="/static/css/booking-picker.css?v=1">
+   <link rel="stylesheet" href="/static/css/booking-picker.css?v=3">
    <!-- =============== APP STYLES ===============-->
    <link rel="stylesheet" href="static/app/css/app.css" id="maincss">
    <link rel="stylesheet" type="text/css" href="/static/main.css" media="screen"/>
@@ -576,7 +576,10 @@
                                                 <label key="appdate" class="col-lg-2 control-label translate EN">Appointment date</label>
                   
                                            <div class="col-lg-10">
-                                             <input id="datepicker1" size="16" type="text" name="appointment_date" required class="form-control form_datetime" value="">
+                                             <div class="input-group appointment-date-group">
+                                                <input id="datepicker1" size="16" type="text" name="appointment_date" required class="form-control form_datetime" value="" autocomplete="off">
+                                                <span class="input-group-addon open-appointment-picker" role="button" tabindex="0" aria-label="Open appointment calendar"><i class="fa fa-calendar"></i></span>
+                                             </div>
                                                 </div>          
                                              </div>                             
                                           </form>                       
@@ -817,7 +820,7 @@
 
   <script type="text/javascript" src="/static/js/Helpers.js?v=3"></script>
   <script src="/static/js/medicalnote.js?v=2"></script>
-   <script src="/static/js/disabledatetime.js?v=8"></script>
+   <script src="/static/js/disabledatetime.js?v=10"></script>
 <script src="/static/js/appointmentpatientform.js?v=13"></script>
 <script>
 (function () {

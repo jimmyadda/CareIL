@@ -14,9 +14,17 @@ function pad(n)
 
 function changearrformat(arr){
     return (arr || []).map(function(part) {
-      var match = String(part).trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2})/);
-      return match ? match[1] + ':' + match[2] : String(part).trim();
-    });
+      var raw = part && part.appointment_date ? part.appointment_date : part;
+      var value = String(raw || '').trim();
+      var match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2})/);
+      if (match) return match[1] + '-' + match[2] + '-' + match[3] + ':' + pad(parseInt(match[4], 10));
+      var parsed = new Date(value);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.getFullYear() + '-' + pad(parsed.getMonth() + 1) + '-' +
+          pad(parsed.getDate()) + ':' + pad(parsed.getHours());
+      }
+      return value;
+    }).filter(function (value) { return /^\d{4}-\d{2}-\d{2}:\d{2}$/.test(value); });
 }
 
 function normalizeAppointmentDateValue(value) {
@@ -24,6 +32,20 @@ function normalizeAppointmentDateValue(value) {
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) normalized += ':00';
   return normalized;
 }
+
+function bindAppointmentPickerButtons(scope) {
+  var $scope = window.jQuery(scope || document);
+  $scope.off('click.bookingPicker keydown.bookingPicker', '.open-appointment-picker')
+    .on('click.bookingPicker keydown.bookingPicker', '.open-appointment-picker', function (event) {
+      if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      var $input = window.jQuery(this).closest('.appointment-date-group').find('.form_datetime').first();
+      if ($input.data('datetimepicker')) $input.datetimepicker('show');
+      else $input.trigger('focus');
+    });
+}
+
+window.jQuery(function () { bindAppointmentPickerButtons(document); });
 
 function appointmentSlotKey(date) {
   return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' +
@@ -71,10 +93,10 @@ function attachBookedSlotGuard(input, disabletime) {
     });
   }
 
-  function markBookedHours() {
+  function markBookedHours(forDate) {
     var picker = $input.data('datetimepicker');
     if (!picker || !picker.picker) return;
-    var selectedDate = selectedPickerDate(picker);
+    var selectedDate = forDate || $input.data('bookedSlotsSelectedDate') || selectedPickerDate(picker);
     if (!selectedDate || isNaN(selectedDate.getTime())) return;
     var datePrefix = dateKey(selectedDate);
     picker.picker.find('.datetimepicker-hours span.hour').each(function () {
@@ -91,10 +113,25 @@ function attachBookedSlotGuard(input, disabletime) {
     markBookedHours();
   }
 
-  $input.off('.bookedSlots').on(
-    'show.bookedSlots changeDay.bookedSlots changeMonth.bookedSlots changeYear.bookedSlots changeMode.bookedSlots',
-    function () { window.setTimeout(refreshBookingMarks, 0); }
-  );
+  $input.off('.bookedSlots')
+    .on('changeDay.bookedSlots', function (event) {
+      if (event.date) $input.data('bookedSlotsSelectedDate', new Date(event.date.getTime()));
+      window.setTimeout(function () { markBookedDays(); markBookedHours(event.date); }, 0);
+      window.setTimeout(function () { markBookedHours(event.date); }, 30);
+    })
+    .on('show.bookedSlots changeMonth.bookedSlots changeYear.bookedSlots changeMode.bookedSlots',
+      function () {
+        window.setTimeout(refreshBookingMarks, 0);
+        window.setTimeout(refreshBookingMarks, 30);
+      })
+    .on('changeHour.bookedSlots changeDate.bookedSlots', function (event) {
+      var chosen = event.date;
+      if (!chosen || !disabledSlots.has(appointmentSlotKey(chosen))) return;
+      $input.val('').trigger('bookingSlotUnavailable');
+      var picker = $input.data('datetimepicker');
+      if (picker && picker.picker) picker.picker.find('.booked-slot-message').remove().end()
+        .prepend('<div class="booked-slot-message" role="alert">This time is unavailable</div>');
+    });
   var picker = $input.data('datetimepicker');
   if (picker && picker.picker) {
     var oldObserver = $input.data('bookedSlotsObserver');
@@ -111,6 +148,16 @@ function attachBookedSlotGuard(input, disabletime) {
     }
     var pickerElement = picker.picker[0];
     var captureHandler = function (event) {
+      var day = event.target.closest ? event.target.closest('.datetimepicker-days td.day') : null;
+      if (day && !window.jQuery(day).hasClass('disabled')) {
+        var base = selectedPickerDate(picker);
+        var year = base.getUTCFullYear();
+        var month = base.getUTCMonth();
+        var $day = window.jQuery(day);
+        if ($day.hasClass('old')) { month -= 1; if (month < 0) { month = 11; year -= 1; } }
+        if ($day.hasClass('new')) { month += 1; if (month > 11) { month = 0; year += 1; } }
+        $input.data('bookedSlotsSelectedDate', new Date(Date.UTC(year, month, parseInt($day.text(), 10))));
+      }
       var target = event.target.closest ? event.target.closest('.booked-hour') : null;
       if (!target) return;
       event.preventDefault();
@@ -120,6 +167,7 @@ function attachBookedSlotGuard(input, disabletime) {
     $input.data('bookedSlotsCapture', {element: pickerElement, handler: captureHandler});
   }
   window.setTimeout(refreshBookingMarks, 0);
+  window.setTimeout(refreshBookingMarks, 30);
 }
 
 function loadClinicAvailability() {
