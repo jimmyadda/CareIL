@@ -69,6 +69,32 @@ function attachBookedSlotGuard(input, disabletime) {
     return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
   }
 
+  var pickerAtSetup = $input.data('datetimepicker');
+  var clinicDisabledHours = pickerAtSetup && pickerAtSetup.hoursDisabled ?
+    pickerAtSetup.hoursDisabled.slice() : [];
+
+  function bookedHoursForDate(date) {
+    if (!date || isNaN(date.getTime())) return [];
+    var prefix = dateKey(date) + ':';
+    return Array.from(disabledSlots).filter(function (slot) {
+      return slot.indexOf(prefix) === 0;
+    }).map(function (slot) { return parseInt(slot.slice(-2), 10); });
+  }
+
+  function applyDisabledHours(date) {
+    var picker = $input.data('datetimepicker');
+    if (!picker || !date || isNaN(date.getTime())) return;
+    var bookedHours = bookedHoursForDate(date);
+    var hours = Array.from(new Set(clinicDisabledHours.concat(bookedHours))).sort(function (a, b) { return a - b; });
+    // Use the datepicker's own disabled-hours state. Calling its public setter
+    // also runs update(), which resets the just-selected day while the input is
+    // still empty, so update the instance and render it directly instead.
+    picker.hoursDisabled = hours;
+    picker.fill();
+    $input.data('bookedSlotsSelectedDate', new Date(date.getTime()));
+    window.setTimeout(function () { markBookedHours(date); }, 0);
+  }
+
   function markBookedDays() {
     var picker = $input.data('datetimepicker');
     var visibleDate = selectedPickerDate(picker);
@@ -102,7 +128,7 @@ function attachBookedSlotGuard(input, disabletime) {
     picker.picker.find('.datetimepicker-hours span.hour').each(function () {
       var hour = parseInt(window.jQuery(this).text(), 10);
       var booked = disabledSlots.has(datePrefix + ':' + pad(hour));
-      window.jQuery(this).toggleClass('disabled booked-hour', booked)
+      window.jQuery(this).toggleClass('booked-hour', booked)
         .attr('aria-disabled', booked ? 'true' : 'false')
         .attr('title', booked ? 'Unavailable' : '');
     });
@@ -115,7 +141,7 @@ function attachBookedSlotGuard(input, disabletime) {
 
   $input.off('.bookedSlots')
     .on('changeDay.bookedSlots', function (event) {
-      if (event.date) $input.data('bookedSlotsSelectedDate', new Date(event.date.getTime()));
+      if (event.date) applyDisabledHours(event.date);
       window.setTimeout(function () { markBookedDays(); markBookedHours(event.date); }, 0);
       window.setTimeout(function () { markBookedHours(event.date); }, 30);
     })
@@ -166,6 +192,7 @@ function attachBookedSlotGuard(input, disabletime) {
     pickerElement.addEventListener('click', captureHandler, true);
     $input.data('bookedSlotsCapture', {element: pickerElement, handler: captureHandler});
   }
+  if (pickerAtSetup) applyDisabledHours(selectedPickerDate(pickerAtSetup));
   window.setTimeout(refreshBookingMarks, 0);
   window.setTimeout(refreshBookingMarks, 30);
 }

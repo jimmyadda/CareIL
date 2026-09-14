@@ -60,7 +60,19 @@ def test_picker_highlights_reserved_days_and_uses_selected_day_for_hours():
     styles = (ROOT / 'static' / 'css' / 'booking-picker.css').read_text(encoding='utf-8')
     assert 'picker.viewDate || picker.date' in picker
     assert "toggleClass('has-booking', reserved)" in picker
-    assert "toggleClass('disabled booked-hour', booked)" in picker
+    assert "picker.hoursDisabled = hours" in picker
+    assert "toggleClass('booked-hour', booked)" in picker
+    assert "bookedHoursForDate" in picker
     assert 'refreshBookingMarks' in picker
     assert 'td.day.has-booking' in styles
     assert 'span.hour.disabled.booked-hour' in styles
+
+
+def test_booking_screens_have_explicit_calendar_buttons():
+    appointment = (ROOT / 'templates' / 'appointment.html').read_text(encoding='utf-8')
+    patient = (ROOT / 'templates' / 'patientform.html').read_text(encoding='utf-8')
+    portal = (ROOT / 'templates' / 'portal.html').read_text(encoding='utf-8')
+    assert 'open-appointment-picker' in appointment
+    assert 'open-appointment-picker' in patient
+    assert 'id="openAppointmentDate"' in portal
+    assert 'bindAppointmentPickerButtons' in (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')

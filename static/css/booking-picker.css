@@ -28,11 +28,11 @@
 
 .datetimepicker .datetimepicker-hours span.hour.disabled.booked-hour,
 .datetimepicker .datetimepicker-hours span.hour.disabled.booked-hour:hover {
-  color: #8b5454 !important;
-  background: #f1dddd !important;
+  color: #777 !important;
+  background: #dedede !important;
   cursor: not-allowed !important;
   text-decoration: line-through;
-  opacity: .78;
+  opacity: .82;
 }
 
 .appointment-date-group .open-appointment-picker {
