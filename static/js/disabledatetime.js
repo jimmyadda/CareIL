@@ -80,6 +80,7 @@ function appointmentSlotKey(date) {
 function attachBookedSlotGuard(input, disabletime) {
   var $input = window.jQuery(input);
   var disabledSlots = new Set(changearrformat(disabletime));
+  var holidayDates = new Set(window.careilHolidayDates || []);
   var reservedDates = new Set(Array.from(disabledSlots).map(function (slot) {
     return String(slot).slice(0, 10);
   }));
@@ -139,8 +140,12 @@ function attachBookedSlotGuard(input, disabletime) {
       }
       var key = year + '-' + pad(month + 1) + '-' + pad(parseInt($day.text(), 10));
       var reserved = reservedDates.has(key);
+      var holiday = holidayDates.has(key);
       $day.toggleClass('has-booking', reserved)
-        .attr('title', reserved ? 'This day has booked or requested appointments' : '');
+        .toggleClass('disabled holiday-date', holiday)
+        .attr('aria-disabled', holiday ? 'true' : 'false')
+        .attr('title', holiday ? 'Unavailable — Jewish holiday' :
+          (reserved ? 'This day has booked or requested appointments' : ''));
     });
   }
 
@@ -200,6 +205,11 @@ function attachBookedSlotGuard(input, disabletime) {
     var pickerElement = picker.picker[0];
     var captureHandler = function (event) {
       var day = event.target.closest ? event.target.closest('.datetimepicker-days td.day') : null;
+      if (day && window.jQuery(day).hasClass('holiday-date')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (day && !window.jQuery(day).hasClass('disabled')) {
         var base = selectedPickerDate(picker);
         var year = base.getUTCFullYear();
@@ -266,6 +276,7 @@ function availabilityPickerOptions(disabletime) {
   return Promise.all([loadClinicAvailability(), loadJewishHolidayDates()]).then(function (values) {
     var availability = values[0];
     var holidayDates = values[1];
+    window.careilHolidayDates = holidayDates;
     var disabledSlots = new Set(changearrformat(disabletime));
     var startHour = parseInt(availability.start.split(':')[0], 10);
     var endHour = parseInt(availability.end.split(':')[0], 10);
@@ -278,10 +289,6 @@ function availabilityPickerOptions(disabletime) {
         .filter(function (hour) { return hour < startHour || hour >= endHour; }),
       daysOfWeekDisabled: Array.from({length: 7}, function (_, day) { return day; })
         .filter(function (day) { return availability.days.indexOf(day) === -1; }),
-      // This vendor parses disabled dates using the picker's full date-time
-      // format. Supplying YYYY-MM-DD alone throws "Invalid format type" and
-      // prevents the booked-slot guard from being attached.
-      datesDisabled: holidayDates.map(function (date) { return date + ' 00:00:00'; }),
       autoclose: true,
       todayHighlight: true
     };

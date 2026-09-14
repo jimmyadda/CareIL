@@ -33,7 +33,8 @@ def test_portal_disables_holidays_and_server_validates_them():
     picker = (ROOT / 'static' / 'js' / 'disabledatetime.js').read_text(encoding='utf-8')
     portal = (ROOT / 'templates' / 'portal.html').read_text(encoding='utf-8')
     server = (ROOT / 'server.py').read_text(encoding='utf-8')
-    assert "datesDisabled: holidayDates" in picker
+    assert "window.careilHolidayDates = holidayDates" in picker
+    assert "toggleClass('disabled holiday-date', holiday)" in picker
     assert "/api/jewish-holidays" in picker
     assert "Jewish holidays" in portal
     assert "if holiday_name(requested_at)" in server
