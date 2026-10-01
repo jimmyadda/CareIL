@@ -1317,6 +1317,23 @@ def login_request():
             return render_template('/login.html',alert = "Invalid user/password. please try again.")
 
 
+@app.route('/login/code', methods=['GET'])
+def login_code_page():
+    if not session.get('pending_login_userid') or not session.get('pending_login_client_key'):
+        flash('Please sign in with your password first, then use the latest email code.', 'warning')
+        return redirect(url_for('login_page'))
+    return render_template('login-2fa.html', email='', alert='')
+
+
+@app.route('/registration/code', methods=['GET'])
+def registration_code_page():
+    if not session.get('client_key') or not session.get('pending_verification_userid'):
+        flash('Please sign in first, then use the latest verification email.', 'warning')
+        return redirect(url_for('login_page'))
+    return render_template('register.html', alert='', email=session.get('email', ''),
+                           verification_step=1, email_step=0)
+
+
 @app.route('/login/verify', methods=['POST'])
 def verify_login_code():
     userid = session.get('pending_login_userid')
@@ -3506,8 +3523,10 @@ def send_verification_code(email, verification_code):
                   sender=sender_email, 
                   recipients=[email])
     msg.body = f'Your verification code is: {verification_code}. it will be valid for the next 5 Minutes.'
+    code_link = url_for('registration_code_page', _external=True) + '#code=' + verification_code
     msg.html = (email_brand_header() + '<p>Your verification code is:</p>'
                 f'<p style="font-size:24px;font-weight:700;letter-spacing:4px;">{verification_code}</p>'
+                f'<p><a href="{code_link}" style="display:inline-block;padding:12px 18px;background:#588157;color:#fff;text-decoration:none;border-radius:8px;">Use code / השתמשו בקוד</a></p>'
                 '<p>It will be valid for the next 5 minutes.</p>')
     logo_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'therapy-hands-logo-email.png')
     with open(logo_path, 'rb') as logo_file:
@@ -3542,10 +3561,12 @@ def send_login_verification_code(email, verification_code):
         f'Your CareIL sign-in code is: {verification_code}. '
         'The code is valid for 5 minutes. If you did not try to sign in, ignore this email.'
     )
+    code_link = url_for('login_code_page', _external=True) + '#code=' + verification_code
     html_body = (
         email_brand_header()
         + '<p>Your CareIL sign-in code / קוד הכניסה שלך ל־CareIL:</p>'
         + f'<p style="font-size:26px;font-weight:700;letter-spacing:5px;">{verification_code}</p>'
+        + f'<p><a href="{code_link}" style="display:inline-block;padding:12px 18px;background:#588157;color:#fff;text-decoration:none;border-radius:8px;">Use code / השתמשו בקוד</a></p>'
         + '<p>The code is valid for 5 minutes / הקוד תקף למשך 5 דקות.</p>'
         + '<p>If you did not try to sign in, you can ignore this email.</p>'
     )

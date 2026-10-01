@@ -53,7 +53,7 @@
             <p>A verification code has been sent to your Email. Please enter it below:</p>
             <form action="/verify" method="POST">
                 <div>
-                    <input type="text" name="verification_code" placeholder="Enter the verification code" required/>
+                    <input type="text" name="verification_code" placeholder="Enter the verification code" autocomplete="one-time-code" maxlength="6" data-email-code required/>
                     <input type="hidden" name="email" value="{{ email }}"/>
                     <input type="submit" name="submit" value="Verify" class="icon-login"/>
                 </div>
@@ -61,6 +61,7 @@
         {% endif %}  
         
         </div>
+    <script src="/static/js/email-code-link.js"></script>
     <script src="/static/modern-clinic.js?v=19"></script>
 <script>if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/service-worker.js"); }); }</script>
 {% include '_cookie_notice.html' %}</body>

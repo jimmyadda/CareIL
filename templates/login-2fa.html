@@ -12,8 +12,8 @@
   <p dir="rtl">שלחנו קוד בן שישה תווים לכתובת האימייל המאומתת שלך. הקוד תקף לחמש דקות.</p>
   {% if alert %}<p class="alert">{{ alert }}</p>{% endif %}
   <form action="/login/verify" method="post">
-    <input name="verification_code" inputmode="text" autocomplete="one-time-code" maxlength="6" required autofocus placeholder="Verification code">
+    <input name="verification_code" inputmode="text" autocomplete="one-time-code" maxlength="6" required autofocus placeholder="Verification code" data-email-code>
     <input type="submit" value="Verify and sign in" class="icon-login">
   </form>
   <p class="small"><a href="/login">Start again</a></p>
-</main>{% include '_cookie_notice.html' %}</body></html>
+</main><script src="/static/js/email-code-link.js"></script>{% include '_cookie_notice.html' %}</body></html>
