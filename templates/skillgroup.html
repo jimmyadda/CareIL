@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'he' else 'ltr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ 'קבוצת מיומנויות חברתיות לילדים | CareIL' if lang == 'he' else 'Social Skills Group for Children | CareIL' }}</title>
+  <meta name="description" content="{{ 'מרחב טיפולי בטוח ומעצים לילדים, המשלב טיפול רגשי, משחק, יצירה ועולם הבובות.' if lang == 'he' else 'A safe, empowering therapeutic group for children combining emotional therapy, play, creativity and puppetry.' }}">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://www.careil.net{{ canonical_path }}">
+  <link rel="alternate" hreflang="en" href="https://www.careil.net/Info/skillgroup">
+  <link rel="alternate" hreflang="he" href="https://www.careil.net/he/Info/skillgroup">
+  <link rel="alternate" hreflang="x-default" href="https://www.careil.net/Info/skillgroup">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ 'קבוצת מיומנויות חברתיות לילדים' if lang == 'he' else 'Social Skills Group for Children' }}">
+  <meta property="og:description" content="{{ 'טיפול רגשי, משחק ועולם הבובות במרחב בטוח, מעצים ומצמיח.' if lang == 'he' else 'Emotional therapy, play and puppetry in a safe, empowering space for growth.' }}">
+  <meta property="og:url" content="https://www.careil.net{{ canonical_path }}">
+  <link rel="icon" href="/static/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png?v=2">
+  <link rel="stylesheet" href="/static/landing.css?v=3">
+  <link rel="stylesheet" href="/static/landing-footer.css?v=1">
+  <link rel="stylesheet" href="/static/landing-bilingual.css?v=2">
+  <style>
+    .program-nav-active{color:var(--forest)!important;position:relative}.program-nav-active:after{content:"";position:absolute;inset-inline:0;bottom:-9px;height:2px;background:var(--forest);border-radius:2px}
+    .program-main{overflow:hidden}.program-hero{position:relative;max-width:1180px;margin:20px auto 0;padding:84px 28px 72px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:60px;align-items:center}.program-hero:before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(163,177,138,.32),rgba(163,177,138,0) 70%);inset-inline-end:-120px;top:-80px;z-index:-1}.program-hero h1{font:500 clamp(46px,5.7vw,76px)/1.02 Georgia,serif;letter-spacing:-.045em;margin:16px 0 22px}.program-hero h1 em{display:block;color:var(--forest);font-style:normal}.program-lead{font-size:19px;line-height:1.75;color:var(--muted);max-width:700px}.program-hero-card{background:linear-gradient(145deg,#edf2e7,#fff);border:1px solid var(--line);border-radius:28px;padding:36px;box-shadow:0 25px 65px rgba(44,68,49,.13)}.program-hero-card img{display:block;width:112px;height:112px;object-fit:contain;margin:0 auto 26px}.program-hero-card ul{list-style:none;padding:0;margin:0}.program-hero-card li{padding:13px 0;border-bottom:1px solid var(--line);font-weight:700;color:#3f5946}.program-hero-card li:last-child{border:0}.program-hero-card li:before{content:"✓";display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#dce8d4;color:var(--forest);margin-inline-end:10px}.program-strip{background:var(--ink);color:#fff}.program-strip-inner{max-width:1180px;margin:auto;padding:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:center}.program-strip strong{display:block;color:#d9e8c8;font:500 30px Georgia,serif}.program-strip span{font-size:13px;color:#d6dfd8}.program-section{max-width:1124px;margin:auto;padding:92px 28px}.program-section.soft{max-width:none;background:#edf1e8;padding-inline:max(28px,calc((100% - 1068px)/2))}.program-heading{max-width:790px;margin-bottom:38px}.program-heading h2{font:500 clamp(34px,4.2vw,54px)/1.08 Georgia,serif;letter-spacing:-.035em;margin:13px 0 18px}.program-heading p{font-size:18px;line-height:1.7;color:var(--muted)}.therapeutic-card{background:#fff;border:1px solid var(--line);border-inline-start:5px solid var(--forest);border-radius:18px;padding:32px;margin-top:30px}.therapeutic-card h3,.info-card h3,.phase-card h3,.team-card h3{font:500 25px Georgia,serif;margin:0 0 14px}.therapeutic-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}.therapeutic-list article,.info-card,.phase-card,.team-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px}.therapeutic-list b{display:block;color:var(--forest);margin-bottom:8px}.therapeutic-list p,.info-card li,.phase-card p,.team-card p{color:var(--muted);line-height:1.65}.two-column{display:grid;grid-template-columns:1fr 1fr;gap:20px}.info-card ul{padding-inline-start:20px;margin:0}.info-card li{margin:9px 0}.goal-note{margin-top:22px;background:#e7efe1;border-radius:13px;padding:18px;color:#2d5138;font-weight:800}.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.team-card{position:relative;padding-top:66px}.team-icon{position:absolute;top:24px;inset-inline-start:28px;width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--sage),var(--forest))}.team-combination{margin-top:20px;padding:24px 28px;border-radius:16px;background:#fff7eb;border:1px solid #efdfc9;color:#745229;line-height:1.7}.phases{display:grid;gap:16px;counter-reset:phase}.phase-card{position:relative;padding-inline-start:82px}.phase-card:before{counter-increment:phase;content:counter(phase);position:absolute;inset-inline-start:28px;top:28px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;font-weight:800}.phase-card ul{color:var(--muted);line-height:1.65;padding-inline-start:18px}.price-panel{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 18px 50px rgba(44,68,49,.09)}.price-scroll{overflow-x:auto}.price-table{width:100%;border-collapse:collapse;min-width:760px}.price-table th{background:var(--ink);color:#fff;text-align:start;padding:18px}.price-table td{padding:18px;border-bottom:1px solid var(--line);color:#526257}.price-table tbody tr:last-child{background:#edf2ea;font-weight:850}.price-table tbody tr:last-child td{color:var(--ink);border:0}.included{display:inline-block;background:#dcefdc;color:#28623a;border-radius:999px;padding:6px 12px;font-weight:800;font-size:13px}.policy-card{margin-top:30px;background:#fffaf3;border:1px solid #efdfc9;border-radius:18px;padding:30px}.policy-card h3{margin-top:0;color:#7a5527}.policy-card li{margin:11px 0;line-height:1.65;color:#65594b}.program-cta{max-width:1068px;margin:0 auto 90px;background:linear-gradient(135deg,var(--sage),var(--forest));border-radius:28px;padding:60px 34px;text-align:center;color:#102419}.program-cta h2{font:500 clamp(34px,4vw,52px)/1.08 Georgia,serif;margin:0 0 14px}.program-cta p{font-size:18px;margin:0 auto 26px;max-width:670px}.program-cta .button{background:var(--ink);color:#fff;border:0}.program-footer{max-width:1180px}.program-footer .footer-links{flex-wrap:wrap;justify-content:flex-end}.program-footer .footer-links a:first-child{color:var(--forest)}
+    [dir=rtl] .program-hero h1,[dir=rtl] .program-heading h2{letter-spacing:0}[dir=rtl] .price-table th{text-align:right}
+    @media(max-width:900px){.program-hero{grid-template-columns:1fr;gap:35px;padding-top:52px}.program-hero-card{max-width:620px}.therapeutic-list{grid-template-columns:1fr}.two-column,.team-grid{grid-template-columns:1fr}.program-strip-inner{grid-template-columns:1fr;gap:15px}.program-section{padding:68px 20px}.program-section.soft{padding-inline:20px}.program-nav-active:after{display:none}}
+    @media(max-width:600px){.program-hero{padding-inline:20px}.program-hero h1{font-size:43px}.program-hero-card{padding:26px}.phase-card{padding-inline-start:68px}.phase-card:before{inset-inline-start:18px}.program-cta{margin:0 16px 60px;padding:42px 22px}.program-footer .footer-links{justify-content:center}}
+  </style>
+  <script type="application/ld+json">{{ {
+    '@context': 'https://schema.org', '@type': 'Service',
+    'name': 'קבוצת מיומנויות חברתיות לילדים' if lang == 'he' else 'Social Skills Group for Children',
+    'provider': {'@type': 'Organization', 'name': 'CareIL'},
+    'areaServed': 'Israel', 'url': 'https://www.careil.net' + canonical_path
+  }|tojson }}</script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ '/he' if lang == 'he' else '/' }}" aria-label="CareIL home"><img src="/static/img/therapy-hands-logo.png" alt="" width="52" height="52"><span>CareIL</span></a>
+    <nav aria-label="{{ 'ניווט ראשי' if lang == 'he' else 'Main navigation' }}">
+      <a href="{{ '/he' if lang == 'he' else '/' }}">{{ 'דף הבית' if lang == 'he' else 'Home' }}</a>
+      <a class="program-nav-active" href="{{ canonical_path }}" aria-current="page">{{ 'תוכניות' if lang == 'he' else 'Programs' }}</a>
+      <a href="{{ '/he/plans' if lang == 'he' else '/plans' }}">{{ 'מחירים' if lang == 'he' else 'Pricing' }}</a>
+      {% if lang == 'he' %}<a href="/he/articles">מאמרים</a><a href="/he/faq">שאלות נפוצות</a>{% endif %}
+      <a class="lang-toggle" href="{{ alternate_path }}" lang="{{ 'en' if lang == 'he' else 'he' }}" dir="{{ 'ltr' if lang == 'he' else 'rtl' }}">{{ 'English' if lang == 'he' else 'עברית' }}</a>
+      <a class="login-link" href="/login">{{ 'כניסה' if lang == 'he' else 'Log in' }}</a>
+      <a class="nav-cta" href="/request-access{{ '?lang=he' if lang == 'he' else '' }}">{{ 'הרשמה' if lang == 'he' else 'Sign up' }}</a>
+    </nav>
+  </header>
+
+  <main class="program-main">
+    <section class="program-hero">
+      <div>
+        <span class="eyebrow">{{ 'טיפול רגשי · משחק · עולם הבובות' if lang == 'he' else 'Emotional therapy · Play · Puppetry' }}</span>
+        <h1>{{ 'קבוצת מיומנויות' if lang == 'he' else 'A social skills' }} <em>{{ 'חברתיות לילדים' if lang == 'he' else 'group for children' }}</em></h1>
+        <p class="program-lead">
+          {% if lang == 'he' %}
+          קבוצה טיפולית מונחית המציעה מרחב בטוח ותומך להתנסות בקשרים חברתיים. במפגשים הילדים חווים, משחקים ולומדים יחד באמצעות שיחה, משחק, יצירה והכנת בובות. כל ילד וילדה זוכים להיראות, להביא את עולמם הייחודי ולחזק את הביטחון האישי והחברתי שלהם.
+          {% else %}
+          A professionally facilitated therapeutic group offering a safe, supportive space to explore social relationships. Through conversation, play, creativity and puppet-making, every child has room to be seen, bring their unique inner world and strengthen personal and social confidence.
+          {% endif %}
+        </p>
+        <div class="hero-actions"><a class="button primary" href="#program-details">{{ 'לפרטי התוכנית' if lang == 'he' else 'Program details' }}</a><a class="button secondary" href="#contact">{{ 'בדיקת התאמה' if lang == 'he' else 'Check suitability' }}</a></div>
+      </div>
+      <aside class="program-hero-card" aria-label="{{ 'עיקרי התוכנית' if lang == 'he' else 'Program highlights' }}">
+        <img src="/static/img/therapy-hands-logo.png" alt="CareIL">
+        <ul>
+          <li>{{ 'קבוצות קטנות ומותאמות' if lang == 'he' else 'Small, thoughtfully matched groups' }}</li>
+          <li>{{ '12 מפגשים קבוצתיים שבועיים' if lang == 'he' else '12 weekly group sessions' }}</li>
+          <li>{{ 'שני מפגשי היכרות מקדימים' if lang == 'he' else 'Two preparatory meetings' }}</li>
+          <li>{{ 'פגישת סיכום אישית להורים' if lang == 'he' else 'Individual parent summary meeting' }}</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="program-strip" aria-label="{{ 'נתוני התוכנית' if lang == 'he' else 'Program facts' }}"><div class="program-strip-inner">
+      <div><strong>15</strong><span>{{ 'מפגשים בתהליך המלא' if lang == 'he' else 'meetings in the full process' }}</span></div>
+      <div><strong>60</strong><span>{{ 'דקות לכל מפגש קבוצתי' if lang == 'he' else 'minutes per group session' }}</span></div>
+      <div><strong>3</strong><span>{{ 'חודשים של למידה, יצירה וקשר' if lang == 'he' else 'months of learning, creativity and connection' }}</span></div>
+    </div></section>
+
+    <section class="program-section">
+      <div class="program-heading"><span class="eyebrow">{{ 'מרחב מוגן לביטוי ולצמיחה' if lang == 'he' else 'A protected space for expression and growth' }}</span><h2>{{ 'עולם הבובות ככלי טיפולי והשלכתי ייחודי' if lang == 'he' else 'Puppetry as a unique therapeutic and projective tool' }}</h2><p>{{ 'הבובות מאפשרות לילדים תהליך רגשי עמוק, יצירתי ומותאם, בלי לוותר על חדוות המשחק.' if lang == 'he' else 'Puppets support a deep, creative and child-centred emotional process without losing the joy of play.' }}</p></div>
+      <div class="therapeutic-list">
+        <article><b>{{ 'הבעה בהרחקה' if lang == 'he' else 'Expression at a safe distance' }}</b><p>{{ 'הבובה מספקת מרחק מוגן המאפשר להביע רעיונות, רגשות וחוויות פנימיות ללא חשש מביקורת או שיפוטיות.' if lang == 'he' else 'The puppet creates a protected distance for expressing ideas, feelings and inner experiences without fear of criticism or judgment.' }}</p></article>
+        <article><b>{{ 'התבוננות ומשחק תפקידים' if lang == 'he' else 'Observation and role-play' }}</b><p>{{ 'הזדמנות להתבונן במצבים חברתיים מהצד, לחקור אותם ולשחק אותם בדרכים מגוונות.' if lang == 'he' else 'Children can observe social situations from the outside, explore them and rehearse different possibilities.' }}</p></article>
+        <article><b>{{ 'אינטראקציה חברתית בזמן אמת' if lang == 'he' else 'Real-time social interaction' }}</b><p>{{ 'התנסות מעשית ביחסים חברתיים תוך כדי היצירה והמשחק, בליווי ובהנחיה רגישה ומותאמת.' if lang == 'he' else 'Practical experience in relationships while creating and playing, with sensitive, tailored guidance.' }}</p></article>
+      </div>
+    </section>
+
+    <section class="program-section soft">
+      <div class="two-column">
+        <article class="info-card"><h3>{{ 'מה נתרגל ונפתח בקבוצה?' if lang == 'he' else 'What will we practise and develop?' }}</h3><ul>
+          <li><strong>{{ 'יצירת קשר:' if lang == 'he' else 'Connection:' }}</strong> {{ 'יוזמה חברתית והצטרפות טבעית למשחק' if lang == 'he' else 'social initiative and joining play naturally' }}</li>
+          <li><strong>{{ 'שיתוף פעולה:' if lang == 'he' else 'Cooperation:' }}</strong> {{ 'עבודת צוות, הדדיות והקשבה לאחר' if lang == 'he' else 'teamwork, reciprocity and listening to others' }}</li>
+          <li><strong>{{ 'גמישות מחשבתית:' if lang == 'he' else 'Flexible thinking:' }}</strong> {{ 'הסתגלות למצבים משתנים ולחוקי משחק' if lang == 'he' else 'adapting to changing situations and play rules' }}</li>
+          <li><strong>{{ 'אמפתיה:' if lang == 'he' else 'Empathy:' }}</strong> {{ 'הבנת רגשות הזולת והרחבת נקודת המבט' if lang == 'he' else 'understanding others’ feelings and broadening perspective' }}</li>
+          <li><strong>{{ 'פתרון קונפליקטים:' if lang == 'he' else 'Conflict resolution:' }}</strong> {{ 'ויסות רגשי והתמודדות עם תסכול' if lang == 'he' else 'emotional regulation and coping with frustration' }}</li>
+        </ul></article>
+        <article class="info-card"><h3>{{ 'למי מתאימה הקבוצה?' if lang == 'he' else 'Who is the group for?' }}</h3><p>{{ 'לילדים המתמודדים עם אתגרים חברתיים או רגשיים:' if lang == 'he' else 'For children experiencing social or emotional challenges:' }}</p><ul>
+          <li>{{ 'קושי ביצירת קשרים או בהשתלבות חברתית' if lang == 'he' else 'difficulty forming relationships or integrating socially' }}</li>
+          <li>{{ 'תחושת בדידות או קושי במציאת מקום בקבוצת השווים' if lang == 'he' else 'loneliness or difficulty finding a place among peers' }}</li>
+          <li>{{ 'ביטחון עצמי או תחושת מסוגלות אישית נמוכים' if lang == 'he' else 'low self-confidence or sense of personal competence' }}</li>
+          <li>{{ 'קושי בוויסות רגשי ובהתמודדות עם סיטואציות חברתיות' if lang == 'he' else 'difficulty with emotional regulation and social situations' }}</li>
+        </ul><div class="goal-note">{{ 'המטרה: חיזוק תחושת המסוגלות ורכישת כלים שילוו את הילד.ה גם מחוץ לקבוצה.' if lang == 'he' else 'Our goal: strengthen each child’s sense of competence and build tools they can use beyond the group.' }}</div></article>
+      </div>
+    </section>
+
+    <section class="program-section">
+      <div class="program-heading"><span class="eyebrow">{{ 'ליווי מקצועי משולב' if lang == 'he' else 'Integrated professional facilitation' }}</span><h2>{{ 'צוות ההנחיה המקצועי' if lang == 'he' else 'The professional facilitation team' }}</h2></div>
+      <div class="team-grid">
+        <article class="team-card"><span class="team-icon" aria-hidden="true"></span><h3>{{ 'מטפלת רגשית מוסמכת (M.A)' if lang == 'he' else 'Qualified emotional therapist (M.A.)' }}</h3><p>{{ 'בעלת תואר שני בטיפול באמצעות אמנויות וניסיון רב בליווי ילדים, לרבות ילדים עם צרכים מיוחדים וילדים על הרצף האוטיסטי.' if lang == 'he' else 'Holds a master’s degree in arts therapy and extensive experience supporting children, including children with special needs and autistic children.' }}</p></article>
+        <article class="team-card"><span class="team-icon" aria-hidden="true"></span><h3>{{ 'בובנאית מקצועית' if lang == 'he' else 'Professional puppeteer' }}</h3><p>{{ 'בעלת ניסיון עשיר ומגוון בעבודה יצירתית, הפעלה והנחיית ילדים בגילים שונים.' if lang == 'he' else 'Brings broad experience in creative work, puppetry and facilitating children across different age groups.' }}</p></article>
+      </div>
+      <div class="team-combination"><strong>{{ 'שילוב עולמות ייחודי:' if lang == 'he' else 'A unique integration:' }}</strong> {{ 'החיבור שבין הטיפול הרגשי לאומנות הבובות מעניק לילדים חוויה יצירתית, משחררת ומשמעותית המשלבת עומק טיפולי עם חדוות משחק.' if lang == 'he' else 'Combining emotional therapy with the art of puppetry gives children a creative, freeing and meaningful experience that brings therapeutic depth together with the joy of play.' }}</div>
+    </section>
+
+    <section id="program-details" class="program-section soft">
+      <div class="program-heading"><span class="eyebrow">{{ '15 מפגשים בסך הכול' if lang == 'he' else '15 meetings in total' }}</span><h2>{{ 'מבנה התוכנית ושלבי המפגשים' if lang == 'he' else 'Program structure and stages' }}</h2></div>
+      <div class="phases">
+        <article class="phase-card"><h3>{{ 'שלב מקדים: היכרות אישית ותיאום ציפיות' if lang == 'he' else 'Preparatory stage: personal introduction and shared expectations' }}</h3><p>{{ 'לפני תחילת הקבוצה יתקיימו שני מפגשים אישיים מקדימים, כדי להכיר את הילד.ה מקרוב ולתמוך בהשתלבות מיטבית.' if lang == 'he' else 'Before the group begins, two individual meetings help us get to know the child and support the best possible integration.' }}</p><ul><li>{{ 'מפגש אינטייק עם ההורים: היכרות ושיחה על החוזקות, הצרכים והציפיות שלכם.' if lang == 'he' else 'Parent intake: a conversation about strengths, needs and your expectations.' }}</li><li>{{ 'מפגש היכרות אישי עם הילד.ה ושתי המנחות: משחק ובניית תחושת אמון לפני המפגש הקבוצתי.' if lang == 'he' else 'Individual meeting with the child and both facilitators: play and trust-building before the group starts.' }}</li></ul></article>
+        <article class="phase-card"><h3>{{ 'המחזור הקבוצתי: 12 מפגשים חווייתיים ומונחים' if lang == 'he' else 'The group cycle: 12 facilitated experiential sessions' }}</h3><p>{{ '12 מפגשים שבועיים בני 60 דקות כל אחד, הנפרשים על פני כשלושה חודשים של למידה, התנסות, יצירה וחיזוק הקשרים.' if lang == 'he' else 'Twelve weekly 60-minute sessions across approximately three months of learning, practising, creating and strengthening relationships.' }}</p></article>
+        <article class="phase-card"><h3>{{ 'פגישת סיכום אישית להורים' if lang == 'he' else 'Individual parent summary meeting' }}</h3><p>{{ 'בסיום התהליך תתקיים פגישה עם ההורים והמטפלת הרגשית לשיקוף התהליך, שיתוף בהתקדמות הילד.ה ומתן כלים והמלצות להמשך הדרך.' if lang == 'he' else 'At the end of the process, parents meet with the emotional therapist to reflect on the journey, discuss the child’s progress and receive tools and recommendations for what comes next.' }}</p></article>
+      </div>
+    </section>
+
+    <section class="program-section">
+      <div class="program-heading"><span class="eyebrow">{{ 'מידע ברור לקראת ההרשמה' if lang == 'he' else 'Clear information before registration' }}</span><h2>{{ 'פירוט העלויות והתשלום' if lang == 'he' else 'Fees and payment details' }}</h2></div>
+      <div class="price-panel"><div class="price-scroll"><table class="price-table">
+        <thead><tr><th>{{ 'שלב בתוכנית' if lang == 'he' else 'Program stage' }}</th><th>{{ 'מספר מפגשים' if lang == 'he' else 'Meetings' }}</th><th>{{ 'מחיר למפגש' if lang == 'he' else 'Fee per meeting' }}</th><th>{{ 'סה״כ לתשלום' if lang == 'he' else 'Total' }}</th></tr></thead>
+        <tbody>
+          <tr><td><strong>{{ 'מפגשים מקדימים' if lang == 'he' else 'Preparatory meetings' }}</strong><br>{{ 'אינטייק הורים + מפגש אישי עם הילד.ה' if lang == 'he' else 'Parent intake + individual child meeting' }}</td><td>{{ '2 מפגשים אישיים' if lang == 'he' else '2 individual meetings' }}</td><td>₪300</td><td>₪600</td></tr>
+          <tr><td><strong>{{ 'מחזור קבוצתי מלא' if lang == 'he' else 'Full group cycle' }}</strong><br>{{ '12 מפגשים בני 60 דקות' if lang == 'he' else '12 sessions of 60 minutes' }}</td><td>{{ '12 מפגשים' if lang == 'he' else '12 sessions' }}</td><td>₪180</td><td>₪2,160</td></tr>
+          <tr><td><strong>{{ 'פגישת סיכום אישית' if lang == 'he' else 'Individual summary meeting' }}</strong><br>{{ 'הורים והמטפלת הרגשית' if lang == 'he' else 'Parents and emotional therapist' }}</td><td>{{ 'מפגש אישי אחד' if lang == 'he' else '1 individual meeting' }}</td><td colspan="2"><span class="included">{{ 'ללא עלות - כלול בתהליך' if lang == 'he' else 'No additional fee - included' }}</span></td></tr>
+          <tr><td>{{ 'סה״כ עבור כל התהליך המלא' if lang == 'he' else 'Total for the complete process' }}</td><td>{{ '15 מפגשים' if lang == 'he' else '15 meetings' }}</td><td>—</td><td>₪2,760</td></tr>
+        </tbody>
+      </table></div></div>
+      <article class="policy-card"><h3>{{ 'מדיניות הרשמה, שמירת מקום והיעדרויות' if lang == 'he' else 'Registration, place reservation and absence policy' }}</h3><ul>
+        <li><strong>{{ 'שמירת מקום:' if lang == 'he' else 'Place reservation:' }}</strong> {{ 'ההרשמה היא למחזור המלא ובמהלכו נשמר לילד.ה מקום בקבוצה. התשלום הוא עבור המקום והתהליך כולו ואינו משתנה לפי נוכחות בכל מפגש.' if lang == 'he' else 'Registration is for the complete cycle, and the child’s place is reserved throughout. Payment covers the reserved place and the full process and does not vary according to attendance.' }}</li>
+        <li><strong>{{ 'היעדרות משתתף:' if lang == 'he' else 'Participant absence:' }}</strong> {{ 'במקרה של היעדרות, לרבות בשל מחלה, לא יינתן החזר כספי או מפגש חלופי.' if lang == 'he' else 'If a participant is absent, including due to illness, no refund or replacement session will be provided.' }}</li>
+        <li><strong>{{ 'ביטול ביוזמת הצוות:' if lang == 'he' else 'Cancellation by the team:' }}</strong> {{ 'אם מפגש יתבטל ביוזמת המנחות, הוא יתקיים במועד חלופי וההורים יעודכנו מראש.' if lang == 'he' else 'If the facilitators cancel a session, it will be rescheduled and parents will be notified in advance.' }}</li>
+      </ul></article>
+    </section>
+
+    <section id="contact" class="program-cta">
+      <h2>{{ 'נשמח לשוחח ולבדוק יחד התאמה' if lang == 'he' else 'Let’s talk and explore suitability together' }}</h2>
+      <p>{{ 'אנחנו זמינות לענות על שאלות, להכיר אתכם ולבדוק יחד אם הקבוצה מתאימה לילד.ה שלכם.' if lang == 'he' else 'We are available to answer questions, get to know your family and consider whether the group is the right fit for your child.' }}</p>
+      <a class="button" href="mailto:support@careil.net?subject={{ 'קבוצת מיומנויות חברתיות'|urlencode if lang == 'he' else 'Social skills group'|urlencode }}">{{ 'שליחת פנייה' if lang == 'he' else 'Contact us' }}</a>
+    </section>
+  </main>
+
+  {% set legal_prefix = '/he/legal/' if lang == 'he' else '/legal/' %}
+  <footer class="program-footer"><a class="brand small" href="{{ '/he' if lang == 'he' else '/' }}"><img src="/static/img/therapy-hands-logo.png" alt="" width="36">CareIL</a><p>Care Israel</p><div class="footer-links"><a href="{{ canonical_path }}">{{ 'תוכניות' if lang == 'he' else 'Programs' }}</a><a href="{{ '/he/plans' if lang == 'he' else '/plans' }}">{{ 'מחירים' if lang == 'he' else 'Pricing' }}</a><a href="{{ legal_prefix }}privacy">{{ 'פרטיות' if lang == 'he' else 'Privacy' }}</a><a href="{{ legal_prefix }}terms">{{ 'תנאי שימוש' if lang == 'he' else 'Terms' }}</a><a href="/login">{{ 'כניסה' if lang == 'he' else 'Log in' }}</a><a href="mailto:support@careil.net">{{ 'יצירת קשר' if lang == 'he' else 'Contact' }}</a></div></footer>
+  {% include '_cookie_notice.html' %}
+</body>
+</html>

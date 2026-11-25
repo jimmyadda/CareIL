@@ -520,6 +520,23 @@ def _whatsapp_phone_hash(phone):
         hashlib.sha256,
     ).hexdigest()
 
+@app.route('/Info/skillgroup')
+@app.route('/he/Info/skillgroup')
+@app.route('/info/skillgroup')
+@app.route('/he/info/skillgroup')
+def skillgroup_info_page():
+    """Public bilingual information page for the social-skills program."""
+    lang = 'he' if request.path.startswith('/he/') else 'en'
+    canonical_path = '/he/Info/skillgroup' if lang == 'he' else '/Info/skillgroup'
+    alternate_path = '/Info/skillgroup' if lang == 'he' else '/he/Info/skillgroup'
+
+    return render_template(
+        'skillgroup.html',
+        lang=lang,
+        canonical_path=canonical_path,
+        alternate_path=alternate_path,
+    )
+
 
 @app.route('/webhooks/whatsapp', methods=['GET', 'POST'])
 def whatsapp_webhook():
